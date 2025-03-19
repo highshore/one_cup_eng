@@ -211,7 +211,7 @@ export default function SignUp() {
 
   return (
     <FormWrapper>
-      <Title>Create Account with Phone</Title>
+      <Title>계정 만들기</Title>
 
       {!verificationId ? (
         // Step 1: Phone number entry and send verification code
@@ -235,7 +235,7 @@ export default function SignUp() {
 
             <SubmitButton
               type="submit"
-              value={isLoading ? "Sending..." : "Send Verification Code"}
+              value={isLoading ? "전송 중입니다..." : "인증 코드 받기"}
               disabled={!recaptchaVerified || !!rateLimitEndTime}
             />
           </Form>
@@ -267,7 +267,7 @@ export default function SignUp() {
 
       {error ? <Error>{error}</Error> : null}
       <SwitcherLink href="/signin">
-        Already have an account? Log in &rarr;
+        이미 가입하셨나요? 로그인으로 이동 &rarr;
       </SwitcherLink>
     </FormWrapper>
   );

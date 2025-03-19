@@ -226,8 +226,8 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         </Header>
         {children}
         <Footer>
-          <FooterLink href="/terms">Terms of Use</FooterLink>|
-          <FooterLink href="/privacy">Privacy Policy</FooterLink>
+          <FooterLink href="/terms">이용약관</FooterLink>|
+          <FooterLink href="/privacy">개인정보처리방침</FooterLink>
         </Footer>
       </ContentContainer>
     </PageWrapper>
