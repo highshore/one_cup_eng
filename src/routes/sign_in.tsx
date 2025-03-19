@@ -3,7 +3,7 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult,
 } from "firebase/auth";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { FirebaseError } from "firebase/app";
@@ -16,16 +16,13 @@ import {
   InputLabel,
   SubmitButton,
   Error,
-  RecaptchaContainer,
   SwitcherLink,
 } from "../components/auth_components.tsx";
 import {
-  globalRecaptchaVerifier,
   ErrorMessage,
   formatKoreanPhoneNumber,
-  initializeRecaptcha,
-  cleanupRecaptcha,
-  getRateLimitWaitTime,
+  isRateLimited,
+  setAuthLanguage,
 } from "../utils/auth_utils";
 
 export default function SignIn() {
@@ -33,57 +30,15 @@ export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
-  const [verificationId, setVerificationId] = useState<string | null>(null);
-  const [confirmationResult, setConfirmationResult] =
+  const [confirmationResult, setConfirmationResult] = 
     useState<ConfirmationResult | null>(null);
   const [error, setError] = useState("");
-  const [recaptchaVerified, setRecaptchaVerified] = useState(false);
-  const [rateLimitEndTime, setRateLimitEndTime] = useState<number | null>(null);
-  const [remainingTime, setRemainingTime] = useState<string>("");
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const [isRateLimitActive, setIsRateLimitActive] = useState(false);
 
+  // Initialize language for SMS
   useEffect(() => {
-    recaptchaVerifierRef.current = initializeRecaptcha(
-      "recaptcha-container",
-      () => {
-        setRecaptchaVerified(true);
-        setError("");
-      },
-      () => {
-        setRecaptchaVerified(false);
-        setError("reCAPTCHA has expired, please verify again");
-      }
-    );
-
-    return () => {
-      if (recaptchaVerifierRef.current === globalRecaptchaVerifier) {
-        cleanupRecaptcha("recaptcha-container");
-        recaptchaVerifierRef.current = null;
-      }
-    };
+    setAuthLanguage(auth);
   }, []);
-
-  // Countdown timer effect
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (rateLimitEndTime) {
-      timer = setInterval(() => {
-        const now = Date.now();
-        const remaining = rateLimitEndTime - now;
-
-        if (remaining <= 0) {
-          setRateLimitEndTime(null);
-          setRemainingTime("");
-          clearInterval(timer);
-        } else {
-          const minutes = Math.floor(remaining / 60000);
-          const seconds = Math.floor((remaining % 60000) / 1000);
-          setRemainingTime(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-        }
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [rateLimitEndTime]);
 
   const onPhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhoneNumber(e.target.value);
@@ -93,88 +48,88 @@ export default function SignIn() {
     setVerificationCode(e.target.value);
   };
 
+  const setupRecaptcha = () => {
+    // Initialize the invisible reCAPTCHA
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'sign-in-button', {
+      'size': 'invisible',
+      'callback': () => {
+        console.log("reCAPTCHA verified");
+      },
+      'expired-callback': () => {
+        setError("자동 인증이 만료되었습니다. 다시 시도해 주세요.");
+      }
+    });
+  };
+
   const onSendCode = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
-    if (
-      isLoading ||
-      !phoneNumber ||
-      !recaptchaVerified ||
-      !recaptchaVerifierRef.current
-    ) {
-      if (!recaptchaVerified) {
-        setError("Please complete the reCAPTCHA verification");
-      }
+    if (isLoading || !phoneNumber || isRateLimitActive) {
       return;
     }
 
     try {
       setIsLoading(true);
 
-      // Format the phone number for Korean numbers
+      // Format the phone number
       let formattedPhoneNumber: string;
       try {
         formattedPhoneNumber = formatKoreanPhoneNumber(phoneNumber);
       } catch (error: unknown) {
-        if (error instanceof Error) {
-          setError(
-            "Please enter a valid Korean phone number (e.g., 01012345678)"
-          );
-        } else {
-          setError("An error occurred while formatting the phone number");
-        }
+        setError("올바른 휴대폰 번호를 입력해 주세요 (예: 01012345678)");
+        setIsLoading(false);
         return;
       }
 
-      // Reset reCAPTCHA state before sending code
-      setRecaptchaVerified(false);
+      // Setup reCAPTCHA if not already set up
+      if (!window.recaptchaVerifier) {
+        setupRecaptcha();
+      }
+      
+      // Make sure recaptchaVerifier is defined at this point
+      if (!window.recaptchaVerifier) {
+        setError("인증 서비스 준비에 실패했습니다. 페이지를 새로고침한 후 다시 시도해 주세요.");
+        setIsLoading(false);
+        return;
+      }
+      
+      const appVerifier = window.recaptchaVerifier;
 
-      const result = await signInWithPhoneNumber(
-        auth,
-        formattedPhoneNumber,
-        recaptchaVerifierRef.current
-      );
-
-      // Store the confirmation result for later use
+      // Send verification code
+      console.log("Sending verification code...");
+      const result = await signInWithPhoneNumber(auth, formattedPhoneNumber, appVerifier);
       setConfirmationResult(result);
-      setVerificationId(result.verificationId);
+      window.confirmationResult = result;
+      
     } catch (e) {
       console.error("Error sending verification code:", e);
+      
+      // Reset reCAPTCHA on error
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+      
       if (e instanceof FirebaseError) {
-        if (e.code === "auth/invalid-app-credential") {
-          // If the verifier is invalid, clear it and re-render
-          if (globalRecaptchaVerifier) {
-            cleanupRecaptcha("recaptcha-container");
-            recaptchaVerifierRef.current = initializeRecaptcha(
-              "recaptcha-container",
-              () => {
-                setRecaptchaVerified(true);
-                setError("");
-              },
-              () => {
-                setRecaptchaVerified(false);
-                setError("reCAPTCHA has expired, please verify again");
-              }
-            );
-          }
-          setError("reCAPTCHA verification failed, please verify again");
-        } else if (e.code === "auth/too-many-requests") {
-          const waitTime = getRateLimitWaitTime(e);
-          if (waitTime) {
-            const endTime = Date.now() + waitTime;
-            setRateLimitEndTime(endTime);
-            setError(
-              `Too many attempts. Please wait ${remainingTime} before trying again`
-            );
-          } else {
-            setError(ErrorMessage[e.code] || `Error: ${e.code}`);
+        console.error(`Firebase error code: ${e.code}`);
+        
+        if (e.code === "auth/too-many-requests") {
+          const timeout = isRateLimited(e);
+          if (timeout) {
+            setIsRateLimitActive(true);
+            setError("너무 많은 시도가 있었습니다. 잠시 후 다시 시도해 주세요.");
+            
+            // Reset rate limit after timeout
+            setTimeout(() => {
+              setIsRateLimitActive(false);
+            }, timeout);
           }
         } else {
-          setError(ErrorMessage[e.code] || `Error: ${e.code}`);
+          setError(ErrorMessage[e.code] || `오류: ${e.code}`);
         }
       } else {
-        setError("An error occurred while sending the verification code");
+        setError("인증 코드 전송 중 오류가 발생했습니다");
       }
     } finally {
       setIsLoading(false);
@@ -191,21 +146,28 @@ export default function SignIn() {
       setIsLoading(true);
 
       // Confirm the verification code
-      const credential = await confirmationResult.confirm(verificationCode);
-
-      // User is signed in
-      console.log("User signed in successfully:", credential.user);
-
+      const result = await confirmationResult.confirm(verificationCode);
       navigate("/");
     } catch (e) {
-      console.error("Error verifying code:", e);
       if (e instanceof FirebaseError) {
-        setError("Invalid verification code. Please try again.");
+        setError("올바르지 않은 인증 코드입니다. 다시 확인해 주세요.");
       } else {
-        setError("An error occurred while verifying the code");
+        setError("인증 코드 확인 중 오류가 발생했습니다");
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    // Go back to phone input
+    setConfirmationResult(null);
+    window.confirmationResult = null;
+    setVerificationCode("");
+    // Clear reCAPTCHA
+    if (window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
     }
   };
 
@@ -213,7 +175,7 @@ export default function SignIn() {
     <FormWrapper>
       <Title>로그인</Title>
 
-      {!verificationId ? (
+      {!confirmationResult ? (
         // Step 1: Phone number entry and send verification code
         <>
           <Form onSubmit={onSendCode}>
@@ -222,21 +184,20 @@ export default function SignIn() {
                 id="phone"
                 name="phone"
                 type="tel"
-                placeholder="Phone Number (with country code, e.g. +1234567890)"
                 required
                 value={phoneNumber}
                 onChange={onPhoneNumberChange}
-                disabled={!!rateLimitEndTime}
+                disabled={isRateLimitActive}
+                placeholder="휴대폰 번호 입력"
               />
-              <InputLabel htmlFor="phone">Phone Number</InputLabel>
+              <InputLabel htmlFor="phone">휴대폰 번호 (예: 01012345678)</InputLabel>
             </InputWrapper>
 
-            <RecaptchaContainer id="recaptcha-container"></RecaptchaContainer>
-
             <SubmitButton
+              id="sign-in-button"
               type="submit"
               value={isLoading ? "전송 중입니다..." : "인증 코드 받기"}
-              disabled={!recaptchaVerified || !!rateLimitEndTime}
+              disabled={isRateLimitActive || isLoading}
             />
           </Form>
         </>
@@ -249,17 +210,24 @@ export default function SignIn() {
                 id="code"
                 name="code"
                 type="text"
-                placeholder="Verification Code"
+                placeholder="인증 코드"
                 required
                 value={verificationCode}
                 onChange={onVerificationCodeChange}
               />
-              <InputLabel htmlFor="code">Verification Code</InputLabel>
+              <InputLabel htmlFor="code">인증 코드</InputLabel>
             </InputWrapper>
 
             <SubmitButton
               type="submit"
-              value={isLoading ? "Verifying..." : "Verify Code"}
+              value={isLoading ? "인증 중..." : "인증하기"}
+            />
+            
+            <SubmitButton
+              type="button"
+              onClick={resetForm}
+              value="다시 시도"
+              style={{ marginTop: '10px', backgroundColor: '#6c757d' }}
             />
           </Form>
         </>
@@ -267,8 +235,16 @@ export default function SignIn() {
 
       {error ? <Error>{error}</Error> : null}
       <SwitcherLink href="/signup">
-        아직 가입하지 않으셨나요? 계정 생성으로 이동 &rarr;
+        아직 계정이 없으시나요? 계정 생성으로 이동 &rarr;
       </SwitcherLink>
     </FormWrapper>
   );
+}
+
+// Add type definition for window
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier | null;
+    confirmationResult: ConfirmationResult | null;
+  }
 }

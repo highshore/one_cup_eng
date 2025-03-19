@@ -1,15 +1,16 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Layout from "./components/layout";
-import Home from "./routes/home";
-import Profile from "./routes/profile";
-import SignIn from "./routes/sign_in";
-import SignUp from "./routes/sign_up";
+import Home from "./routes/home.tsx";
+import Profile from "./routes/profile.tsx";
+import SignIn from "./routes/sign_in.tsx";
+import SignUp from "./routes/sign_up.tsx";
+import Article from "./routes/article.tsx";
 import styled, { createGlobalStyle } from "styled-components";
 import reset from "styled-reset";
 import { useEffect, useState } from "react";
 import LoadingScreen from "./components/loading_screen";
 import { auth } from "./firebase";
-import ProtectedRoute from "./components/protected_route";
+// import ProtectedRoute from "./components/protected_route";
 import AuthLayout from "./components/auth_components.tsx";
 
 // Create the router with the AppContent component
@@ -17,13 +18,25 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <ProtectedRoute>
-        <Layout />
-      </ProtectedRoute>
+      <Layout />
+      // Temporarily disable protected route
+      // <ProtectedRoute>
+      //   <Layout />
+      // </ProtectedRoute>
     ),
     children: [
-      { path: "", element: <Home /> },
-      { path: "profile", element: <Profile /> },
+      { 
+        path: "",  // Use index:true instead of path:"" for the default route
+        element: <Home /> 
+      },
+      { 
+        path: "profile", 
+        element: <Profile /> 
+      },
+      {
+        path: "article/:articleId",
+        element: <Article />
+      },
     ],
   },
   {

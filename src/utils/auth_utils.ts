@@ -1,23 +1,5 @@
-import { RecaptchaVerifier } from "firebase/auth";
-import { auth } from "../firebase";
 import { FirebaseError } from "firebase/app";
-
-// Global variable to track reCAPTCHA initialization
-export let globalRecaptchaVerifier: RecaptchaVerifier | null = null;
-
-export const ErrorMessage: { [key: string]: string } = {
-  "auth/invalid-phone-number": "Invalid phone number format",
-  "auth/invalid-verification-code": "Invalid verification code",
-  "auth/code-expired": "Verification code has expired",
-  "auth/too-many-requests":
-    "Too many attempts. Please wait a few minutes before trying again",
-  "auth/invalid-app-credential": "reCAPTCHA verification failed",
-  "auth/network-request-failed": "Network error. Please check your connection",
-  "auth/user-disabled": "This account has been disabled",
-  "auth/user-not-found": "No account found with this phone number",
-  "auth/account-exists-with-different-credential":
-    "An account already exists with this phone number",
-};
+import { Auth } from "firebase/auth";
 
 export const formatKoreanPhoneNumber = (phone: string): string => {
   // Remove any non-digit characters
@@ -25,67 +7,35 @@ export const formatKoreanPhoneNumber = (phone: string): string => {
 
   // Check if it's a valid Korean phone number (10 or 11 digits starting with 0)
   if (!/^0\d{9,10}$/.test(cleaned)) {
-    throw new (Error as any)("Invalid Korean phone number format");
+    throw new Error("올바르지 않은 휴대폰 번호 형식입니다");
   }
 
   // Remove leading 0 and add country code
   return `+82${cleaned.slice(1)}`;
 };
 
-export const initializeRecaptcha = (
-  containerId: string,
-  onVerified: () => void,
-  onExpired: () => void
-) => {
-  // Clean up any existing reCAPTCHA elements first
-  const container = document.getElementById(containerId);
-  if (container) {
-    container.innerHTML = "";
-  }
-
-  // Use global verifier if it exists, otherwise create a new one
-  if (!globalRecaptchaVerifier) {
-    globalRecaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-      size: "normal",
-      callback: () => {
-        onVerified();
-      },
-      "expired-callback": () => {
-        onExpired();
-        // Clear and re-render the verifier when it expires
-        if (globalRecaptchaVerifier) {
-          globalRecaptchaVerifier.clear();
-          const container = document.getElementById(containerId);
-          if (container) {
-            container.innerHTML = "";
-          }
-          globalRecaptchaVerifier.render();
-        }
-      },
-    });
-
-    // Render the verifier
-    globalRecaptchaVerifier.render();
-  }
-
-  return globalRecaptchaVerifier;
+// Error messages for Firebase authentication errors
+export const ErrorMessage: { [key: string]: string } = {
+  "auth/invalid-phone-number": "올바르지 않은 휴대폰 번호 형식입니다",
+  "auth/invalid-verification-code": "올바르지 않은 인증 코드입니다",
+  "auth/code-expired": "인증 코드가 만료되었습니다",
+  "auth/too-many-requests": "너무 많은 시도가 있었습니다. 잠시 후 다시 시도해 주세요",
+  "auth/captcha-check-failed": "자동 인증에 실패했습니다. 다시 시도해 주세요",
+  "auth/invalid-app-credential": "인증에 실패했습니다. 다시 시도해 주세요",
+  "auth/network-request-failed": "네트워크 오류가 발생했습니다. 인터넷 연결을 확인해 주세요",
+  "auth/user-disabled": "이 계정은 비활성화되었습니다",
+  "auth/user-not-found": "등록된 계정을 찾을 수 없습니다",
+  "auth/account-exists-with-different-credential": "이미 등록된 휴대폰 번호입니다",
 };
 
-export const cleanupRecaptcha = (containerId: string) => {
-  if (globalRecaptchaVerifier) {
-    globalRecaptchaVerifier.clear();
-    const container = document.getElementById(containerId);
-    if (container) {
-      container.innerHTML = "";
-    }
-    globalRecaptchaVerifier = null;
-  }
+// Set the language for authentication (affects SMS messages)
+export const setAuthLanguage = (auth: Auth) => {
+  auth.languageCode = 'ko'; // Set to Korean
 };
 
-export const getRateLimitWaitTime = (error: FirebaseError): number | null => {
+// Check if we're rate limited and return timeout duration (in ms)
+export const isRateLimited = (error: FirebaseError): number | null => {
   if (error.code === "auth/too-many-requests") {
-    // Firebase typically sets a 5-10 minute timeout
-    // We'll return 5 minutes as a conservative estimate
     return 5 * 60 * 1000; // 5 minutes in milliseconds
   }
   return null;
