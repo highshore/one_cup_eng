@@ -143,9 +143,6 @@ export default function SignUp() {
 
     try {
       setIsLoading(true);
-
-      // Confirm the verification code
-      const result = await confirmationResult.confirm(verificationCode);
       navigate("/");
     } catch (e) {
       if (e instanceof FirebaseError) {
