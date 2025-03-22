@@ -72,11 +72,16 @@ export const Form = styled.form`
   gap: 12px;
   width: 100%;
   margin-bottom: 20px;
+  box-sizing: border-box;
+  min-height: 150px;
 `;
 
 export const InputWrapper = styled.div`
   position: relative;
   width: 100%;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+  min-height: 60px;
 `;
 
 export const InputField = styled.input`
@@ -88,6 +93,11 @@ export const InputField = styled.input`
   outline: none;
   background-color: white;
   transition: border-color 0.3s;
+  box-sizing: border-box;
+  height: 54px;
+  margin: 0;
+  position: relative;
+  z-index: 1;
 
   &:focus {
     border-color: #4285f4;
@@ -146,10 +156,31 @@ export const SubmitButton = styled.input`
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 12px;
+  margin-top: 8px;
+  height: 54px;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+  transition: background-color 0.3s;
+  position: relative;
+  outline: none;
 
   &:hover {
     background-color: #424242;
+  }
+  
+  &:active {
+    transform: translateY(1px);
+    transition: transform 0.1s;
+  }
+
+  &:focus {
+    outline: none;
+  }
+  
+  &:disabled {
+    background-color: #B0B0B0;
+    cursor: not-allowed;
   }
 `;
 

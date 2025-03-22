@@ -143,6 +143,14 @@ export default function SignUp() {
 
     try {
       setIsLoading(true);
+      
+      // Confirm the verification code with Firebase
+      const result = await confirmationResult.confirm(verificationCode);
+      
+      // If we get here, confirmation was successful
+      console.log("Phone authentication successful:", result.user);
+      
+      // Navigate to the home page after successful authentication
       navigate("/");
     } catch (e) {
       if (e instanceof FirebaseError) {
@@ -223,7 +231,7 @@ export default function SignUp() {
               type="button"
               onClick={resetForm}
               value="다시 시도"
-              style={{ marginTop: '10px', backgroundColor: '#6c757d' }}
+              style={{ marginTop: '6px', backgroundColor: '#6c757d' }}
             />
           </Form>
         </>
