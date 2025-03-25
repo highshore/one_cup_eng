@@ -12,7 +12,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBC62vsKGQqdgpyC9RugoHEfh9UcRi2SMA",
   authDomain: "one-cup-eng.firebaseapp.com",
   projectId: "one-cup-eng",
-  storageBucket: "one-cup-eng.firebasestorage.app",
+  storageBucket: "one-cup-eng.appspot.com",
   messagingSenderId: "615807178262",
   appId: "1:615807178262:web:9a96a5f0d94ae628d74737",
 };
