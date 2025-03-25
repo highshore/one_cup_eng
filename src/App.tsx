@@ -5,6 +5,7 @@ import Profile from "./routes/profile.tsx";
 import SignIn from "./routes/sign_in.tsx";
 import SignUp from "./routes/sign_up.tsx";
 import Article from "./routes/article.tsx";
+import Admin from "./routes/admin.tsx";
 import styled, { createGlobalStyle } from "styled-components";
 import reset from "styled-reset";
 import { useEffect, useState } from "react";
@@ -36,6 +37,10 @@ const router = createBrowserRouter([
       {
         path: "article/:articleId",
         element: <Article />
+      },
+      {
+        path: "admin",
+        element: <Admin />
       },
     ],
   },
