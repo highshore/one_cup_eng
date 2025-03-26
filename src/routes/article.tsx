@@ -23,17 +23,18 @@ interface ArticleData {
   url: string;
 }
 
-// Color palette based on #990033 (burgundy)
+// Color palette based on #2C1810 (Rich coffee brown)
 const colors = {
-  primary: '#990033',
-  primaryLight: '#cc0044',
-  primaryDark: '#800029',
-  primaryPale: '#ffebf0',
-  primaryBg: '#fff5f7',
+  primary: '#2C1810',
+  primaryLight: '#4A2F23',
+  primaryDark: '#1A0F0A',
+  primaryPale: '#F5EBE6',
+  primaryBg: '#FDF9F6',
+  accent: '#C8A27A',
   text: {
-    dark: '#2d2d2d',
-    medium: '#4a4a4a',
-    light: '#6e6e6e'
+    dark: '#2C1810',
+    medium: '#4A2F23',
+    light: '#8B6B4F'
   }
 };
 
@@ -41,13 +42,12 @@ const ArticleContainer = styled.div`
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
-  background: #ffffff;
   min-height: 100vh;
 `;
 
 const Title = styled.h1`
   font-size: 2rem;
-  margin: 2rem 0;
+  margin: 2rem 0 0 0;
   color: ${colors.text.dark};
   font-weight: 700;
   line-height: 1.2;
@@ -71,6 +71,38 @@ const Subtitle = styled.h2<{ isVisible: boolean }>`
   margin-top: ${props => props.isVisible ? '0.5rem' : '0'};
 `;
 
+const CalloutBox = styled.div`
+  background: linear-gradient(135deg, ${colors.primaryPale} 0%, ${colors.primaryBg} 100%);
+  padding: 1.2rem 1.8rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+  color: ${colors.text.medium};
+  border: 1px dotted ${colors.accent};
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+  
+  &::before {
+    content: '✨';
+    font-size: 1.4rem;
+    background: ${colors.accent};
+    padding: 0.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(200, 162, 122, 0.2);
+  }
+`;
+
 const SectionTitle = styled.h3`
   font-size: 1.4rem;
   margin-bottom: 1.5rem;
@@ -83,6 +115,7 @@ const SectionTitle = styled.h3`
 const ContentSection = styled.div`
   margin-bottom: 3.5rem;
   width: 100%;
+  background: ${colors.primaryBg};
 `;
 
 const Paragraph = styled.p`
@@ -104,14 +137,15 @@ const KoreanParagraph = styled.p<{ isVisible: boolean }>`
   margin-bottom: ${props => props.isVisible ? '1rem' : '0'};
   color: ${colors.text.dark};
   font-weight: 400;
-  background: ${colors.primaryBg};
-  padding: 0.8rem;
+  background: ${colors.primaryPale};
+  padding: 1.2rem;
   border-radius: 8px;
   max-height: ${props => props.isVisible ? '500px' : '0'};
   opacity: ${props => props.isVisible ? 1 : 0};
   overflow: hidden;
   transition: all 0.3s ease;
   margin-top: ${props => props.isVisible ? '0.4rem' : '0'};
+  border-left: 3px solid ${colors.accent};
 `;
 
 const LoadingContainer = styled.div`
@@ -121,7 +155,7 @@ const LoadingContainer = styled.div`
   min-height: 100vh;
   font-size: 1.2rem;
   color: ${colors.text.medium};
-  background: #ffffff;
+  background: ${colors.primaryBg};
 `;
 
 const ErrorContainer = styled.div`
@@ -131,7 +165,7 @@ const ErrorContainer = styled.div`
   min-height: 100vh;
   font-size: 1.2rem;
   color: ${colors.primary};
-  background: #ffffff;
+  background: ${colors.primaryBg};
 `;
 
 const KeywordsSection = styled.div`
@@ -158,6 +192,14 @@ const KeywordsSlider = styled.div`
   padding: 1rem 0;
   width: 100%;
   box-sizing: border-box;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  
+  &:active {
+    cursor: grabbing;
+  }
   
   /* Add extra space at the end to ensure last cards are fully visible */
   &::after {
@@ -168,13 +210,14 @@ const KeywordsSlider = styled.div`
 
 const KeywordCard = styled.div`
   flex: 0 0 250px;
-  background: white;
+  background: ${colors.primaryBg};
   border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
   padding: 1.2rem;
   margin-right: 0.5rem;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border-left: 3px solid ${colors.primary};
+  border: 1px solid ${colors.primaryPale};
+  border-left: 3px solid ${colors.accent};
   box-sizing: border-box;
   cursor: pointer;
   
@@ -184,7 +227,7 @@ const KeywordCard = styled.div`
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.09);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   }
 `;
 
@@ -298,16 +341,17 @@ const ModalOverlay = styled.div<{ isOpen: boolean }>`
 `;
 
 const ModalContent = styled.div`
-  background: white;
+  background: ${colors.primaryBg};
   border-radius: 12px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
   padding: 2rem;
   max-width: 90%;
   width: 500px;
   position: relative;
   transform: scale(1);
   transition: transform 0.3s ease;
-  border-left: 5px solid ${colors.primary};
+  border-left: 5px solid ${colors.accent};
+  border: 1px solid ${colors.primaryPale};
 `;
 
 const CloseButton = styled.button`
@@ -382,6 +426,9 @@ const Article = () => {
   const [currentKeywordIndex, setCurrentKeywordIndex] = useState(0);
   const [selectedKeyword, setSelectedKeyword] = useState<ArticleData['keywords'][0] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const sliderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -527,6 +574,43 @@ const Article = () => {
     };
   }, [isModalOpen]);
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!sliderRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !sliderRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!sliderRef.current) return;
+    setIsDragging(true);
+    setStartX(e.touches[0].pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !sliderRef.current) return;
+    const x = e.touches[0].pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
   if (error) return <ErrorContainer>Error: {error}</ErrorContainer>;
   if (!article) return <ErrorContainer>No article found</ErrorContainer>;
@@ -543,6 +627,7 @@ const Article = () => {
     <ArticleContainer>
       <Title onClick={toggleKoreanTitle}>{article.title.english}</Title>
       <Subtitle isVisible={isKoreanTitleVisible}>{article.title.korean}</Subtitle>
+      <CalloutBox>텍스트를 누르면 한국어 번역을 확인하실 수 있습니다</CalloutBox>
 
       {content.english?.length > 0 && (
         <ContentSection>
@@ -564,7 +649,16 @@ const Article = () => {
         <KeywordsSection>
           <SectionTitle>Key Vocabulary</SectionTitle>
           <KeywordsContainer>
-            <KeywordsSlider ref={sliderRef}>
+            <KeywordsSlider 
+              ref={sliderRef}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               {keywords.map((keyword, index) => (
                 <KeywordCard 
                   key={index} 
