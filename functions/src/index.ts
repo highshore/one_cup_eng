@@ -9,6 +9,7 @@ interface LinkData {
   url: string;
   articleId: string;
   koreanTitle?: string;
+  updated_at?: admin.firestore.Timestamp;
 }
 
 interface UserData {
@@ -20,6 +21,8 @@ interface UserData {
 }
 
 // Extracted core logic into a reusable function
+// Only processes and sends links that have been updated on the current day
+// This prevents sending the same link multiple times on different days
 async function processAndSendLinks(): Promise<{
   techCount: number;
   businessCount: number;
@@ -28,6 +31,11 @@ async function processAndSendLinks(): Promise<{
   try {
     const db = admin.firestore();
     logger.debug('Starting to process and send links');
+    
+    // Get the current date (reset time to 00:00:00)
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    logger.debug(`Current date for comparison: ${today.toISOString().split('T')[0]}`);
     
     // 1. Load URLs from tech and business links - fixing collection paths
     logger.debug('Fetching tech and business link documents from Firestore...');
@@ -42,7 +50,20 @@ async function processAndSendLinks(): Promise<{
     if (techLinkDoc.exists) {
       const data = techLinkDoc.data()
       logger.debug(`Tech link data: ${JSON.stringify(data)}`);
-      if (data?.url) {
+      
+      // Check if the link was updated today
+      let shouldProcessTechLink = false;
+      if (data?.updated_at) {
+        const updatedDate = data.updated_at.toDate();
+        const linkDate = new Date(updatedDate.getFullYear(), updatedDate.getMonth(), updatedDate.getDate());
+        shouldProcessTechLink = linkDate.getTime() === today.getTime();
+        logger.debug(`Tech link updated_at: ${linkDate.toISOString().split('T')[0]}, should process: ${shouldProcessTechLink}`);
+      } else {
+        logger.warn('Tech link has no updated_at field');
+        shouldProcessTechLink = false;
+      }
+      
+      if (shouldProcessTechLink && data?.url) {
         // Extract article ID from URL (assuming it's in a format that can be parsed)
         const urlParts = data.url.split('/');
         const articleId = urlParts[urlParts.length - 1];
@@ -58,8 +79,11 @@ async function processAndSendLinks(): Promise<{
         techLinks.push({
           url: data.url,
           articleId,
-          koreanTitle
+          koreanTitle,
+          updated_at: data.updated_at
         });
+      } else if (!shouldProcessTechLink) {
+        logger.info('Tech link not processed because updated_at date does not match current date');
       } else {
         logger.warn('Tech link document exists but has no URL field');
       }
@@ -72,7 +96,20 @@ async function processAndSendLinks(): Promise<{
     if (businessLinkDoc.exists) {
       const data = businessLinkDoc.data();
       logger.debug(`Business link data: ${JSON.stringify(data)}`);
-      if (data?.url) {
+      
+      // Check if the link was updated today
+      let shouldProcessBusinessLink = false;
+      if (data?.updated_at) {
+        const updatedDate = data.updated_at.toDate();
+        const linkDate = new Date(updatedDate.getFullYear(), updatedDate.getMonth(), updatedDate.getDate());
+        shouldProcessBusinessLink = linkDate.getTime() === today.getTime();
+        logger.debug(`Business link updated_at: ${linkDate.toISOString().split('T')[0]}, should process: ${shouldProcessBusinessLink}`);
+      } else {
+        logger.warn('Business link has no updated_at field');
+        shouldProcessBusinessLink = false;
+      }
+      
+      if (shouldProcessBusinessLink && data?.url) {
         // Extract article ID from URL
         const urlParts = data.url.split('/');
         const articleId = urlParts[urlParts.length - 1];
@@ -88,8 +125,11 @@ async function processAndSendLinks(): Promise<{
         businessLinks.push({
           url: data.url,
           articleId,
-          koreanTitle
+          koreanTitle,
+          updated_at: data.updated_at
         });
+      } else if (!shouldProcessBusinessLink) {
+        logger.info('Business link not processed because updated_at date does not match current date');
       } else {
         logger.warn('Business link document exists but has no URL field');
       }

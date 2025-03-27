@@ -43,15 +43,33 @@ const ArticleContainer = styled.div`
   margin: 0 auto;
   padding: 2rem 1.5rem;
   min-height: 100vh;
+  font-family: 'Avenir', 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  
+  @media (max-width: 768px) {
+    padding: 1.5rem 1rem;
+    width: 100%;
+    min-height: auto; /* Fix for mobile height issues */
+    overflow-x: hidden;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 1.2rem 0.8rem;
+  }
 `;
 
 const Title = styled.h1`
-  font-size: 2rem;
+  font-size: 2.2rem;
   margin: 2rem 0 0 0;
   color: ${colors.text.dark};
   font-weight: 700;
   line-height: 1.2;
   cursor: pointer;
+  font-family: 'Avenir', 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+    margin: 1.5rem 0 0 0;
+  }
   
   &:hover {
     color: ${colors.primary};
@@ -69,12 +87,17 @@ const Subtitle = styled.h2<{ isVisible: boolean }>`
   opacity: ${props => props.isVisible ? 1 : 0};
   transition: all 0.3s ease;
   margin-top: ${props => props.isVisible ? '0.5rem' : '0'};
+  
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
 `;
 
 const CalloutBox = styled.div`
   background: linear-gradient(135deg, ${colors.primaryPale} 0%, ${colors.primaryBg} 100%);
-  padding: 1.2rem 1.8rem;
-  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  border-radius: 20px;
   margin-bottom: 2rem;
   font-size: 0.95rem;
   color: ${colors.text.medium};
@@ -84,6 +107,11 @@ const CalloutBox = styled.div`
   gap: 0.8rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+  
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
   
   &:hover {
     transform: translateY(-2px);
@@ -100,6 +128,11 @@ const CalloutBox = styled.div`
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 8px rgba(200, 162, 122, 0.2);
+    
+    @media (max-width: 768px) {
+      font-size: 1.2rem;
+      padding: 0.4rem;
+    }
   }
 `;
 
@@ -110,10 +143,15 @@ const SectionTitle = styled.h3`
   font-weight: 600;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid ${colors.primaryPale};
+  
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+    margin-bottom: 1.2rem;
+  }
 `;
 
 const ContentSection = styled.div`
-  margin-bottom: 3.5rem;
+  margin-bottom: 2rem;
   width: 100%;
   background: ${colors.primaryBg};
 `;
@@ -121,10 +159,14 @@ const ContentSection = styled.div`
 const Paragraph = styled.p`
   font-size: 1.1rem;
   line-height: 1.8;
-  margin-bottom: 1rem;
   color: ${colors.text.dark};
   font-weight: 400;
   cursor: pointer;
+  
+  @media (max-width: 768px) {
+    font-size: 1.3rem;
+    line-height: 1.7;
+  }
   
   &:hover {
     color: ${colors.primary};
@@ -146,6 +188,12 @@ const KoreanParagraph = styled.p<{ isVisible: boolean }>`
   transition: all 0.3s ease;
   margin-top: ${props => props.isVisible ? '0.4rem' : '0'};
   border-left: 3px solid ${colors.accent};
+  
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    line-height: 1.7;
+    padding: 1rem;
+  }
 `;
 
 const LoadingContainer = styled.div`
@@ -197,6 +245,15 @@ const KeywordsSlider = styled.div`
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   
+  @media (max-width: 768px) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* for smoother scrolling on iOS */
+    scrollbar-width: none; /* Firefox */
+    &::-webkit-scrollbar {
+      display: none; /* Chrome, Safari and Opera */
+    }
+  }
+  
   &:active {
     cursor: grabbing;
   }
@@ -210,7 +267,7 @@ const KeywordsSlider = styled.div`
 
 const KeywordCard = styled.div`
   flex: 0 0 250px;
-  background: ${colors.primaryBg};
+  background: #fff;
   border-radius: 10px;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
   padding: 1.2rem;
@@ -220,6 +277,11 @@ const KeywordCard = styled.div`
   border-left: 3px solid ${colors.accent};
   box-sizing: border-box;
   cursor: pointer;
+  
+  @media (max-width: 768px) {
+    flex: 0 0 230px;
+    padding: 1rem;
+  }
   
   &:first-child {
     margin-left: 0;
@@ -288,6 +350,11 @@ const SliderButton = styled.button`
   z-index: 20;
   transition: all 0.2s ease;
   
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+  }
+  
   &:hover {
     background: white;
     color: ${colors.primaryLight};
@@ -304,6 +371,10 @@ const SliderButton = styled.button`
 const NextButton = styled(SliderButton)`
   right: -18px;
   
+  @media (max-width: 768px) {
+    right: -16px;
+  }
+  
   &::after {
     content: '›';
     font-size: 1.5rem;
@@ -314,6 +385,10 @@ const NextButton = styled(SliderButton)`
 
 const PrevButton = styled(SliderButton)`
   left: -18px;
+  
+  @media (max-width: 768px) {
+    left: -16px;
+  }
   
   &::after {
     content: '‹';
@@ -338,6 +413,8 @@ const ModalOverlay = styled.div<{ isOpen: boolean }>`
   opacity: ${props => props.isOpen ? 1 : 0};
   visibility: ${props => props.isOpen ? 'visible' : 'hidden'};
   transition: opacity 0.3s ease, visibility 0.3s ease;
+  -webkit-overflow-scrolling: touch; /* Better scrolling on iOS */
+  touch-action: none; /* Prevent scrolling behind modal */
 `;
 
 const ModalContent = styled.div`
@@ -352,6 +429,20 @@ const ModalContent = styled.div`
   transition: transform 0.3s ease;
   border-left: 5px solid ${colors.accent};
   border: 1px solid ${colors.primaryPale};
+  overflow-y: auto; /* Allow scrolling within modal if content is too tall */
+  max-height: 90vh; /* Limit height on small screens */
+  
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+    width: 85%;
+    max-height: 80vh;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 1.2rem;
+    width: 90%;
+    max-height: 75vh;
+  }
 `;
 
 const CloseButton = styled.button`
@@ -371,6 +462,11 @@ const CloseButton = styled.button`
   justify-content: center;
   transition: all 0.2s ease;
   
+  @media (max-width: 768px) {
+    top: 0.8rem;
+    right: 0.8rem;
+  }
+  
   &:hover {
     color: ${colors.primary};
     background: ${colors.primaryPale};
@@ -382,6 +478,10 @@ const ModalWord = styled.h3`
   font-weight: 700;
   color: ${colors.primary};
   margin-bottom: 1rem;
+  
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const ModalMeaning = styled.p`
@@ -389,6 +489,11 @@ const ModalMeaning = styled.p`
   color: ${colors.text.dark};
   line-height: 1.6;
   margin-bottom: 1.5rem;
+  
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    margin-bottom: 1.2rem;
+  }
 `;
 
 const ModalSynonyms = styled.div`
@@ -405,6 +510,11 @@ const ModalSynonym = styled.span`
   padding: 0.3rem 0.8rem;
   border-radius: 30px;
   font-weight: 500;
+  
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.6rem;
+  }
 `;
 
 const ModalExample = styled.div`
@@ -414,6 +524,10 @@ const ModalExample = styled.div`
   line-height: 1.6;
   padding-top: 1rem;
   border-top: 1px dashed ${colors.primaryPale};
+  
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const Article = () => {
@@ -478,8 +592,9 @@ const Article = () => {
     setCurrentKeywordIndex(lastIndex);
     
     if (sliderRef.current) {
-      // Account for card width and the margins between cards (0.5rem = 8px)
-      const cardWidth = 250;
+      // Determine card width based on screen size
+      const isMobile = window.innerWidth <= 768;
+      const cardWidth = isMobile ? 230 : 250;
       const marginWidth = 8;
       
       // Calculate exact position to show the last card at the left
@@ -510,8 +625,9 @@ const Article = () => {
     setCurrentKeywordIndex(nextIndex);
     
     if (sliderRef.current) {
-      // Account for card width and the margins between cards (0.5rem = 8px)
-      const cardWidth = 250;
+      // Determine card width based on screen size
+      const isMobile = window.innerWidth <= 768;
+      const cardWidth = isMobile ? 230 : 250;
       const marginWidth = 8;
       
       // Calculate exact position (each card has margin-right except the last one)
@@ -531,8 +647,9 @@ const Article = () => {
     setCurrentKeywordIndex(prevIndex);
     
     if (sliderRef.current) {
-      // Account for card width and the margins between cards (0.5rem = 8px)
-      const cardWidth = 250;
+      // Determine card width based on screen size
+      const isMobile = window.innerWidth <= 768;
+      const cardWidth = isMobile ? 230 : 250;
       const marginWidth = 8;
       
       // Calculate exact position (each card has margin-right except the last one)
@@ -631,7 +748,6 @@ const Article = () => {
 
       {content.english?.length > 0 && (
         <ContentSection>
-          <SectionTitle>Content</SectionTitle>
           {content.english.map((paragraph, index) => (
             <div key={index}>
               <Paragraph onClick={() => toggleKoreanParagraph(index)}>{paragraph}</Paragraph>

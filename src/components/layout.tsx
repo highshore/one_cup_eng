@@ -22,6 +22,14 @@ const LayoutContainer = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
+  max-width: 100vw;
+  overflow-x: hidden;
+  
+  @media (max-width: 768px) {
+    /* Force proper sizing on mobile */
+    min-height: -webkit-fill-available;
+    width: 100vw;
+  }
   
   &::before {
     content: '';
@@ -34,10 +42,21 @@ const LayoutContainer = styled.div`
   }
 `;
 
+// This ContentContainer helps ensure proper scaling on mobile
+const ContentContainer = styled.div`
+  width: 100%;
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+`;
+
 export default function Layout() {
   return (
     <LayoutContainer>
-      <Outlet />
+      <ContentContainer>
+        <Outlet />
+      </ContentContainer>
     </LayoutContainer>
   )
 }
