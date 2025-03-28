@@ -136,6 +136,30 @@ const CalloutBox = styled.div`
   }
 `;
 
+const ReadingTime = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: ${colors.text.medium};
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  background: ${colors.primaryPale};
+  border-radius: 20px;
+  height: 2.2rem;
+  box-sizing: border-box;
+  
+  &::before {
+    content: '⏱';
+    font-size: 1.1rem;
+  }
+  
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    height: 2rem;
+  }
+`;
+
 const SectionTitle = styled.h3`
   font-size: 1.4rem;
   margin-bottom: 1.5rem;
@@ -530,6 +554,71 @@ const ModalExample = styled.div`
   }
 `;
 
+const QuickReadingToggle = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: ${colors.primary};
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  height: 2.2rem;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  
+  @media (max-width: 768px) {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    height: 2rem;
+  }
+  
+  &:hover {
+    background: ${colors.primaryLight};
+    transform: translateY(-1px);
+  }
+  
+  &.active {
+    background: ${colors.accent};
+  }
+`;
+
+const InfoContainer = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 0.8rem;
+  
+  @media (max-width: 768px) {
+    gap: 0.6rem;
+  }
+`;
+
+const highlightFirstLetters = (text: string): string => {
+  // Split text into words, preserving punctuation
+  const words = text.split(/(\s+|[.,!?;:'"()\[\]{}—\-])/);
+  
+  return words.map(word => {
+    // Skip if it's just whitespace or punctuation
+    if (!word.trim() || /^[.,!?;:'"()\[\]{}—\-]$/.test(word)) {
+      return word;
+    }
+    
+    // Calculate how many letters to highlight
+    const highlightCount = Math.max(1, Math.min(5, Math.floor(word.length / 2)));
+    
+    // Split the word into highlighted and non-highlighted parts
+    const highlighted = word.slice(0, highlightCount);
+    const rest = word.slice(highlightCount);
+    
+    // Return the word with highlighted part
+    return `<span class="highlighted">${highlighted}</span>${rest}`;
+  }).join('');
+};
+
 const Article = () => {
   const { articleId } = useParams<{ articleId: string }>();
   const [article, setArticle] = useState<ArticleData | null>(null);
@@ -544,6 +633,7 @@ const Article = () => {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const [isQuickReading, setIsQuickReading] = useState(false);
 
   useEffect(() => {
     const fetchArticle = async () => {
@@ -569,6 +659,25 @@ const Article = () => {
 
     fetchArticle();
   }, [articleId]);
+
+  useEffect(() => {
+    if (isQuickReading && article) {
+      // Get all text content elements
+      const textElements = document.querySelectorAll('.article-text');
+      
+      textElements.forEach(element => {
+        const originalText = element.getAttribute('data-original-text') || element.textContent || '';
+        element.innerHTML = highlightFirstLetters(originalText);
+      });
+    } else {
+      // Restore original text
+      const textElements = document.querySelectorAll('.article-text');
+      textElements.forEach(element => {
+        const originalText = element.getAttribute('data-original-text') || '';
+        element.textContent = originalText;
+      });
+    }
+  }, [isQuickReading, article]);
 
   const toggleKoreanTitle = () => {
     setIsKoreanTitleVisible(!isKoreanTitleVisible);
@@ -728,6 +837,18 @@ const Article = () => {
     setIsDragging(false);
   };
 
+  const calculateReadingTime = (content: string[]): string => {
+    const totalWords = content.reduce((acc, paragraph) => {
+      return acc + paragraph.split(/\s+/).length;
+    }, 0);
+    
+    const readingTimeInSeconds = (totalWords / 150) * 60; // 150 words per minute
+    const minutes = Math.floor(readingTimeInSeconds / 60);
+    const seconds = Math.round(readingTimeInSeconds % 60);
+    
+    return `${minutes}분 ${seconds}초`;
+  };
+
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
   if (error) return <ErrorContainer>Error: {error}</ErrorContainer>;
   if (!article) return <ErrorContainer>No article found</ErrorContainer>;
@@ -742,17 +863,42 @@ const Article = () => {
 
   return (
     <ArticleContainer>
-      <Title onClick={toggleKoreanTitle}>{article.title.english}</Title>
-      <Subtitle isVisible={isKoreanTitleVisible}>{article.title.korean}</Subtitle>
+      <Title onClick={toggleKoreanTitle} className="article-text" data-original-text={article?.title.english}>
+        {article?.title.english}
+      </Title>
+      <Subtitle isVisible={isKoreanTitleVisible} className="article-text" data-original-text={article?.title.korean}>
+        {article?.title.korean}
+      </Subtitle>
+      <InfoContainer>
+        <ReadingTime>
+          예상 읽기 시간: {calculateReadingTime(content.english)}
+        </ReadingTime>
+        <QuickReadingToggle 
+          onClick={() => setIsQuickReading(!isQuickReading)}
+          className={isQuickReading ? 'active' : ''}
+        >
+          {isQuickReading ? '✕ 속독 모드 해제' : '⚡ 속독 모드'}
+        </QuickReadingToggle>
+      </InfoContainer>
       <CalloutBox>텍스트를 누르면 한국어 번역을 확인하실 수 있습니다</CalloutBox>
 
       {content.english?.length > 0 && (
         <ContentSection>
           {content.english.map((paragraph, index) => (
             <div key={index}>
-              <Paragraph onClick={() => toggleKoreanParagraph(index)}>{paragraph}</Paragraph>
+              <Paragraph 
+                onClick={() => toggleKoreanParagraph(index)} 
+                className="article-text" 
+                data-original-text={paragraph}
+              >
+                {paragraph}
+              </Paragraph>
               {content.korean[index] && (
-                <KoreanParagraph isVisible={visibleKoreanParagraphs.includes(index)}>
+                <KoreanParagraph 
+                  isVisible={visibleKoreanParagraphs.includes(index)}
+                  className="article-text"
+                  data-original-text={content.korean[index]}
+                >
                   {content.korean[index]}
                 </KoreanParagraph>
               )}

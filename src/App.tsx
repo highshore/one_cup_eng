@@ -13,6 +13,7 @@ import LoadingScreen from "./components/loading_screen";
 import { auth } from "./firebase";
 // import ProtectedRoute from "./components/protected_route";
 import AuthLayout from "./components/auth_components.tsx";
+import Policy from './routes/policy';
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -41,6 +42,14 @@ const router = createBrowserRouter([
       {
         path: "admin",
         element: <Admin />
+      },
+      {
+        path: "policy/privacy",
+        element: <Policy />
+      },
+      {
+        path: "policy/terms",
+        element: <Policy />
       },
     ],
   },
@@ -100,6 +109,12 @@ const GlobalStyles = createGlobalStyle`
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Avenir', 'Avenir Next', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-weight: 600;
+  }
+  
+  /* Quick reading highlight style */
+  .highlighted {
+    color: #1A0F0A;
+    font-weight: 800;
   }
   
   /* Additional mobile optimizations */
