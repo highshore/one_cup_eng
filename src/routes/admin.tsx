@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 import { collection, getDocs, Timestamp } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 const Wrapper = styled.div`
   display: flex;
@@ -147,13 +147,16 @@ interface UserData {
   name?: string;
   displayName?: string;
   email?: string;
-  language?: string;
   left_count?: number;
   cat_tech?: boolean;
   cat_business?: boolean;
 }
 
 export default function Admin() {
+  const user = auth.currentUser;
+  if (user?.phoneNumber !== "+821068584123") {
+    return <Navigate to="/profile" />;
+  }
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<any>(null);

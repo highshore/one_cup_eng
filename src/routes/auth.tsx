@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import styled from 'styled-components';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // Using direct Firebase Authentication for phone number authentication 
 // (FirebaseUI is not compatible with Firebase v11.5.0)
@@ -18,6 +19,21 @@ declare global {
   }
 }
 
+// Define colors to match with auth_components.tsx
+const colors = {
+  primary: '#2C1810',
+  primaryLight: '#4A2F23',
+  primaryDark: '#1A0F0A',
+  primaryPale: '#F5EBE6',
+  primaryBg: '#FDF9F6',
+  accent: '#C8A27A',
+  text: {
+    dark: '#2C1810',
+    medium: '#4A2F23',
+    light: '#8B6B4F'
+  }
+};
+
 const AuthContainer = styled.div`
   max-width: 500px;
   margin: 0 auto;
@@ -29,12 +45,13 @@ const Header = styled.h1`
   font-weight: 600;
   margin-bottom: 1.5rem;
   text-align: center;
+  color: ${colors.text.dark};
 `;
 
 const Description = styled.p`
   margin-bottom: 1.5rem;
   text-align: center;
-  color: #666;
+  color: ${colors.text.light};
   font-size: 0.9rem;
 `;
 
@@ -46,22 +63,22 @@ const Input = styled.input`
   width: 100%;
   padding: 0.75rem;
   margin-bottom: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 50px;
 `;
 
 const Button = styled.button`
   width: 100%;
   padding:.75rem;
-  background-color: #1a73e8;
+  background-color: ${colors.primary};
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 50px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 700;
   
   &:hover {
-    background-color: #0d62cb;
+    background-color: ${colors.primaryLight};
   }
   
   &:disabled {
@@ -89,9 +106,10 @@ const SuccessMessage = styled(Message)`
 
 const HelpText = styled.p`
   font-size: 0.8rem;
-  color: #666;
-  margin-top: -0.5rem;
+  color: ${colors.text.light};
+  margin-top: -0.3rem;
   margin-bottom: 1rem;
+  text-align: center;
 `;
 
 const ValidationMessage = styled.p`
@@ -99,6 +117,62 @@ const ValidationMessage = styled.p`
   color: #d93025;
   margin-top: -0.5rem;
   margin-bottom: 1rem;
+`;
+
+// Add these styled components after your existing styled components
+const AnnouncementOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+`;
+
+const AnnouncementDialog = styled.div`
+  background-color: white;
+  width: 90%;
+  max-width: 350px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+`;
+
+const AnnouncementHeader = styled.h2`
+  font-size: 20px;
+  font-weight: 600;
+  color: ${colors.text.dark};
+  margin-bottom: 16px;
+`;
+
+const AnnouncementContent = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  color: ${colors.text.medium};
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+`;
+
+const CloseButton = styled.button`
+  background-color: ${colors.primary};
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: ${colors.primaryLight};
+  }
 `;
 
 export default function Auth() {
@@ -110,6 +184,7 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isValidPhoneNumber, setIsValidPhoneNumber] = useState(false);
+  const [showAnnouncement, setShowAnnouncement] = useState(true);
   
   // Handle phone number input change
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,32 +217,31 @@ export default function Auth() {
     // Remove any non-digit characters
     let cleaned = input.replace(/\D/g, '');
     
-    // Handle all possible formats and ensure strict E.164 format
+    // For Korean numbers, we need to ensure proper E.164 format
     // E.164 format is: +[country code][number without leading 0]
     
-    // If already in E.164 format
-    if (cleaned.startsWith('82') && cleaned.length >= 11) {
-      return '+' + cleaned;
-    }
-    
-    // If starts with '+82'
-    if (cleaned.startsWith('+82') && cleaned.length >= 12) {
-      return cleaned;
-    }
-    
-    // If starts with '0' (most common case for Korean numbers)
+    // If the number starts with 0 (Korean mobile typically starts with 010)
     if (cleaned.startsWith('0') && cleaned.length >= 10) {
       return '+82' + cleaned.substring(1);
     }
     
-    // If number doesn't start with 0 but is a valid Korean mobile number
-    // This assumes it's already without the leading 0
-    if (cleaned.length >= 9) {
+    // If already in the correct format with +82
+    if (cleaned.startsWith('82') && !cleaned.startsWith('+')) {
+      return '+' + cleaned;
+    }
+    
+    // If already has the plus sign
+    if (cleaned.startsWith('+')) {
+      return cleaned;
+    }
+    
+    // Default case - just add +82 prefix if it seems to be a Korean number without leading 0
+    if (cleaned.length >= 9 && !cleaned.startsWith('0')) {
       return '+82' + cleaned;
     }
     
-    // Default case - just prepend +82
-    return '+82' + cleaned;
+    // If all else fails, just format as a Korean number
+    return '+82' + (cleaned.startsWith('0') ? cleaned.substring(1) : cleaned);
   };
 
   useEffect(() => {
@@ -175,42 +249,47 @@ export default function Auth() {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
         // User is already signed in, redirect to home
-        navigate('/');
+        navigate('/profile');
       }
     });
 
     return () => unsubscribe();
   }, [navigate]);
 
-  const setupRecaptcha = () => {
+  const setupInvisibleRecaptcha = () => {
     if (window.recaptchaVerifier) {
       try {
         window.recaptchaVerifier.clear();
       } catch (err) {
-        console.error('Error clearing existing reCAPTCHA:', err);
+        console.error('reCAPTCHA 초기화 오류:', err);
       }
     }
     
     try {
-      console.log('Setting up new reCAPTCHA verifier');
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'normal',
+      console.log('보이지 않는 reCAPTCHA 설정 중');
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'send-code-button', {
+        'size': 'invisible',
         'callback': () => {
-          console.log('reCAPTCHA verified successfully');
-        },
-        'expired-callback': () => {
-          console.log('reCAPTCHA expired, refreshing...');
-          setupRecaptcha();
+          console.log('reCAPTCHA 인증 성공');
+          // The callback is just for notification - sendVerificationCode is called directly
         }
       });
-      
-      window.recaptchaVerifier.render()
-        .then(() => console.log('reCAPTCHA rendered successfully'))
-        .catch((err) => console.error('Error rendering reCAPTCHA:', err));
     } catch (err) {
-      console.error('Failed to set up reCAPTCHA:', err);
-      setError('Failed to set up phone verification. Please refresh and try again.');
+      console.error('reCAPTCHA 설정 실패:', err);
+      setError('전화번호 인증 설정에 실패했습니다. 새로고침 후 다시 시도해주세요.');
     }
+  };
+
+  const onSignInSubmit = () => {
+    if (!isValidPhoneNumber || loading) return;
+    
+    if (!window.recaptchaVerifier) {
+      setupInvisibleRecaptcha();
+    }
+    
+    // For invisible reCAPTCHA, we should directly call sendVerificationCode
+    // The reCAPTCHA will be solved automatically during the phone auth process
+    sendVerificationCode();
   };
 
   const sendVerificationCode = async () => {
@@ -221,40 +300,33 @@ export default function Auth() {
       // Format the phone number for Firebase
       const formattedPhoneNumber = formatPhoneNumberForFirebase(phoneNumber);
       
-      console.log('Sending verification code to:', formattedPhoneNumber);
-      
-      // Verify reCAPTCHA is set up
-      if (!window.recaptchaVerifier) {
-        console.log('reCAPTCHA not set up, recreating...');
-        setupRecaptcha();
-      }
+      console.log('원본 전화번호:', phoneNumber);
+      console.log('포맷된 전화번호:', formattedPhoneNumber);
       
       // Send verification code directly with signInWithPhoneNumber
-      // Note: We don't need to create a phoneAuthProvider instance since
-      // signInWithPhoneNumber handles this internally
       const confirmationResult = await signInWithPhoneNumber(
         auth, 
         formattedPhoneNumber, 
         window.recaptchaVerifier
       );
       
-      console.log('Verification code sent successfully');
+      console.log('인증번호 전송 성공');
       setVerificationId(confirmationResult);
-      setMessage('Verification code sent to your phone!');
+      setMessage('인증번호가 전송되었습니다!');
     } catch (err) {
-      console.error('Error sending verification code:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send verification code';
+      console.error('인증번호 전송 오류:', err);
+      const errorMessage = err instanceof Error ? err.message : '인증번호 전송에 실패했습니다';
       setError(errorMessage);
       
       // Reset the reCAPTCHA on error
-      console.log('Resetting reCAPTCHA after error');
+      console.log('오류 후 reCAPTCHA 초기화');
       try {
         if (window.recaptchaVerifier) {
           window.recaptchaVerifier.clear();
         }
-        setupRecaptcha();
+        setupInvisibleRecaptcha();
       } catch (clearErr) {
-        console.error('Error resetting reCAPTCHA:', clearErr);
+        console.error('reCAPTCHA 초기화 오류:', clearErr);
       }
     } finally {
       setLoading(false);
@@ -269,18 +341,38 @@ export default function Auth() {
     
     try {
       // Confirm the verification code
-      await verificationId.confirm(verificationCode);
+      const userCredential = await verificationId.confirm(verificationCode);
+      
+      // Check if this is a new user or existing user
+      const userDoc = await getDoc(doc(db, `users/${userCredential.user.uid}`));
+      
+      if (!userDoc.exists()) {
+        // Create a date for Jan 1, 1000 AD
+        const ancientDate = new Date(1000, 0, 1); // Month is 0-based, so 0 = January
+        
+        // This is a new user, create their document
+        await setDoc(doc(db, `users/${userCredential.user.uid}`), {
+          cat_business: false,
+          cat_tech: false,
+          last_received: ancientDate,
+          left_count: 0, // Default number of articles available
+          received_articles: [],
+          saved_words: [],
+          createdAt: serverTimestamp()
+        });
+        console.log('새 사용자 문서 생성:', userCredential.user.uid);
+      }
       
       // User is now signed in
-      setMessage('Successfully signed in!');
+      setMessage('로그인 성공!');
       
       // Redirect to home page
       setTimeout(() => {
-        navigate('/');
+        navigate('/profile');
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify code');
-      console.error('Error verifying code:', err);
+      setError(err instanceof Error ? err.message : '인증코드 확인에 실패했습니다');
+      console.error('인증코드 확인 오류:', err);
     } finally {
       setLoading(false);
     }
@@ -289,10 +381,10 @@ export default function Auth() {
   useEffect(() => {
     // Setup reCAPTCHA when component mounts
     try {
-      setupRecaptcha();
+      setupInvisibleRecaptcha();
     } catch (err) {
-      console.error('Error setting up reCAPTCHA:', err);
-      setError('Failed to set up phone verification. Please try again.');
+      console.error('reCAPTCHA 설정 오류:', err);
+      setError('전화번호 인증 설정에 실패했습니다. 다시 시도해주세요.');
     }
     
     return () => {
@@ -301,7 +393,7 @@ export default function Auth() {
         try {
           window.recaptchaVerifier.clear();
         } catch (err) {
-          console.error('Error clearing reCAPTCHA:', err);
+          console.error('reCAPTCHA 초기화 오류:', err);
         }
       }
     };
@@ -309,9 +401,28 @@ export default function Auth() {
 
   return (
     <AuthContainer>
-      <Header>Sign in with Phone Number</Header>
+      {showAnnouncement && (
+        <AnnouncementOverlay>
+          <AnnouncementDialog>
+            <AnnouncementHeader>공지사항</AnnouncementHeader>
+            <AnnouncementContent>
+              <p>안녕하세요!</p><br></br>
+              <p>영어 한잔 개발자입니다. 저희 서비스를 이용해주셔서 진심으로 감사드립니다.</p><br></br>
+              <p>고객님들에게 더 많은 가치를 제공하기 위해 웹사이트 신규 개설 작업을 진행했습니다.</p><br></br>
+              <p>본 페이지에서 휴대폰 번호를 통해 로그인을 해주시면 영어 한잔 서비스를 정상적으로 이용하실 수 있습니다.</p><br></br>
+              <p>앞으로도 더 나은 서비스를 제공하도록 여러 기능을 추가하며 불철주야 노력하겠습니다.</p><br></br>
+              <p>감사합니다.</p>
+            </AnnouncementContent>
+            <CloseButton onClick={() => setShowAnnouncement(false)}>
+              확인
+            </CloseButton>
+          </AnnouncementDialog>
+        </AnnouncementOverlay>
+      )}
+      
+      <Header>휴대폰으로 로그인</Header>
       <Description>
-        Please enter your Korean mobile number to receive a verification code.
+        인증코드를 받으실 휴대폰 번호를 입력해주세요.
       </Description>
       
       <FormContainer>
@@ -319,31 +430,31 @@ export default function Auth() {
           <>
             <Input
               type="tel"
-              placeholder="Phone number (e.g., 01012345678)"
+              placeholder="휴대폰 번호 (예: 01012345678)"
               value={phoneNumber}
               onChange={handlePhoneNumberChange}
               disabled={loading}
             />
             {phoneNumber && !isValidPhoneNumber ? (
               <ValidationMessage>
-                Please enter a valid Korean mobile number (e.g., 01012345678)
+                올바른 휴대폰 번호를 입력해주세요 (예: 01012345678)
               </ValidationMessage>
             ) : (
-              <HelpText>Enter your phone number without spaces or dashes.</HelpText>
+              <HelpText>공백이나 대시(-) 없이 번호만 입력해주세요.</HelpText>
             )}
-            <div id="recaptcha-container"></div>
             <Button 
-              onClick={sendVerificationCode}
+              id="send-code-button"
+              onClick={onSignInSubmit}
               disabled={!isValidPhoneNumber || loading}
             >
-              {loading ? 'Sending...' : 'Send Verification Code'}
+              {loading ? '전송 중...' : '인증번호 전송'}
             </Button>
           </>
         ) : (
           <>
             <Input
               type="text"
-              placeholder="Enter verification code"
+              placeholder="인증번호 입력"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}
               disabled={loading}
@@ -352,7 +463,7 @@ export default function Auth() {
               onClick={verifyCode} 
               disabled={!verificationCode || loading}
             >
-              {loading ? 'Verifying...' : 'Verify Code'}
+              {loading ? '확인 중...' : '인증번호 확인'}
             </Button>
           </>
         )}

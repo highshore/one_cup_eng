@@ -14,23 +14,19 @@ import { auth } from "./firebase";
 // import ProtectedRoute from "./components/protected_route";
 import AuthLayout from "./components/auth_components.tsx";
 import Policy from './routes/policy';
+import ProtectedRoute from "./components/protected_route.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <Layout />
-      // Temporarily disable protected route
-      // <ProtectedRoute>
-      //   <Layout />
-      // </ProtectedRoute>
+      <ProtectedRoute>
+<Layout />
+</ProtectedRoute>
     ),
     children: [
-      { 
-        path: "",  // Use index:true instead of path:"" for the default route
-        element: <Home /> 
-      },
+
       { 
         path: "profile", 
         element: <Profile /> 
@@ -48,6 +44,10 @@ const router = createBrowserRouter([
         element: <Policy />
       },
     ],
+  },
+  { 
+    path: "",
+    element: <Home /> 
   },
   {
     path: "/auth",

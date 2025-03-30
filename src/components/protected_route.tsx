@@ -7,5 +7,5 @@ export default function ProtectedRoute({
   children: React.ReactNode;
 }) {
   const user = auth.currentUser;
-  return user ? children : <Navigate to="/signin" />;
+  return user ? children : <Navigate to="/auth" />;
 }

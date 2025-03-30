@@ -1,9 +1,11 @@
 import { styled } from "styled-components";
-import { auth, storage } from "../firebase";
+import { auth, storage, db } from "../firebase";
 import { useState, useEffect } from "react";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { updateProfile } from "firebase/auth";
-import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
+import { updateProfile, signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
+import defaultUserImage from "../assets/default_user.png";
 
 const Wrapper = styled.div`
   display: flex;
@@ -12,6 +14,7 @@ const Wrapper = styled.div`
   justify-content: center;
   height: 100vh;
   gap: 20px;
+  padding: 0 20px;
 `;
 
 const AvatarUpload = styled.label`
@@ -40,191 +43,356 @@ const AvatarInput = styled.input`
 
 const Name = styled.span`
   margin-top: 10px;
-  font-size: 20px;
+  font-size: 24px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  
+  &:hover {
+    border-bottom: 1px dashed #666;
+  }
 `;
 
-const LanguageSelect = styled.select`
-  padding: 8px 12px;
+const NameInput = styled.input`
+  margin-top: 10px;
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 8px;
+  border: none;
+  border-bottom: 1px solid #ccc;
+  border-radius: 0;
+  background-color: transparent;
+  width: 100%;
+  max-width: 300px;
+  outline: none;
+  
+  &:focus {
+    border-bottom: 2px solid #4CAF50;
+    color: #333;
+  }
+`;
+
+const NameEditContainer = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+`;
+
+const CheckmarkIcon = styled.span`
+  position: absolute;
+  right: 10px;
+  color: #4CAF50;
+  font-size: 18px;
+  cursor: pointer;
+`;
+
+const UserInfoCard = styled.div`
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 20px;
+  width: 100%;
+  max-width: 400px;
+  margin: 20px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+const InfoRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 16px;
+`;
+
+const InfoLabel = styled.span`
+  font-weight: 500;
+  color: #555;
+`;
+
+const InfoValue = styled.span`
+  font-weight: 400;
+  color: #333;
+`;
+
+const CategoryDisplay = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+`;
+
+const CategoryLabel = styled.span`
+  color: #333;
+  margin-left: 5px;
+`;
+
+const CategoryIcon = styled.span<{ active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: ${props => props.active ? '#4CAF50' : '#e0e0e0'};
+  color: white;
+  font-size: 12px;
+`;
+
+const LogoutButton = styled.button`
+  background-color: #f44336;
+  color: white;
+  padding: 10px 20px;
+  border: none;
   border-radius: 4px;
-  border: 1px solid #ccc;
+  cursor: pointer;
   font-size: 16px;
-  min-width: 200px;
+  margin-top: 10px;
+  
+  &:hover {
+    background-color: #d32f2f;
+  }
 `;
 
-const LanguageLabel = styled.label`
+// Enhanced article list styles
+const ArticlesSection = styled.div`
+  width: 100%;
+  max-width: 400px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+const SectionTitle = styled.h3`
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 15px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+`;
+
+const ArticlesList = styled.div`
+  max-height: 250px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+`;
+
+const ArticleItem = styled.div`
+  padding: 12px;
+  border-radius: 6px;
+  background-color: white;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: #fafafa;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  }
+`;
+
+const ArticleTitle = styled.div`
   font-size: 16px;
+  font-weight: 500;
+  color: #333;
   margin-bottom: 5px;
 `;
 
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 300px;
+const ArticleDate = styled.div`
+  font-size: 12px;
+  color: #777;
 `;
 
-// Language options
-const LANGUAGES = [
-  { name: "Arabic", code: "ar" },
-  { name: "Bashkir", code: "ba" },
-  { name: "Basque", code: "eu" },
-  { name: "Belarusian", code: "be" },
-  { name: "Bengali", code: "bn" },
-  { name: "Bulgarian", code: "bg" },
-  { name: "Cantonese", code: "yue" },
-  { name: "Catalan", code: "ca" },
-  { name: "Croatian", code: "hr" },
-  { name: "Czech", code: "cs" },
-  { name: "Danish", code: "da" },
-  { name: "Dutch", code: "nl" },
-  { name: "English", code: "en" },
-  { name: "Esperanto", code: "eo" },
-  { name: "Estonian", code: "et" },
-  { name: "Finnish", code: "fi" },
-  { name: "French", code: "fr" },
-  { name: "Galician", code: "gl" },
-  { name: "German", code: "de" },
-  { name: "Greek", code: "el" },
-  { name: "Hebrew", code: "he" },
-  { name: "Hindi", code: "hi" },
-  { name: "Hungarian", code: "hu" },
-  { name: "Indonesian", code: "id" },
-  { name: "Interlingua", code: "ia" },
-  { name: "Irish", code: "ga" },
-  { name: "Italian", code: "it" },
-  { name: "Japanese", code: "ja" },
-  { name: "Korean", code: "ko" },
-  { name: "Latvian", code: "lv" },
-  { name: "Lithuanian", code: "lt" },
-  { name: "Malay", code: "ms" },
-  { name: "Maltese", code: "mt" },
-  { name: "Mandarin", code: "cmn" },
-  { name: "Marathi", code: "mr" },
-  { name: "Mongolian", code: "mn" },
-  { name: "Norwegian", code: "no" },
-  { name: "Persian", code: "fa" },
-  { name: "Polish", code: "pl" },
-  { name: "Portuguese", code: "pt" },
-  { name: "Romanian", code: "ro" },
-  { name: "Russian", code: "ru" },
-  { name: "Slovakian", code: "sk" },
-  { name: "Slovenian", code: "sl" },
-  { name: "Spanish", code: "es" },
-  { name: "Swahili", code: "sw" },
-  { name: "Swedish", code: "sv" },
-  { name: "Tamil", code: "ta" },
-  { name: "Thai", code: "th" },
-  { name: "Turkish", code: "tr" },
-  { name: "Ukrainian", code: "uk" },
-  { name: "Urdu", code: "ur" },
-  { name: "Uyghur", code: "ug" },
-  { name: "Vietnamese", code: "vi" },
-  { name: "Welsh", code: "cy" },
-];
+interface UserData {
+  cat_business: boolean;
+  cat_tech: boolean;
+  left_count: number;
+  last_received: Date;
+  received_articles: string[];
+  saved_words: string[];
+  createdAt: Date;
+}
 
 export default function Profile() {
   const user = auth.currentUser;
-  const [avatar, setAvatar] = useState(user?.photoURL);
+  const [avatar, setAvatar] = useState(user?.photoURL || defaultUserImage);
+  const [avatarTimestamp, setAvatarTimestamp] = useState(Date.now());
   const [error, setError] = useState("");
-  const [language, setLanguage] = useState("en");
+  const navigate = useNavigate();
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const firestore = getFirestore();
+  const [receivedArticles, setReceivedArticles] = useState<{id: string, title?: string, date?: Date}[]>([]);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [displayName, setDisplayName] = useState(user?.displayName || "");
 
   useEffect(() => {
-    const fetchUserLanguage = async () => {
-      if (!user) return;
+    const fetchUserData = async () => {
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
+
       try {
-        const userDoc = await getDoc(doc(firestore, `users/${user.uid}`));
-        if (userDoc.exists() && userDoc.data().language) {
-          setLanguage(userDoc.data().language);
+        setLoading(true);
+        const userDocRef = doc(db, `users/${user.uid}`);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserData({
+            cat_business: data.cat_business || false,
+            cat_tech: data.cat_tech || false,
+            left_count: data.left_count || 0,
+            last_received: data.last_received?.toDate() || new Date(0),
+            received_articles: data.received_articles || [],
+            saved_words: data.saved_words || [],
+            createdAt: data.createdAt?.toDate() || new Date(),
+          });
+          
+          // Fetch article titles for received articles
+          if (data.received_articles && data.received_articles.length > 0) {
+            await fetchArticleTitles(data.received_articles);
+          }
         } else {
-          await setDoc(
-            doc(firestore, `users/${user.uid}`),
-            {
-              language: "en",
-              updatedAt: new Date(),
-            },
-            { merge: true }
-          );
+          setError("페이지를 새로고침해주세요!");
         }
-        setLoading(false);
       } catch (err) {
-        console.error("Error fetching user language:", err);
+        console.error("Error fetching user data:", err);
+        setError("Failed to load user data.");
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchUserLanguage();
-  }, [user, firestore]);
+    // Update fetchArticleTitles to also fetch dates
+    const fetchArticleTitles = async (articleIds: string[]) => {
+      try {
+        const articlesData = [];
+        for (const id of articleIds) {
+          const articleDoc = await getDoc(doc(db, 'articles', id));
+          if (articleDoc.exists()) {
+            const data = articleDoc.data();
+            articlesData.push({
+              id: id,
+              title: data.title?.english || data.title?.korean || 'Untitled',
+              date: data.timestamp?.toDate() || null
+            });
+          } else {
+            articlesData.push({ id: id });
+          }
+        }
+        setReceivedArticles(articlesData);
+      } catch (error) {
+        console.error("Error fetching article titles:", error);
+      }
+    };
+
+    fetchUserData();
+  }, [user, navigate]);
 
   const onAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { files } = e.target;
-    if (!user) return;
+    if (!user) {
+      console.error("No user found when trying to upload avatar");
+      setError("Please log in again to upload avatar");
+      return;
+    }
+    
     if (files && files.length === 1) {
       const file = files[0];
-      const locationRef = ref(storage, `avatars/${user?.uid}`);
+      console.log("File selected:", file.name, "size:", file.size);
+      
+      // Check file size (limit to 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setError("File too large. Please select an image under 2MB");
+        return;
+      }
+      
+      const locationRef = ref(storage, `avatars/${user.uid}`);
+      console.log("Uploading to:", `avatars/${user.uid}`);
+      
       try {
+        setError("Uploading image...");
         const result = await uploadBytes(locationRef, file);
+        console.log("Upload successful, getting download URL");
+        
         const avatarUrl = await getDownloadURL(result.ref);
+        console.log("Download URL received:", avatarUrl);
+        
         setAvatar(avatarUrl);
+        setAvatarTimestamp(Date.now());
+        setError("Profile photo updated successfully!");
+        
         await updateProfile(user, {
           photoURL: avatarUrl,
         });
-        setError("");
+        console.log("User profile updated successfully");
       } catch (error) {
         console.error("Error uploading avatar:", error);
         setError(
-          "Failed to upload avatar. Storage rules may need to be updated."
+          "Failed to upload avatar. Error: " + (error as Error).message
         );
       }
     }
   };
 
-  const onLanguageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLanguage = e.target.value;
-    setLanguage(newLanguage);
-
-    if (!user) return;
-
+  const handleLogout = async () => {
     try {
-      await setDoc(
-        doc(firestore, `users/${user.uid}`),
-        {
-          language: newLanguage,
-        },
-        { merge: true }
-      );
+      await signOut(auth);
+      // Redirect to auth screen
+      navigate("/auth");
     } catch (err) {
-      console.error("Error saving language preference:", err);
-      setError("Failed to save language preference.");
+      console.error("Error signing out:", err);
+      setError("Failed to sign out.");
+    }
+  };
+
+  const navigateToArticle = (articleId: string) => {
+    navigate(`/article/${articleId}`);
+  };
+
+  // Add function to handle display name changes
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDisplayName(e.target.value);
+  };
+
+  // Add function to save display name
+  const saveDisplayName = async () => {
+    if (!user) return;
+    
+    try {
+      await updateProfile(user, {
+        displayName: displayName.trim() || "Anonymous User"
+      });
+      setIsEditingName(false);
+      setError("");
+    } catch (err) {
+      console.error("Error updating display name:", err);
+      setError("Failed to update display name.");
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      saveDisplayName();
     }
   };
 
   if (loading) {
-    return <Wrapper>Loading...</Wrapper>;
+    return <Wrapper>Loading user data...</Wrapper>;
   }
 
   return (
     <Wrapper>
       <AvatarUpload htmlFor="avatar">
-        {avatar ? (
-          <AvatarImg src={avatar as string} />
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-            />
-          </svg>
-        )}
+        <AvatarImg 
+          src={`${avatar as string}?t=${avatarTimestamp}`}
+          key={`${avatar}?t=${avatarTimestamp}`}
+        />
       </AvatarUpload>
       <AvatarInput
         type="file"
@@ -232,24 +400,96 @@ export default function Profile() {
         id="avatar"
         onChange={onAvatarChange}
       />
-      <Name>{user?.displayName ? user?.displayName : "Anonymous"}</Name>
+      
+      {isEditingName ? (
+        <NameEditContainer>
+          <NameInput
+            type="text"
+            value={displayName}
+            onChange={handleNameChange}
+            placeholder="Enter your name"
+            autoFocus
+            onKeyPress={handleKeyPress}
+          />
+          <CheckmarkIcon onClick={saveDisplayName}>✓</CheckmarkIcon>
+        </NameEditContainer>
+      ) : (
+        <Name onClick={() => setIsEditingName(true)}>
+          {user?.displayName ? user.displayName : "유저명을 정해주세요"}
+        </Name>
+      )}
+      
+      <p>{user?.phoneNumber}</p>
 
-      <FormGroup>
-        <LanguageLabel htmlFor="language-select">
-          Preferred Language
-        </LanguageLabel>
-        <LanguageSelect
-          id="language-select"
-          value={language}
-          onChange={onLanguageChange}
-        >
-          {LANGUAGES.map((lang) => (
-            <option key={lang.code} value={lang.code}>
-              {lang.name}
-            </option>
-          ))}
-        </LanguageSelect>
-      </FormGroup>
+      {userData && (
+        <UserInfoCard>
+          <InfoRow>
+            <InfoLabel>Articles Remaining:</InfoLabel>
+            <InfoValue>{userData.left_count}</InfoValue>
+          </InfoRow>
+          
+          <InfoRow>
+            <InfoLabel>Last Article Received:</InfoLabel>
+            <InfoValue>
+              {new Date(userData.last_received).getFullYear() < 1001 
+                ? 'Not yet' 
+                : userData.last_received.toLocaleDateString()}
+            </InfoValue>
+          </InfoRow>
+          
+          <InfoRow>
+            <InfoLabel>Saved Words:</InfoLabel>
+            <InfoValue>{userData.saved_words.length}</InfoValue>
+          </InfoRow>
+          
+          
+          <InfoRow>
+            <InfoLabel>Member Since:</InfoLabel>
+            <InfoValue>
+              {userData.createdAt.toLocaleDateString()}
+            </InfoValue>
+          </InfoRow>
+          
+          <h3 style={{ marginTop: '20px', marginBottom: '10px' }}>Selected Categories</h3>
+          
+          <CategoryDisplay>
+            <CategoryIcon active={userData.cat_tech}>
+              {userData.cat_tech ? "✓" : ""}
+            </CategoryIcon>
+            <CategoryLabel>Technology</CategoryLabel>
+          </CategoryDisplay>
+          
+          <CategoryDisplay>
+            <CategoryIcon active={userData.cat_business}>
+              {userData.cat_business ? "✓" : ""}
+            </CategoryIcon>
+            <CategoryLabel>Business</CategoryLabel>
+          </CategoryDisplay>
+        </UserInfoCard>
+      )}
+      
+      {userData && userData.received_articles.length > 0 && (
+        <ArticlesSection>
+          <SectionTitle>Your Articles</SectionTitle>
+          <ArticlesList>
+            {receivedArticles.map((article) => (
+              <ArticleItem 
+                key={article.id} 
+                onClick={() => navigateToArticle(article.id)}
+              >
+                <ArticleTitle>
+                  {article.title || `Article ${article.id}`}
+                </ArticleTitle>
+                <ArticleDate>
+                  {article.date ? article.date.toLocaleDateString() : 'No date available'}
+                </ArticleDate>
+              </ArticleItem>
+            ))}
+          </ArticlesList>
+        </ArticlesSection>
+      )}
+
+      <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
 
       {error && <span style={{ color: "red" }}>{error}</span>}
     </Wrapper>

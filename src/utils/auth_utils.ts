@@ -1,5 +1,4 @@
 import { FirebaseError } from "firebase/app";
-import { Auth } from "firebase/auth";
 
 export const formatKoreanPhoneNumber = (phone: string): string => {
   // Remove any non-digit characters
@@ -26,11 +25,6 @@ export const ErrorMessage: { [key: string]: string } = {
   "auth/user-disabled": "이 계정은 비활성화되었습니다",
   "auth/user-not-found": "등록된 계정을 찾을 수 없습니다",
   "auth/account-exists-with-different-credential": "이미 등록된 휴대폰 번호입니다",
-};
-
-// Set the language for authentication (affects SMS messages)
-export const setAuthLanguage = (auth: Auth) => {
-  auth.languageCode = 'ko'; // Set to Korean
 };
 
 // Check if we're rate limited and return timeout duration (in ms)

@@ -20,16 +20,25 @@ interface UserData {
   phone: string;
 }
 
-// Extracted core logic into a reusable function
-// Only processes and sends links that have been updated on the current day
-// This prevents sending the same link multiple times on different days
-async function processAndSendLinks(): Promise<{
+// Extracted core logic into a reusable function that can run in normal or test mode
+async function processAndSendLinks(testMode: boolean = false): Promise<{
   techCount: number;
   businessCount: number;
   expiryCount: number;
 }> {
   try {
     const db = admin.firestore();
+    
+    // Test mode configuration - easily toggle these values
+    const TEST_MODE_ENABLED = testMode;
+    const TEST_PHONE_NUMBERS = ["01068584123", "01045430406"];
+    
+    if (TEST_MODE_ENABLED) {
+      logger.info(`Running in TEST MODE for specific recipients: ${TEST_PHONE_NUMBERS.join(', ')}`);
+    } else {
+      logger.info("Running in PRODUCTION MODE for all eligible users");
+    }
+    
     logger.debug('Starting to process and send links');
     
     // Get the current date (reset time to 00:00:00)
@@ -147,9 +156,113 @@ async function processAndSendLinks(): Promise<{
     const techLink = techLinks.length > 0 ? techLinks[0] : null;
     const businessLink = businessLinks.length > 0 ? businessLinks[0] : null;
     
-    // 2. Process users
-    logger.debug('Fetching users from Firestore...');
-    const usersSnapshot = await db.collection('users').get();
+    // 2. Process users - different approach based on mode
+    let usersSnapshot;
+    
+    if (TEST_MODE_ENABLED) {
+      // In test mode, there are two ways to fetch the test users:
+      // 1. Users whose document ID directly matches one of the test phone numbers
+      // 2. Users who have a phone field that, when formatted, matches one of the test phone numbers
+      
+      logger.debug(`Test mode: Fetching users with test phone numbers: ${TEST_PHONE_NUMBERS.join(', ')}`);
+      
+      // First approach: direct ID match
+      const usersByIdSnapshot = await db.collection('users')
+        .where(admin.firestore.FieldPath.documentId(), 'in', TEST_PHONE_NUMBERS)
+        .get();
+      
+      logger.debug(`Found ${usersByIdSnapshot.docs.length} test users by direct ID match`);
+      
+      // Second approach: Get all users and filter by phone number
+      const allUsersSnapshot = await db.collection('users').get();
+      
+      // Filter users by formatting their phone field and checking if it matches test numbers
+      const usersByPhoneField = allUsersSnapshot.docs.filter(doc => {
+        const userData = doc.data();
+        if (!userData.phone) return false;
+        
+        // Format the phone number from user data to match our test format
+        const formattedPhone = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+        return TEST_PHONE_NUMBERS.includes(formattedPhone);
+      });
+      
+      logger.debug(`Found ${usersByPhoneField.length} additional test users by phone field match`);
+      
+      // Also get users whose auth phone number matches test numbers
+      const matchedUserIds: string[] = [];
+      
+      // This would be more efficient if we had a way to query Auth directly by phone
+      // Instead, we'll check if any of the users we haven't already matched have
+      // phone numbers in Auth that match our test numbers
+      for (const doc of allUsersSnapshot.docs) {
+        // Skip if we already found this user by phone field
+        if (usersByPhoneField.some(d => d.id === doc.id)) continue;
+        // Skip if we already found this user by ID
+        if (usersByIdSnapshot.docs.some(d => d.id === doc.id)) continue;
+        
+        try {
+          const authUser = await admin.auth().getUser(doc.id);
+          if (authUser.phoneNumber) {
+            const formattedAuthPhone = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
+            if (TEST_PHONE_NUMBERS.includes(formattedAuthPhone)) {
+              matchedUserIds.push(doc.id);
+            }
+          }
+        } catch (error) {
+          // Ignore errors fetching auth user
+        }
+      }
+      
+      let usersByAuthPhone: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>[] = [];
+      if (matchedUserIds.length > 0) {
+        // Firebase only allows up to 10 values in an 'in' query, so we may need to chunk
+        const chunks = [];
+        for (let i = 0; i < matchedUserIds.length; i += 10) {
+          chunks.push(matchedUserIds.slice(i, i + 10));
+        }
+        
+        for (const chunk of chunks) {
+          const chunkSnapshot = await db.collection('users')
+            .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+            .get();
+          usersByAuthPhone = [...usersByAuthPhone, ...chunkSnapshot.docs];
+        }
+      }
+      
+      logger.debug(`Found ${usersByAuthPhone.length} additional test users by Auth phone match`);
+      
+      // Combine all the users we found, ensuring no duplicates
+      const combinedDocs = [
+        ...usersByIdSnapshot.docs,
+        ...usersByPhoneField,
+        ...usersByAuthPhone
+      ];
+      
+      // Remove duplicates by user ID
+      const uniqueDocsMap = new Map();
+      for (const doc of combinedDocs) {
+        if (!uniqueDocsMap.has(doc.id)) {
+          uniqueDocsMap.set(doc.id, doc);
+        }
+      }
+      
+      // Create a custom snapshot-like object with the unique docs
+      usersSnapshot = {
+        docs: Array.from(uniqueDocsMap.values()),
+        size: uniqueDocsMap.size,
+        empty: uniqueDocsMap.size === 0,
+        forEach: (callback: (doc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) => void) => {
+          Array.from(uniqueDocsMap.values()).forEach(callback);
+        }
+      };
+      
+      logger.debug(`Found a total of ${usersSnapshot.docs.length} unique test users`);
+    } else {
+      // In production mode, get all users
+      logger.debug('Production mode: Fetching all users from Firestore...');
+      usersSnapshot = await db.collection('users').get();
+    }
+    
     logger.debug(`Found ${usersSnapshot.docs.length} user documents`);
     
     const techRecipients: any[] = [];
@@ -161,8 +274,8 @@ async function processAndSendLinks(): Promise<{
       const userData = userDoc.data() as UserData;
       logger.debug(`Processing user ${userDoc.id}: left_count=${userData.left_count}, cat_tech=${userData.cat_tech}, cat_business=${userData.cat_business}`);
       
-      // Skip users with zero left_count
-      if (userData.left_count <= 0) {
+      // Skip users with zero left_count in production mode (in test mode, we process regardless of left_count)
+      if (!TEST_MODE_ENABLED && userData.left_count <= 0) {
         logger.debug(`Skipping user ${userDoc.id} because left_count is ${userData.left_count}`);
         continue;
       }
@@ -170,29 +283,169 @@ async function processAndSendLinks(): Promise<{
       // Add to tech recipients if cat_tech is true
       if (userData.cat_tech && techLink) {
         logger.debug(`Adding user ${userDoc.id} to tech recipients`);
+        
+        // Get customer name with fallback to phone number if name is not available
+        let customerName = userData.name;
+        if (!customerName || customerName.trim() === '') {
+          try {
+            logger.debug(`Name not available for user ${userDoc.id}, trying to get phone number from Auth`);
+            const authUser = await admin.auth().getUser(userDoc.id);
+            
+            if (authUser.phoneNumber) {
+              // Use phone number as fallback customer name
+              customerName = authUser.phoneNumber;
+              logger.debug(`Using phone number from Auth as customer name: ${customerName}`);
+            } else {
+              // Default fallback if neither name nor phone number is available
+              customerName = "고객님";
+              logger.debug(`No phone number found in Auth, using default name: ${customerName}`);
+            }
+          } catch (authError) {
+            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+            customerName = "고객님"; // Default fallback
+          }
+        }
+        
         const templateParameter = {
           "korean-title": techLink.koreanTitle,
-          "customer-name": userData.name,
+          "customer-name": customerName,
           "article-link": techLink.url
         };
         
+        // Format phone number for Kakao
+        let recipientNo = userDoc.id;
+        
+        // If userDoc.id doesn't start with "010", get phone number from Firebase Auth
+        if (!recipientNo.startsWith("010")) {
+          try {
+            logger.debug(`userDoc.id ${userDoc.id} doesn't start with 010, fetching from Auth`);
+            const authUser = await admin.auth().getUser(userDoc.id);
+            
+            if (authUser.phoneNumber) {
+              // Format phone number from auth (remove country code and any non-digits)
+              recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
+              logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
+            } else {
+              logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+            }
+          } catch (authError) {
+            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          }
+        }
+        
+        // Ensure phone number is in correct format
+        if (!recipientNo.startsWith("010") || recipientNo.length < 10) {
+          logger.warn(`Invalid phone number format for user ${userDoc.id}: ${recipientNo}`);
+          // Use phone field from user data as fallback
+          if (userData.phone) {
+            recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Using phone field from Firestore: ${recipientNo}`);
+          }
+        }
+        
+        // Add the articleId to the user's received_articles array
+        try {
+          logger.debug(`Adding tech article ${techLink.articleId} to received_articles for user ${userDoc.id}`);
+          await userDoc.ref.update({
+            received_articles: admin.firestore.FieldValue.arrayUnion(techLink.articleId)
+          });
+          logger.debug(`Successfully added article to received_articles for user ${userDoc.id}`);
+        } catch (updateError) {
+          logger.error(`Failed to update received_articles for user ${userDoc.id}:`, updateError);
+        }
+        
         techRecipients.push({
-          "recipientNo": userDoc.id,
+          "recipientNo": recipientNo,
           "templateParameter": templateParameter
         });
+
+        // Only decrement left_count in production mode
+        if (!TEST_MODE_ENABLED) {
+          // Update left_count code here
+          // ...
+        } else {
+          logger.debug(`Test mode: Not decrementing left_count for user ${userDoc.id}`);
+        }
       }
+
+      
       
       // Add to business recipients if cat_business is true
       if (userData.cat_business && businessLink) {
         logger.debug(`Adding user ${userDoc.id} to business recipients`);
+        
+        // Get customer name with fallback to phone number if name is not available
+        let customerName = userData.name;
+        if (!customerName || customerName.trim() === '') {
+          try {
+            logger.debug(`Name not available for user ${userDoc.id}, trying to get phone number from Auth`);
+            const authUser = await admin.auth().getUser(userDoc.id);
+            
+            if (authUser.phoneNumber) {
+              // Use phone number as fallback customer name
+              customerName = authUser.phoneNumber;
+              logger.debug(`Using phone number from Auth as customer name: ${customerName}`);
+            } else {
+              // Default fallback if neither name nor phone number is available
+              customerName = "고객님";
+              logger.debug(`No phone number found in Auth, using default name: ${customerName}`);
+            }
+          } catch (authError) {
+            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+            customerName = "고객님"; // Default fallback
+          }
+        }
+        
         const templateParameter = {
           "korean-title": businessLink.koreanTitle,
-          "customer-name": userData.name,
+          "customer-name": customerName,
           "article-link": businessLink.url
         };
         
+        // Format phone number for Kakao
+        let recipientNo = userDoc.id;
+        
+        // If userDoc.id doesn't start with "010", get phone number from Firebase Auth
+        if (!recipientNo.startsWith("010")) {
+          try {
+            logger.debug(`userDoc.id ${userDoc.id} doesn't start with 010, fetching from Auth`);
+            const authUser = await admin.auth().getUser(userDoc.id);
+            
+            if (authUser.phoneNumber) {
+              // Format phone number from auth (remove country code and any non-digits)
+              recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
+              logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
+            } else {
+              logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+            }
+          } catch (authError) {
+            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          }
+        }
+        
+        // Ensure phone number is in correct format
+        if (!recipientNo.startsWith("010") || recipientNo.length < 10) {
+          logger.warn(`Invalid phone number format for user ${userDoc.id}: ${recipientNo}`);
+          // Use phone field from user data as fallback
+          if (userData.phone) {
+            recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Using phone field from Firestore: ${recipientNo}`);
+          }
+        }
+        
+        // Add the articleId to the user's received_articles array
+        try {
+          logger.debug(`Adding business article ${businessLink.articleId} to received_articles for user ${userDoc.id}`);
+          await userDoc.ref.update({
+            received_articles: admin.firestore.FieldValue.arrayUnion(businessLink.articleId)
+          });
+          logger.debug(`Successfully added article to received_articles for user ${userDoc.id}`);
+        } catch (updateError) {
+          logger.error(`Failed to update received_articles for user ${userDoc.id}:`, updateError);
+        }
+        
         businessRecipients.push({
-          "recipientNo": userDoc.id,
+          "recipientNo": recipientNo,
           "templateParameter": templateParameter
         });
       }
@@ -200,10 +453,64 @@ async function processAndSendLinks(): Promise<{
       // Check if user should receive expiry notification
       if (userData.left_count === 1) {
         logger.debug(`Adding user ${userDoc.id} to expiry notifications as their left_count is 1`);
+        
+        // Get customer name with fallback to phone number if name is not available
+        let customerName = userData.name;
+        if (!customerName || customerName.trim() === '') {
+          try {
+            logger.debug(`Name not available for user ${userDoc.id}, trying to get phone number from Auth`);
+            const authUser = await admin.auth().getUser(userDoc.id);
+            
+            if (authUser.phoneNumber) {
+              // Use phone number as fallback customer name
+              customerName = authUser.phoneNumber;
+              logger.debug(`Using phone number from Auth as customer name: ${customerName}`);
+            } else {
+              // Default fallback if neither name nor phone number is available
+              customerName = "고객님";
+              logger.debug(`No phone number found in Auth, using default name: ${customerName}`);
+            }
+          } catch (authError) {
+            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+            customerName = "고객님"; // Default fallback
+          }
+        }
+        
+        // Format phone number for Kakao
+        let recipientNo = userDoc.id;
+        
+        // If userDoc.id doesn't start with "010", get phone number from Firebase Auth
+        if (!recipientNo.startsWith("010")) {
+          try {
+            logger.debug(`userDoc.id ${userDoc.id} doesn't start with 010, fetching from Auth`);
+            const authUser = await admin.auth().getUser(userDoc.id);
+            
+            if (authUser.phoneNumber) {
+              // Format phone number from auth (remove country code and any non-digits)
+              recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
+              logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
+            } else {
+              logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+            }
+          } catch (authError) {
+            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          }
+        }
+        
+        // Ensure phone number is in correct format
+        if (!recipientNo.startsWith("010") || recipientNo.length < 10) {
+          logger.warn(`Invalid phone number format for user ${userDoc.id}: ${recipientNo}`);
+          // Use phone field from user data as fallback
+          if (userData.phone) {
+            recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Using phone field from Firestore: ${recipientNo}`);
+          }
+        }
+        
         expiryNotifications.push({
-          "recipientNo": userDoc.id,
+          "recipientNo": recipientNo,
           "templateParameter": {
-            "customer-name": userData.name,
+            "customer-name": customerName,
             "store-link": "https://smartstore.naver.com/one-cup-english/products/10974832954"
           }
         });
@@ -290,13 +597,13 @@ async function processAndSendLinks(): Promise<{
   }
 }
 
-// Scheduled function that runs automatically
+// Scheduled function that runs automatically (in production mode)
 export const sendLinksToUsers = onSchedule({
   schedule: '0 8 * * *',
   timeZone: 'Asia/Seoul'
 }, async (event: ScheduledEvent): Promise<void> => {
   try {
-    await processAndSendLinks();
+    await processAndSendLinks(false); // false = production mode
     return;
   } catch (error) {
     logger.error('Error in scheduled function:', error);
@@ -304,15 +611,15 @@ export const sendLinksToUsers = onSchedule({
   }
 });
 
-// HTTP callable function for manual testing
+// HTTP callable function for manual testing with specific recipients
 export const testSendLinksToUsers = onCall({
   enforceAppCheck: false, // Set to true in production
 }, async (request) => {
   try {
-    const result = await processAndSendLinks();
+    const result = await processAndSendLinks(true); // true = test mode
     return {
       success: true,
-      message: "Links sent successfully",
+      message: "Test links sent successfully to specified recipients",
       stats: result
     };
   } catch (error: any) {
