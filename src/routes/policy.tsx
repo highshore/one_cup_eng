@@ -69,6 +69,8 @@ const Paragraph = styled.p`
 const Policy = () => {
   const { type } = useParams<{ type: string }>();
   
+  console.log("Policy type:", type);
+  
   const privacyContent = (
     <Content>
       <Section>
@@ -307,8 +309,20 @@ const Policy = () => {
     </Content>
   );
 
-  const content = type === 'privacy' ? privacyContent : termsContent;
-  const title = type === 'privacy' ? '개인정보 처리방침' : '이용약관';
+  let content;
+  let title;
+  
+  if (type === 'privacy') {
+    content = privacyContent;
+    title = '개인정보 처리방침';
+  } else if (type === 'terms') {
+    content = termsContent;
+    title = '이용약관';
+  } else {
+    console.warn(`Unknown policy type: ${type}, defaulting to privacy`);
+    content = privacyContent;
+    title = '개인정보 처리방침';
+  }
 
   return (
     <PolicyContainer>

@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import styled from "styled-components";
+import ProtectedRoute from "./protected_route";
 
 const colors = {
   primary: '#2C1810',
@@ -90,9 +91,10 @@ const FooterDivider = styled.span`
 
 export default function Layout() {
   return (
-    <LayoutContainer>
-      <ContentContainer>
-        <Outlet />
+    <ProtectedRoute>
+      <LayoutContainer>
+        <ContentContainer>
+          <Outlet />
       </ContentContainer>
       <Footer>
         <FooterContent>
@@ -111,5 +113,6 @@ export default function Layout() {
         </FooterContent>
       </Footer>
     </LayoutContainer>
+    </ProtectedRoute>
   )
 }

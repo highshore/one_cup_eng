@@ -2,10 +2,10 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Layout from "./components/layout";
 import Home from "./routes/home.tsx";
 import Profile from "./routes/profile.tsx";
-import SignIn from "./routes/sign_in.tsx";
-import SignUp from "./routes/sign_up.tsx";
+
 import Article from "./routes/article.tsx";
 import Admin from "./routes/admin.tsx";
+import Auth from "./routes/auth.tsx";
 import styled, { createGlobalStyle } from "styled-components";
 import reset from "styled-reset";
 import { useEffect, useState } from "react";
@@ -44,28 +44,16 @@ const router = createBrowserRouter([
         element: <Admin />
       },
       {
-        path: "policy/privacy",
-        element: <Policy />
-      },
-      {
-        path: "policy/terms",
+        path: "policy/:type",
         element: <Policy />
       },
     ],
   },
   {
-    path: "/signin",
+    path: "/auth",
     element: (
       <AuthLayout>
-        <SignIn />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/signup",
-    element: (
-      <AuthLayout>
-        <SignUp />
+        <Auth />
       </AuthLayout>
     ),
   },
