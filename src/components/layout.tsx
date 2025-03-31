@@ -2,17 +2,17 @@ import { Outlet } from "react-router-dom";
 import styled from "styled-components";
 
 const colors = {
-  primary: '#2C1810',
-  primaryLight: '#4A2F23',
-  primaryDark: '#1A0F0A',
-  primaryPale: '#F5EBE6',
-  primaryBg: '#FDF9F6',
-  accent: '#C8A27A',
+  primary: "#2C1810",
+  primaryLight: "#4A2F23",
+  primaryDark: "#1A0F0A",
+  primaryPale: "#F5EBE6",
+  primaryBg: "#FDF9F6",
+  accent: "#C8A27A",
   text: {
-    dark: '#2C1810',
-    medium: '#4A2F23',
-    light: '#8B6B4F'
-  }
+    dark: "#2C1810",
+    medium: "#4A2F23",
+    light: "#8B6B4F",
+  },
 };
 
 const LayoutContainer = styled.div`
@@ -24,15 +24,15 @@ const LayoutContainer = styled.div`
   position: relative;
   max-width: 100vw;
   overflow-x: hidden;
-  
+
   @media (max-width: 768px) {
     /* Force proper sizing on mobile */
     min-height: -webkit-fill-available;
     width: 100vw;
   }
-  
+
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
@@ -58,7 +58,7 @@ const Footer = styled.footer`
   font-size: 0.8rem;
   color: ${colors.text.medium};
   text-align: center;
-  
+
   @media (max-width: 768px) {
     padding: 1.5rem 1rem;
     font-size: 0.8rem;
@@ -76,7 +76,7 @@ const FooterContent = styled.div`
 const FooterLink = styled.a`
   color: ${colors.text.medium};
   text-decoration: none;
-  
+
   &:hover {
     color: ${colors.primary};
     text-decoration: underline;
@@ -90,9 +90,9 @@ const FooterDivider = styled.span`
 
 export default function Layout() {
   return (
-      <LayoutContainer>
-        <ContentContainer>
-          <Outlet />
+    <LayoutContainer>
+      <ContentContainer>
+        <Outlet />
       </ContentContainer>
       <Footer>
         <FooterContent>
@@ -111,5 +111,5 @@ export default function Layout() {
         </FooterContent>
       </Footer>
     </LayoutContainer>
-  )
+  );
 }
