@@ -284,25 +284,24 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
       if (userData.cat_tech && techLink) {
         logger.debug(`Adding user ${userDoc.id} to tech recipients`);
         
-        // Get customer name with fallback to phone number if name is not available
-        let customerName = userData.name;
-        if (!customerName || customerName.trim() === '') {
-          try {
-            logger.debug(`Name not available for user ${userDoc.id}, trying to get phone number from Auth`);
-            const authUser = await admin.auth().getUser(userDoc.id);
-            
-            if (authUser.phoneNumber) {
-              // Use phone number as fallback customer name
-              customerName = authUser.phoneNumber;
-              logger.debug(`Using phone number from Auth as customer name: ${customerName}`);
-            } else {
-              // Default fallback if neither name nor phone number is available
-              customerName = "고객님";
-              logger.debug(`No phone number found in Auth, using default name: ${customerName}`);
-            }
-          } catch (authError) {
-            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
-            customerName = "고객님"; // Default fallback
+        // Get customer name from Firebase Auth first, then fallback to Firestore
+        let customerName = "고객님"; // Default fallback
+        try {
+          logger.debug(`Fetching customer name from Auth for user ${userDoc.id}`);
+          const authUser = await admin.auth().getUser(userDoc.id);
+          
+          if (authUser.displayName && authUser.displayName.trim() !== '') {
+            customerName = authUser.displayName;
+            logger.debug(`Using displayName from Auth as customer name: ${customerName}`);
+          } else if (userData.name && userData.name.trim() !== '') {
+            customerName = userData.name;
+            logger.debug(`Using name from Firestore as fallback: ${customerName}`);
+          }
+        } catch (authError) {
+          logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          if (userData.name && userData.name.trim() !== '') {
+            customerName = userData.name;
+            logger.debug(`Using name from Firestore after Auth error: ${customerName}`);
           }
         }
         
@@ -312,35 +311,37 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
           "article-link": techLink.url
         };
         
-        // Format phone number for Kakao
-        let recipientNo = userDoc.id;
-        
-        // If userDoc.id doesn't start with "010", get phone number from Firebase Auth
-        if (!recipientNo.startsWith("010")) {
-          try {
-            logger.debug(`userDoc.id ${userDoc.id} doesn't start with 010, fetching from Auth`);
-            const authUser = await admin.auth().getUser(userDoc.id);
-            
-            if (authUser.phoneNumber) {
-              // Format phone number from auth (remove country code and any non-digits)
-              recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
-              logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
-            } else {
-              logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+        // Get phone number only from Firebase Auth
+        let recipientNo = "";
+        try {
+          logger.debug(`Fetching phone number from Auth for user ${userDoc.id}`);
+          const authUser = await admin.auth().getUser(userDoc.id);
+          
+          if (authUser.phoneNumber) {
+            // Format phone number from auth (remove country code and any non-digits)
+            recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
+          } else {
+            logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+            // Fallback to phone field in Firestore as last resort
+            if (userData.phone) {
+              recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+              logger.debug(`Using phone field from Firestore as fallback: ${recipientNo}`);
             }
-          } catch (authError) {
-            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          }
+        } catch (authError) {
+          logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          // Fallback to phone field in Firestore as last resort
+          if (userData.phone) {
+            recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Using phone field from Firestore as fallback after Auth error: ${recipientNo}`);
           }
         }
         
-        // Ensure phone number is in correct format
-        if (!recipientNo.startsWith("010") || recipientNo.length < 10) {
-          logger.warn(`Invalid phone number format for user ${userDoc.id}: ${recipientNo}`);
-          // Use phone field from user data as fallback
-          if (userData.phone) {
-            recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
-            logger.debug(`Using phone field from Firestore: ${recipientNo}`);
-          }
+        // Skip if we couldn't find a valid phone number
+        if (!recipientNo || !recipientNo.startsWith("010") || recipientNo.length < 10) {
+          logger.warn(`Could not find valid phone number for user ${userDoc.id}, skipping`);
+          continue;
         }
         
         // Add the articleId to the user's received_articles array
@@ -374,25 +375,24 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
       if (userData.cat_business && businessLink) {
         logger.debug(`Adding user ${userDoc.id} to business recipients`);
         
-        // Get customer name with fallback to phone number if name is not available
-        let customerName = userData.name;
-        if (!customerName || customerName.trim() === '') {
-          try {
-            logger.debug(`Name not available for user ${userDoc.id}, trying to get phone number from Auth`);
-            const authUser = await admin.auth().getUser(userDoc.id);
-            
-            if (authUser.phoneNumber) {
-              // Use phone number as fallback customer name
-              customerName = authUser.phoneNumber;
-              logger.debug(`Using phone number from Auth as customer name: ${customerName}`);
-            } else {
-              // Default fallback if neither name nor phone number is available
-              customerName = "고객님";
-              logger.debug(`No phone number found in Auth, using default name: ${customerName}`);
-            }
-          } catch (authError) {
-            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
-            customerName = "고객님"; // Default fallback
+        // Get customer name from Firebase Auth first, then fallback to Firestore
+        let customerName = "고객님"; // Default fallback
+        try {
+          logger.debug(`Fetching customer name from Auth for user ${userDoc.id}`);
+          const authUser = await admin.auth().getUser(userDoc.id);
+          
+          if (authUser.displayName && authUser.displayName.trim() !== '') {
+            customerName = authUser.displayName;
+            logger.debug(`Using displayName from Auth as customer name: ${customerName}`);
+          } else if (userData.name && userData.name.trim() !== '') {
+            customerName = userData.name;
+            logger.debug(`Using name from Firestore as fallback: ${customerName}`);
+          }
+        } catch (authError) {
+          logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          if (userData.name && userData.name.trim() !== '') {
+            customerName = userData.name;
+            logger.debug(`Using name from Firestore after Auth error: ${customerName}`);
           }
         }
         
@@ -402,35 +402,37 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
           "article-link": businessLink.url
         };
         
-        // Format phone number for Kakao
-        let recipientNo = userDoc.id;
-        
-        // If userDoc.id doesn't start with "010", get phone number from Firebase Auth
-        if (!recipientNo.startsWith("010")) {
-          try {
-            logger.debug(`userDoc.id ${userDoc.id} doesn't start with 010, fetching from Auth`);
-            const authUser = await admin.auth().getUser(userDoc.id);
-            
-            if (authUser.phoneNumber) {
-              // Format phone number from auth (remove country code and any non-digits)
-              recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
-              logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
-            } else {
-              logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+        // Get phone number only from Firebase Auth
+        let recipientNo = "";
+        try {
+          logger.debug(`Fetching phone number from Auth for user ${userDoc.id}`);
+          const authUser = await admin.auth().getUser(userDoc.id);
+          
+          if (authUser.phoneNumber) {
+            // Format phone number from auth (remove country code and any non-digits)
+            recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
+          } else {
+            logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+            // Fallback to phone field in Firestore as last resort
+            if (userData.phone) {
+              recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+              logger.debug(`Using phone field from Firestore as fallback: ${recipientNo}`);
             }
-          } catch (authError) {
-            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          }
+        } catch (authError) {
+          logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          // Fallback to phone field in Firestore as last resort
+          if (userData.phone) {
+            recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Using phone field from Firestore as fallback after Auth error: ${recipientNo}`);
           }
         }
         
-        // Ensure phone number is in correct format
-        if (!recipientNo.startsWith("010") || recipientNo.length < 10) {
-          logger.warn(`Invalid phone number format for user ${userDoc.id}: ${recipientNo}`);
-          // Use phone field from user data as fallback
-          if (userData.phone) {
-            recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
-            logger.debug(`Using phone field from Firestore: ${recipientNo}`);
-          }
+        // Skip if we couldn't find a valid phone number
+        if (!recipientNo || !recipientNo.startsWith("010") || recipientNo.length < 10) {
+          logger.warn(`Could not find valid phone number for user ${userDoc.id}, skipping`);
+          continue;
         }
         
         // Add the articleId to the user's received_articles array
@@ -454,57 +456,58 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
       if (userData.left_count === 1) {
         logger.debug(`Adding user ${userDoc.id} to expiry notifications as their left_count is 1`);
         
-        // Get customer name with fallback to phone number if name is not available
-        let customerName = userData.name;
-        if (!customerName || customerName.trim() === '') {
-          try {
-            logger.debug(`Name not available for user ${userDoc.id}, trying to get phone number from Auth`);
-            const authUser = await admin.auth().getUser(userDoc.id);
-            
-            if (authUser.phoneNumber) {
-              // Use phone number as fallback customer name
-              customerName = authUser.phoneNumber;
-              logger.debug(`Using phone number from Auth as customer name: ${customerName}`);
-            } else {
-              // Default fallback if neither name nor phone number is available
-              customerName = "고객님";
-              logger.debug(`No phone number found in Auth, using default name: ${customerName}`);
-            }
-          } catch (authError) {
-            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
-            customerName = "고객님"; // Default fallback
+        // Get customer name from Firebase Auth first, then fallback to Firestore
+        let customerName = "고객님"; // Default fallback
+        try {
+          logger.debug(`Fetching customer name from Auth for user ${userDoc.id}`);
+          const authUser = await admin.auth().getUser(userDoc.id);
+          
+          if (authUser.displayName && authUser.displayName.trim() !== '') {
+            customerName = authUser.displayName;
+            logger.debug(`Using displayName from Auth as customer name: ${customerName}`);
+          } else if (userData.name && userData.name.trim() !== '') {
+            customerName = userData.name;
+            logger.debug(`Using name from Firestore as fallback: ${customerName}`);
+          }
+        } catch (authError) {
+          logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          if (userData.name && userData.name.trim() !== '') {
+            customerName = userData.name;
+            logger.debug(`Using name from Firestore after Auth error: ${customerName}`);
           }
         }
         
-        // Format phone number for Kakao
-        let recipientNo = userDoc.id;
-        
-        // If userDoc.id doesn't start with "010", get phone number from Firebase Auth
-        if (!recipientNo.startsWith("010")) {
-          try {
-            logger.debug(`userDoc.id ${userDoc.id} doesn't start with 010, fetching from Auth`);
-            const authUser = await admin.auth().getUser(userDoc.id);
-            
-            if (authUser.phoneNumber) {
-              // Format phone number from auth (remove country code and any non-digits)
-              recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
-              logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
-            } else {
-              logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+        // Get phone number only from Firebase Auth
+        let recipientNo = "";
+        try {
+          logger.debug(`Fetching phone number from Auth for user ${userDoc.id}`);
+          const authUser = await admin.auth().getUser(userDoc.id);
+          
+          if (authUser.phoneNumber) {
+            // Format phone number from auth (remove country code and any non-digits)
+            recipientNo = authUser.phoneNumber.replace(/^\+82/, "0").replace(/\D/g, "");
+            logger.debug(`Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`);
+          } else {
+            logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+            // Fallback to phone field in Firestore as last resort
+            if (userData.phone) {
+              recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+              logger.debug(`Using phone field from Firestore as fallback: ${recipientNo}`);
             }
-          } catch (authError) {
-            logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
           }
-        }
-        
-        // Ensure phone number is in correct format
-        if (!recipientNo.startsWith("010") || recipientNo.length < 10) {
-          logger.warn(`Invalid phone number format for user ${userDoc.id}: ${recipientNo}`);
-          // Use phone field from user data as fallback
+        } catch (authError) {
+          logger.error(`Error fetching user from Auth for ${userDoc.id}:`, authError);
+          // Fallback to phone field in Firestore as last resort
           if (userData.phone) {
             recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
-            logger.debug(`Using phone field from Firestore: ${recipientNo}`);
+            logger.debug(`Using phone field from Firestore as fallback after Auth error: ${recipientNo}`);
           }
+        }
+        
+        // Skip if we couldn't find a valid phone number
+        if (!recipientNo || !recipientNo.startsWith("010") || recipientNo.length < 10) {
+          logger.warn(`Could not find valid phone number for user ${userDoc.id}, skipping`);
+          continue;
         }
         
         expiryNotifications.push({
@@ -675,3 +678,44 @@ async function sendKakaoMessages(recipientList: any[], templateCode: string) {
     throw error;
   }
 }
+
+// New function to retrieve display names from Firebase Auth
+export const getUserDisplayNames = onCall(async (request) => {
+  try {
+    const { userIds } = request.data;
+    
+    if (!userIds || !Array.isArray(userIds)) {
+      throw new Error('Invalid or missing userIds parameter');
+    }
+    
+    logger.info(`Retrieving display names for ${userIds.length} users`);
+    
+    const displayNames: Record<string, string> = {};
+    const phoneNumbers: Record<string, string> = {};
+    
+    // Process users in batches of 10 to avoid rate limiting
+    const batchSize = 10;
+    for (let i = 0; i < userIds.length; i += batchSize) {
+      const batch = userIds.slice(i, i + batchSize);
+      const promises = batch.map(async (userId: string) => {
+        try {
+          const userRecord = await admin.auth().getUser(userId);
+          displayNames[userId] = userRecord.displayName || '';
+          phoneNumbers[userId] = userRecord.phoneNumber || '';
+        } catch (error) {
+          logger.error(`Error retrieving user ${userId}: ${error}`);
+          displayNames[userId] = '';
+          phoneNumbers[userId] = '';
+        }
+      });
+      
+      await Promise.all(promises);
+    }
+    
+    logger.info(`Successfully retrieved ${Object.keys(displayNames).length} user records`);
+    return { displayNames, phoneNumbers };
+  } catch (error) {
+    logger.error(`Error in getUserDisplayNames: ${error}`);
+    throw new Error(`Failed to retrieve user data: ${error}`);
+  }
+});

@@ -11,10 +11,11 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
-  gap: 20px;
-  padding: 0 20px;
+  justify-content: flex-start;
+  min-height: 100vh;
+  gap: 10px; // Narrowed gap between tiles
+  padding: 20px;
+  overflow-y: auto;
 `;
 
 const AvatarUpload = styled.label`
@@ -34,6 +35,7 @@ const AvatarUpload = styled.label`
 
 const AvatarImg = styled.img`
   width: 100%;
+  height: 100%;
   object-fit: cover;
 `;
 
@@ -88,13 +90,24 @@ const CheckmarkIcon = styled.span`
 `;
 
 const UserInfoCard = styled.div`
-  background-color: #f5f5f5;
+  background-color: #fffdff; // Brighter with just a hint of yellow
   border-radius: 8px;
   padding: 20px;
   width: 100%;
   max-width: 400px;
-  margin: 20px 0;
+  margin: 10px 0; // Reduced margin to narrow the gap
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+// Creating a ProfileCard for user info
+const ProfileCard = styled(UserInfoCard)`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+// Words Card for saved words
+const WordsCard = styled(UserInfoCard)`
 `;
 
 const InfoRow = styled.div`
@@ -138,7 +151,7 @@ const CategoryIcon = styled.span<{ active: boolean }>`
 `;
 
 const LogoutButton = styled.button`
-  background-color: #f44336;
+  background-color: #999; // Grayer color as requested
   color: white;
   padding: 10px 20px;
   border: none;
@@ -146,20 +159,16 @@ const LogoutButton = styled.button`
   cursor: pointer;
   font-size: 16px;
   margin-top: 10px;
+  width: 100%; // Same width as cards
+  max-width: 400px; // Match card width
   
   &:hover {
-    background-color: #d32f2f;
+    background-color: #777;
   }
 `;
 
 // Enhanced article list styles
-const ArticlesSection = styled.div`
-  width: 100%;
-  max-width: 400px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+const ArticlesSection = styled(UserInfoCard)`
 `;
 
 const SectionTitle = styled.h3`
@@ -207,6 +216,34 @@ const ArticleDate = styled.div`
   color: #777;
 `;
 
+const WordItem = styled.div`
+  padding: 8px 12px;
+  margin: 6px 0;
+  border-radius: 4px;
+  background-color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  }
+`;
+
+const WordsList = styled.div`
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 15px;
+`;
+
+const PhoneNumber = styled.p`
+  margin-top: 8px;
+  font-size: 16px;
+  color: #555;
+`;
+
 interface UserData {
   cat_business: boolean;
   cat_tech: boolean;
@@ -252,6 +289,12 @@ export default function Profile() {
             saved_words: data.saved_words || [],
             createdAt: data.createdAt?.toDate() || new Date(),
           });
+          
+          // Also update avatar from user object to ensure it's current
+          if (user.photoURL) {
+            setAvatar(user.photoURL);
+            setAvatarTimestamp(Date.now());
+          }
           
           // Fetch article titles for received articles
           if (data.received_articles && data.received_articles.length > 0) {
@@ -317,19 +360,26 @@ export default function Profile() {
       
       try {
         setError("Uploading image...");
-        const result = await uploadBytes(locationRef, file);
+        
+        // Convert image to smaller size before uploading
+        const resizedFile = await resizeImage(file, 300, 300);
+        
+        const result = await uploadBytes(locationRef, resizedFile || file);
         console.log("Upload successful, getting download URL");
         
         const avatarUrl = await getDownloadURL(result.ref);
         console.log("Download URL received:", avatarUrl);
         
+        // Update the profile first, then update local state
+        await updateProfile(user, {
+          photoURL: avatarUrl,
+        });
+        
+        // Force a reload to ensure avatar URL is properly updated with timestamp
         setAvatar(avatarUrl);
         setAvatarTimestamp(Date.now());
         setError("Profile photo updated successfully!");
         
-        await updateProfile(user, {
-          photoURL: avatarUrl,
-        });
         console.log("User profile updated successfully");
       } catch (error) {
         console.error("Error uploading avatar:", error);
@@ -338,6 +388,65 @@ export default function Profile() {
         );
       }
     }
+  };
+  
+  // Helper function to resize image before upload
+  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<File | null> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (readerEvent) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert canvas to file
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              resolve(null);
+              return;
+            }
+            const resizedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(resizedFile);
+          }, file.type, 0.7);
+        };
+        
+        if (readerEvent.target?.result) {
+          img.src = readerEvent.target.result as string;
+        } else {
+          resolve(null);
+        }
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleLogout = async () => {
@@ -386,42 +495,42 @@ export default function Profile() {
     return <Wrapper>Loading user data...</Wrapper>;
   }
 
-  return (
-    <Wrapper>
-      <AvatarUpload htmlFor="avatar">
-        <AvatarImg 
-          src={`${avatar as string}?t=${avatarTimestamp}`}
-          key={`${avatar}?t=${avatarTimestamp}`}
-        />
-      </AvatarUpload>
-      <AvatarInput
-        type="file"
-        accept="image/*"
-        id="avatar"
-        onChange={onAvatarChange}
-      />
-      
-      {isEditingName ? (
-        <NameEditContainer>
-          <NameInput
-            type="text"
-            value={displayName}
-            onChange={handleNameChange}
-            placeholder="Enter your name"
-            autoFocus
-            onKeyPress={handleKeyPress}
-          />
-          <CheckmarkIcon onClick={saveDisplayName}>✓</CheckmarkIcon>
-        </NameEditContainer>
-      ) : (
-        <Name onClick={() => setIsEditingName(true)}>
-          {user?.displayName ? user.displayName : "유저명을 정해주세요"}
-        </Name>
-      )}
-      
-      <p>{user?.phoneNumber}</p>
-
-      {userData && (
+  // Reorder components with vocabulary tile at the end
+  const renderContent = () => {
+    if (!userData) return null;
+    
+    return (
+      <>
+        <ProfileCard>
+          <AvatarUpload htmlFor="avatar">
+            <AvatarImg 
+              src={`${avatar}?t=${avatarTimestamp}`}
+              key={avatarTimestamp}
+              alt="Profile"
+            />
+          </AvatarUpload>
+          
+          {isEditingName ? (
+            <NameEditContainer>
+              <NameInput
+                type="text"
+                value={displayName}
+                onChange={handleNameChange}
+                placeholder="Enter your name"
+                autoFocus
+                onKeyPress={handleKeyPress}
+              />
+              <CheckmarkIcon onClick={saveDisplayName}>✓</CheckmarkIcon>
+            </NameEditContainer>
+          ) : (
+            <Name onClick={() => setIsEditingName(true)}>
+              {user?.displayName ? user.displayName : "유저명을 정해주세요"}
+            </Name>
+          )}
+          
+          <PhoneNumber>{user?.phoneNumber || "No phone number"}</PhoneNumber>
+        </ProfileCard>
+        
         <UserInfoCard>
           <InfoRow>
             <InfoLabel>Articles Remaining:</InfoLabel>
@@ -436,12 +545,6 @@ export default function Profile() {
                 : userData.last_received.toLocaleDateString()}
             </InfoValue>
           </InfoRow>
-          
-          <InfoRow>
-            <InfoLabel>Saved Words:</InfoLabel>
-            <InfoValue>{userData.saved_words.length}</InfoValue>
-          </InfoRow>
-          
           
           <InfoRow>
             <InfoLabel>Member Since:</InfoLabel>
@@ -466,28 +569,55 @@ export default function Profile() {
             <CategoryLabel>Business</CategoryLabel>
           </CategoryDisplay>
         </UserInfoCard>
-      )}
+        
+        {userData.received_articles.length > 0 && (
+          <ArticlesSection>
+            <SectionTitle>Your Articles</SectionTitle>
+            <ArticlesList>
+              {receivedArticles.map((article) => (
+                <ArticleItem 
+                  key={article.id} 
+                  onClick={() => navigateToArticle(article.id)}
+                >
+                  <ArticleTitle>
+                    {article.title || `Article ${article.id}`}
+                  </ArticleTitle>
+                  <ArticleDate>
+                    {article.date ? article.date.toLocaleDateString() : 'No date available'}
+                  </ArticleDate>
+                </ArticleItem>
+              ))}
+            </ArticlesList>
+          </ArticlesSection>
+        )}
+        
+        {/* Moved vocab tile to the end as requested */}
+        {userData.saved_words.length > 0 && (
+          <WordsCard>
+            <SectionTitle>Saved Words</SectionTitle>
+            <WordsList>
+              {userData.saved_words.map((word, index) => (
+                <WordItem key={index}>
+                  <span>{word}</span>
+                </WordItem>
+              ))}
+            </WordsList>
+          </WordsCard>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <Wrapper>
+      <AvatarInput
+        type="file"
+        accept="image/*"
+        id="avatar"
+        onChange={onAvatarChange}
+      />
       
-      {userData && userData.received_articles.length > 0 && (
-        <ArticlesSection>
-          <SectionTitle>Your Articles</SectionTitle>
-          <ArticlesList>
-            {receivedArticles.map((article) => (
-              <ArticleItem 
-                key={article.id} 
-                onClick={() => navigateToArticle(article.id)}
-              >
-                <ArticleTitle>
-                  {article.title || `Article ${article.id}`}
-                </ArticleTitle>
-                <ArticleDate>
-                  {article.date ? article.date.toLocaleDateString() : 'No date available'}
-                </ArticleDate>
-              </ArticleItem>
-            ))}
-          </ArticlesList>
-        </ArticlesSection>
-      )}
+      {renderContent()}
 
       <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
 

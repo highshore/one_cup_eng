@@ -15,6 +15,7 @@ import { auth } from "./firebase";
 import AuthLayout from "./components/auth_components.tsx";
 import Policy from './routes/policy';
 import ProtectedRoute from "./components/protected_route.tsx";
+import AuthProvider from "./contexts/AuthContext";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -149,7 +150,7 @@ function App() {
     init();
   }, []);
   return (
-    <>
+    <AuthProvider>
       <GlobalStyles />
       {isLoading ? (
         <Wrapper>
@@ -158,7 +159,7 @@ function App() {
       ) : (
         <RouterProvider router={router} />
       )}
-    </>
+    </AuthProvider>
   );
 }
 

@@ -2,14 +2,15 @@ import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { auth, db } from '../firebase';
-import { collection, getDocs, Timestamp } from "firebase/firestore";
+import { collection, getDocs, Timestamp, doc, updateDoc } from "firebase/firestore";
 import { Navigate, useNavigate } from "react-router-dom";
 
 const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   padding: 20px;
-  max-width: 1000px;
+  max-width: 1200px;
+  min-width: 1200px;
   margin: 0 auto;
 `;
 
@@ -128,6 +129,72 @@ const CardContent = styled.div`
   color: #555;
 `;
 
+const EditButton = styled.button`
+  background-color: #2196F3;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+  
+  &:hover {
+    background-color: #0b7dda;
+  }
+`;
+
+const SaveButton = styled.button`
+  background-color: #4caf50;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 10px;
+`;
+
+const CancelButton = styled.button`
+  background-color: #f44336;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+`;
+
+const Input = styled.input`
+  padding: 8px;
+  margin: 5px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+`;
+
+const Checkbox = styled.div`
+  display: flex;
+  align-items: center;
+  margin: 5px 0;
+  
+  input {
+    margin-right: 8px;
+  }
+`;
+
+const EditForm = styled.div`
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+`;
+
+const CardActions = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+`;
+
 interface ArticleData {
   id: string;
   title?: {
@@ -145,16 +212,27 @@ interface ArticleData {
 interface UserData {
   id: string;
   name?: string;
-  displayName?: string;
+  display_name?: string;
   email?: string;
   left_count?: number;
   cat_tech?: boolean;
   cat_business?: boolean;
+  phone?: string;
+  last_received?: Timestamp;
+  received_articles?: string[];
+}
+
+interface EditingUser {
+  id: string;
+  name: string;
+  left_count: number;
+  cat_tech: boolean;
+  cat_business: boolean;
 }
 
 export default function Admin() {
   const user = auth.currentUser;
-  if (user?.phoneNumber !== "+821068584123") {
+  if (user?.phoneNumber !== "+821068584123" && user?.phoneNumber !== "+821045340406") {
     return <Navigate to="/profile" />;
   }
   const navigate = useNavigate();
@@ -166,6 +244,11 @@ export default function Admin() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [fetchingArticles, setFetchingArticles] = useState(false);
   const [fetchingUsers, setFetchingUsers] = useState(false);
+  const [displayNames, setDisplayNames] = useState<Record<string, string>>({});
+  const [phoneNumbers, setPhoneNumbers] = useState<Record<string, string>>({});
+  const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
+  const [savingUser, setSavingUser] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab === 'articles' && articles.length === 0) {
@@ -210,11 +293,33 @@ export default function Admin() {
         id: doc.id,
         ...doc.data()
       })) as UserData[];
+      
       setUsers(usersList);
+      
+      // After fetching users, get their display names from Firebase Auth
+      await fetchDisplayNames(usersList.map(user => user.id));
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
       setFetchingUsers(false);
+    }
+  };
+  
+  const fetchDisplayNames = async (userIds: string[]) => {
+    try {
+      const functions = getFunctions();
+      const getUserDisplayNames = httpsCallable(functions, 'getUserDisplayNames');
+      
+      const response = await getUserDisplayNames({ userIds });
+      const result = response.data as { 
+        displayNames: Record<string, string>,
+        phoneNumbers: Record<string, string>
+      };
+      
+      setDisplayNames(result.displayNames);
+      setPhoneNumbers(result.phoneNumbers);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
     }
   };
 
@@ -239,6 +344,81 @@ export default function Admin() {
     }
   };
 
+  const handleEditUser = (user: UserData) => {
+    setEditingUser({
+      id: user.id,
+      name: user.name || '',
+      left_count: user.left_count || 0,
+      cat_tech: user.cat_tech || false,
+      cat_business: user.cat_business || false
+    });
+    setEditError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUser(null);
+    setEditError(null);
+  };
+
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+    
+    setSavingUser(true);
+    setEditError(null);
+    
+    try {
+      const userRef = doc(db, 'users', editingUser.id);
+      
+      await updateDoc(userRef, {
+        name: editingUser.name,
+        left_count: editingUser.left_count,
+        cat_tech: editingUser.cat_tech,
+        cat_business: editingUser.cat_business
+      });
+      
+      // Update the user in state
+      setUsers(users.map(user => 
+        user.id === editingUser.id 
+          ? { ...user, ...editingUser } 
+          : user
+      ));
+      
+      setEditingUser(null);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      setEditError("Failed to update user. Please try again.");
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editingUser) return;
+    
+    const { name, value, type, checked } = e.target;
+    
+    setEditingUser(prev => {
+      if (!prev) return prev;
+      
+      if (type === 'checkbox') {
+        return {
+          ...prev,
+          [name]: checked
+        };
+      } else if (type === 'number') {
+        return {
+          ...prev,
+          [name]: parseInt(value, 10)
+        };
+      } else {
+        return {
+          ...prev,
+          [name]: value
+        };
+      }
+    });
+  };
+
   const renderArticleCard = (article: ArticleData) => {
     const handleArticleClick = () => {
       navigate(`/article/${article.id}`);
@@ -257,14 +437,100 @@ export default function Admin() {
   };
 
   const renderUserCard = (user: UserData) => {
+    const authDisplayName = displayNames[user.id] || '';
+    const phoneNumber = phoneNumbers[user.id] || '';
+    const isEditing = editingUser?.id === user.id;
+    
     return (
       <Card key={user.id}>
-        <CardTitle>{user.name || user.displayName || user.email || 'Unknown User'}</CardTitle>
+        <CardTitle>{authDisplayName || user.display_name || 'Unnamed User'}</CardTitle>
         <CardContent>
           <p><strong>ID:</strong> {user.id}</p>
-          <p><strong>Left Count:</strong> {user.left_count !== undefined ? user.left_count : 'N/A'}</p>
-          {user.cat_tech && <p>Tech category</p>}
-          {user.cat_business && <p>Business category</p>}
+          {phoneNumber && <p><strong>Phone:</strong> {phoneNumber}</p>}
+          {user.phone && <p><strong>Firestore Phone:</strong> {user.phone}</p>}
+          {user.email && <p><strong>Email:</strong> {user.email}</p>}
+          
+          {!isEditing ? (
+            <>
+              <p><strong>Name:</strong> {user.name || 'N/A'}</p>
+              <p><strong>Left Count:</strong> {user.left_count !== undefined ? user.left_count : 'N/A'}</p>
+              {user.cat_tech && <p><strong>Category:</strong> Tech</p>}
+              {user.cat_business && <p><strong>Category:</strong> Business</p>}
+              {user.last_received && (
+                <p><strong>Last Received:</strong> {user.last_received.toDate().toLocaleString()}</p>
+              )}
+              {user.received_articles && user.received_articles.length > 0 && (
+                <p><strong>Received Articles:</strong> {user.received_articles.length}</p>
+              )}
+              
+              <EditButton onClick={() => handleEditUser(user)}>
+                Edit User
+              </EditButton>
+            </>
+          ) : (
+            <EditForm>
+              <div>
+                <label>Name:</label>
+                <Input 
+                  type="text"
+                  name="name"
+                  value={editingUser.name}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div>
+                <label>Left Count:</label>
+                <Input 
+                  type="number"
+                  name="left_count"
+                  value={editingUser.left_count}
+                  onChange={handleInputChange}
+                  min="0"
+                />
+              </div>
+              
+              <Checkbox>
+                <input 
+                  type="checkbox"
+                  name="cat_tech"
+                  checked={editingUser.cat_tech}
+                  onChange={handleInputChange}
+                  id="cat_tech"
+                />
+                <label htmlFor="cat_tech">Tech Category</label>
+              </Checkbox>
+              
+              <Checkbox>
+                <input 
+                  type="checkbox"
+                  name="cat_business"
+                  checked={editingUser.cat_business}
+                  onChange={handleInputChange}
+                  id="cat_business"
+                />
+                <label htmlFor="cat_business">Business Category</label>
+              </Checkbox>
+              
+              {editError && <p style={{ color: 'red' }}>{editError}</p>}
+              
+              <CardActions>
+                <SaveButton 
+                  onClick={handleSaveUser}
+                  disabled={savingUser}
+                >
+                  {savingUser ? 'Saving...' : 'Save'}
+                </SaveButton>
+                
+                <CancelButton 
+                  onClick={handleCancelEdit}
+                  disabled={savingUser}
+                >
+                  Cancel
+                </CancelButton>
+              </CardActions>
+            </EditForm>
+          )}
         </CardContent>
       </Card>
     );
@@ -295,83 +561,86 @@ export default function Admin() {
         </Tab>
       </TabContainer>
       
-      {/* Links Tab Content */}
-      {activeTab === 'links' && (
-        <>
-          <Button 
-            onClick={handleSendLinks} 
-            disabled={isLoading}
-          >
-            {isLoading ? "Sending..." : "Test Send Links to Users"}
-          </Button>
-          
-          {result && (
-            <ResultContainer>
-              <ResultTitle>Function Result:</ResultTitle>
-              <pre>{JSON.stringify(result, null, 2)}</pre>
-              
-              <StatusBox status={status}>
-                {status === "success" ? "Successfully sent messages!" : 
-                 status === "error" ? "Error sending messages" : ""}
-              </StatusBox>
-              
-              {status === "success" && result.stats && (
-                <div>
-                  <p>Tech recipients: {result.stats.techCount}</p>
-                  <p>Business recipients: {result.stats.businessCount}</p>
-                  <p>Expiry notifications: {result.stats.expiryCount}</p>
-                </div>
-              )}
-            </ResultContainer>
-          )}
-        </>
-      )}
-      
-      {/* Articles Tab Content */}
-      {activeTab === 'articles' && (
-        <>
-          <Button 
-            onClick={fetchArticles} 
-            disabled={fetchingArticles}
-          >
-            {fetchingArticles ? "Loading..." : "Refresh Articles"}
-          </Button>
-          
-          {fetchingArticles ? (
-            <p>Loading articles...</p>
-          ) : (
-            <>
-              <ResultTitle>Articles ({articles.length})</ResultTitle>
-              <ArticleList>
-                {articles.map(renderArticleCard)}
-              </ArticleList>
-            </>
-          )}
-        </>
-      )}
-      
-      {/* Users Tab Content */}
-      {activeTab === 'users' && (
-        <>
-          <Button 
-            onClick={fetchUsers} 
-            disabled={fetchingUsers}
-          >
-            {fetchingUsers ? "Loading..." : "Refresh Users"}
-          </Button>
-          
-          {fetchingUsers ? (
-            <p>Loading users...</p>
-          ) : (
-            <>
-              <ResultTitle>Users ({users.length})</ResultTitle>
-              <CardContainer>
-                {users.map(renderUserCard)}
-              </CardContainer>
-            </>
-          )}
-        </>
-      )}
+      {/* Each tab content should have consistent width */}
+      <div style={{ width: '100%' }}>
+        {/* Links Tab Content */}
+        {activeTab === 'links' && (
+          <>
+            <Button 
+              onClick={handleSendLinks} 
+              disabled={isLoading}
+            >
+              {isLoading ? "Sending..." : "Test Send Links to Users"}
+            </Button>
+            
+            {result && (
+              <ResultContainer>
+                <ResultTitle>Function Result:</ResultTitle>
+                <pre>{JSON.stringify(result, null, 2)}</pre>
+                
+                <StatusBox status={status}>
+                  {status === "success" ? "Successfully sent messages!" : 
+                   status === "error" ? "Error sending messages" : ""}
+                </StatusBox>
+                
+                {status === "success" && result.stats && (
+                  <div>
+                    <p>Tech recipients: {result.stats.techCount}</p>
+                    <p>Business recipients: {result.stats.businessCount}</p>
+                    <p>Expiry notifications: {result.stats.expiryCount}</p>
+                  </div>
+                )}
+              </ResultContainer>
+            )}
+          </>
+        )}
+        
+        {/* Articles Tab Content */}
+        {activeTab === 'articles' && (
+          <>
+            <Button 
+              onClick={fetchArticles} 
+              disabled={fetchingArticles}
+            >
+              {fetchingArticles ? "Loading..." : "Refresh Articles"}
+            </Button>
+            
+            {fetchingArticles ? (
+              <p>Loading articles...</p>
+            ) : (
+              <>
+                <ResultTitle>Articles ({articles.length})</ResultTitle>
+                <ArticleList>
+                  {articles.map(renderArticleCard)}
+                </ArticleList>
+              </>
+            )}
+          </>
+        )}
+        
+        {/* Users Tab Content */}
+        {activeTab === 'users' && (
+          <>
+            <Button 
+              onClick={fetchUsers} 
+              disabled={fetchingUsers}
+            >
+              {fetchingUsers ? "Loading..." : "Refresh Users"}
+            </Button>
+            
+            {fetchingUsers ? (
+              <p>Loading users...</p>
+            ) : (
+              <>
+                <ResultTitle>Users ({users.length})</ResultTitle>
+                <CardContainer>
+                  {users.map(renderUserCard)}
+                </CardContainer>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </Wrapper>
   );
 } 
