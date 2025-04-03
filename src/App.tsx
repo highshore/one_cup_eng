@@ -13,9 +13,10 @@ import LoadingScreen from "./components/loading_screen";
 import { auth } from "./firebase";
 // import ProtectedRoute from "./components/protected_route";
 import AuthLayout from "./components/auth_components.tsx";
-import Policy from './routes/policy';
+import Policy from "./routes/policy";
 import ProtectedRoute from "./components/protected_route.tsx";
 import AuthProvider from "./contexts/AuthContext";
+import Payment from "./routes/payment.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -23,32 +24,31 @@ const router = createBrowserRouter([
     path: "/",
     element: (
       <ProtectedRoute>
-<Layout />
-</ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
     ),
     children: [
-
-      { 
-        path: "profile", 
-        element: <Profile /> 
+      {
+        path: "profile",
+        element: <Profile />,
       },
       {
         path: "article/:articleId",
-        element: <Article />
+        element: <Article />,
       },
       {
         path: "admin",
-        element: <Admin />
+        element: <Admin />,
       },
       {
         path: "policy/:type",
-        element: <Policy />
+        element: <Policy />,
       },
     ],
   },
-  { 
+  {
     path: "",
-    element: <Home /> 
+    element: <Home />,
   },
   {
     path: "/auth",
@@ -57,6 +57,16 @@ const router = createBrowserRouter([
         <Auth />
       </AuthLayout>
     ),
+  },
+  {
+    path: "/payment",
+    element: <Layout />,
+    children: [
+      {
+        path: "",
+        element: <Payment />,
+      },
+    ],
   },
 ]);
 
@@ -131,7 +141,7 @@ const Wrapper = styled.div`
   width: 420px;
   padding: 50px 0px;
   margin: 0 auto;
-  
+
   @media (max-width: 768px) {
     width: 90%;
     max-width: 420px;
