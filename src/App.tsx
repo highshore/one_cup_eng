@@ -22,6 +22,10 @@ import Payment from "./routes/payment.tsx";
 const router = createBrowserRouter([
   {
     path: "/",
+    element: <Home />,
+  },
+  {
+    path: "/",
     element: (
       <ProtectedRoute>
         <Layout />
@@ -45,10 +49,6 @@ const router = createBrowserRouter([
         element: <Policy />,
       },
     ],
-  },
-  {
-    path: "",
-    element: <Home />,
   },
   {
     path: "/auth",
