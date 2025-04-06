@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import styled from "styled-components";
+import GNB from "./gnb";
 
 const colors = {
   primary: "#2C1810",
@@ -30,16 +31,6 @@ const LayoutContainer = styled.div`
     min-height: -webkit-fill-available;
     width: 100vw;
   }
-
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(to right, ${colors.primary}, ${colors.accent});
-  }
 `;
 
 // This ContentContainer helps ensure proper scaling on mobile
@@ -49,6 +40,7 @@ const ContentContainer = styled.div`
   position: relative;
   display: flex;
   flex-direction: column;
+  margin-top: 70px; /* Add space for the fixed navbar */
 `;
 
 const Footer = styled.footer`
@@ -91,6 +83,7 @@ const FooterDivider = styled.span`
 export default function Layout() {
   return (
     <LayoutContainer>
+      <GNB />
       <ContentContainer>
         <Outlet />
       </ContentContainer>

@@ -19,6 +19,13 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// IMPORTANT: For the new domain 1cupenglish.com to work with Firebase Auth and reCAPTCHA
+// You MUST add it as an Authorized Domain in the Firebase Console:
+// 1. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains
+// 2. Add 1cupenglish.com to the list
+// 3. Also make sure 1cupenglish.com is added in the reCAPTCHA settings in Google Cloud Console
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);

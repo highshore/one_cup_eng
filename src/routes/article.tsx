@@ -1,9 +1,18 @@
-import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import styled from 'styled-components';
-import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "react-router-dom";
+import {
+  doc,
+  getDoc,
+  Timestamp,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  setDoc,
+} from "firebase/firestore";
+import { db } from "../firebase";
+import styled from "styled-components";
+import { useAuth } from "../contexts/AuthContext";
+import GNB from "../components/gnb";
 
 interface ArticleData {
   content: {
@@ -38,36 +47,40 @@ interface WordData {
 
 // Color palette based on #2C1810 (Rich coffee brown)
 const colors = {
-  primary: '#2C1810',
-  primaryLight: '#4A2F23',
-  primaryDark: '#1A0F0A',
-  primaryPale: '#F5EBE6',
-  primaryBg: '#FDF9F6',
-  accent: '#C8A27A',
+  primary: "#2C1810",
+  primaryLight: "#4A2F23",
+  primaryDark: "#1A0F0A",
+  primaryPale: "#F5EBE6",
+  primaryBg: "#FDF9F6",
+  accent: "#C8A27A",
   text: {
-    dark: '#2C1810',
-    medium: '#4A2F23',
-    light: '#8B6B4F'
-  }
+    dark: "#2C1810",
+    medium: "#4A2F23",
+    light: "#8B6B4F",
+  },
 };
 
 const ArticleContainer = styled.div`
   max-width: 800px;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 1rem 1.5rem;
   min-height: 100vh;
-  font-family: 'Avenir', 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  font-family: "Avenir", "Avenir Next", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Roboto", "Oxygen", "Ubuntu", sans-serif;
   position: relative;
-  
+  padding-top: 90px; /* Add space for the fixed GNB */
+
   @media (max-width: 768px) {
     padding: 1.5rem 1rem;
+    padding-top: 80px; /* Adjust for smaller mobile navbar */
     width: 100%;
     min-height: auto; /* Fix for mobile height issues */
     overflow-x: hidden;
   }
-  
+
   @media (max-width: 480px) {
     padding: 1.2rem 0.8rem;
+    padding-top: 70px; /* Further adjust for very small screens */
   }
 `;
 
@@ -78,13 +91,14 @@ const Title = styled.h1`
   font-weight: 700;
   line-height: 1.2;
   cursor: pointer;
-  font-family: 'Avenir', 'Avenir Next', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  
+  font-family: "Avenir", "Avenir Next", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+
   @media (max-width: 768px) {
     font-size: 1.8rem;
     margin: 1.5rem 0 0 0;
   }
-  
+
   &:hover {
     color: ${colors.primary};
   }
@@ -96,12 +110,12 @@ const Subtitle = styled.h2<{ isVisible: boolean }>`
   color: ${colors.text.medium};
   font-weight: 500;
   line-height: 1.3;
-  max-height: ${props => props.isVisible ? '200px' : '0'};
+  max-height: ${(props) => (props.isVisible ? "200px" : "0")};
   overflow: hidden;
-  opacity: ${props => props.isVisible ? 1 : 0};
+  opacity: ${(props) => (props.isVisible ? 1 : 0)};
   transition: all 0.3s ease;
-  margin-top: ${props => props.isVisible ? '0.5rem' : '0'};
-  
+  margin-top: ${(props) => (props.isVisible ? "0.5rem" : "0")};
+
   @media (max-width: 768px) {
     font-size: 1.5rem;
     margin-bottom: 1.5rem;
@@ -109,7 +123,11 @@ const Subtitle = styled.h2<{ isVisible: boolean }>`
 `;
 
 const CalloutBox = styled.div`
-  background: linear-gradient(135deg, ${colors.primaryPale} 0%, ${colors.primaryBg} 100%);
+  background: linear-gradient(
+    135deg,
+    ${colors.primaryPale} 0%,
+    ${colors.primaryBg} 100%
+  );
   padding: 1.2rem 1.5rem;
   border-radius: 20px;
   margin-bottom: 2rem;
@@ -121,26 +139,27 @@ const CalloutBox = styled.div`
   gap: 0.8rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
-  
+  line-height: 1.5;
+
   @media (max-width: 768px) {
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
   }
-  
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
   }
-  
+
   &::before {
-    content: '✨';
+    content: "✨";
     font-size: 1.4rem;
     padding: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
     background-color: transparent;
-    
+
     @media (max-width: 768px) {
       font-size: 1.2rem;
       padding: 0.4rem;
@@ -159,12 +178,12 @@ const ReadingTime = styled.div`
   border-radius: 20px;
   height: 2.2rem;
   box-sizing: border-box;
-  
+
   &::before {
-    content: '⏱';
+    content: "⏱";
     font-size: 1.1rem;
   }
-  
+
   @media (max-width: 768px) {
     font-size: 0.85rem;
     padding: 0.4rem 0.8rem;
@@ -179,7 +198,7 @@ const SectionTitle = styled.h3`
   font-weight: 600;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid ${colors.primaryPale};
-  
+
   @media (max-width: 768px) {
     font-size: 1.5rem;
     margin-bottom: 1.2rem;
@@ -198,12 +217,12 @@ const Paragraph = styled.p`
   color: ${colors.text.dark};
   font-weight: 400;
   cursor: pointer;
-  
+
   @media (max-width: 768px) {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     line-height: 1.7;
   }
-  
+
   &:hover {
     color: ${colors.primary};
   }
@@ -212,19 +231,19 @@ const Paragraph = styled.p`
 const KoreanParagraph = styled.p<{ isVisible: boolean }>`
   font-size: 1.1rem;
   line-height: 1.8;
-  margin-bottom: ${props => props.isVisible ? '1rem' : '0'};
+  margin-bottom: ${(props) => (props.isVisible ? "1rem" : "0")};
   color: ${colors.text.dark};
   font-weight: 400;
   background: ${colors.primaryPale};
   padding: 1.2rem;
   border-radius: 8px;
-  max-height: ${props => props.isVisible ? '500px' : '0'};
-  opacity: ${props => props.isVisible ? 1 : 0};
+  max-height: ${(props) => (props.isVisible ? "500px" : "0")};
+  opacity: ${(props) => (props.isVisible ? 1 : 0)};
   overflow: hidden;
   transition: all 0.3s ease;
-  margin-top: ${props => props.isVisible ? '0.4rem' : '0'};
+  margin-top: ${(props) => (props.isVisible ? "0.4rem" : "0")};
   border-left: 3px solid ${colors.accent};
-  
+
   @media (max-width: 768px) {
     font-size: 1rem;
     line-height: 1.7;
@@ -280,7 +299,7 @@ const KeywordsSlider = styled.div`
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  
+
   @media (max-width: 768px) {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch; /* for smoother scrolling on iOS */
@@ -289,14 +308,14 @@ const KeywordsSlider = styled.div`
       display: none; /* Chrome, Safari and Opera */
     }
   }
-  
+
   &:active {
     cursor: grabbing;
   }
-  
+
   /* Add extra space at the end to ensure last cards are fully visible */
   &::after {
-    content: '';
+    content: "";
     flex: 0 0 20px;
   }
 `;
@@ -313,16 +332,16 @@ const KeywordCard = styled.div`
   border-left: 3px solid ${colors.accent};
   box-sizing: border-box;
   cursor: pointer;
-  
+
   @media (max-width: 768px) {
     flex: 0 0 230px;
     padding: 1rem;
   }
-  
+
   &:first-child {
     margin-left: 0;
   }
-  
+
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
@@ -385,18 +404,18 @@ const SliderButton = styled.button`
   cursor: pointer;
   z-index: 20;
   transition: all 0.2s ease;
-  
+
   @media (max-width: 768px) {
     width: 32px;
     height: 32px;
   }
-  
+
   &:hover {
     background: white;
     color: ${colors.primaryLight};
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
   }
-  
+
   &:disabled {
     color: ${colors.text.light};
     border-color: #e0e0e0;
@@ -406,13 +425,13 @@ const SliderButton = styled.button`
 
 const NextButton = styled(SliderButton)`
   right: -18px;
-  
+
   @media (max-width: 768px) {
     right: -16px;
   }
-  
+
   &::after {
-    content: '›';
+    content: "›";
     font-size: 1.5rem;
     line-height: 1;
     font-weight: 300;
@@ -421,13 +440,13 @@ const NextButton = styled(SliderButton)`
 
 const PrevButton = styled(SliderButton)`
   left: -18px;
-  
+
   @media (max-width: 768px) {
     left: -16px;
   }
-  
+
   &::after {
-    content: '‹';
+    content: "‹";
     font-size: 1.5rem;
     line-height: 1;
     font-weight: 300;
@@ -446,8 +465,8 @@ const ModalOverlay = styled.div<{ isOpen: boolean }>`
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  opacity: ${props => props.isOpen ? 1 : 0};
-  visibility: ${props => props.isOpen ? 'visible' : 'hidden'};
+  opacity: ${(props) => (props.isOpen ? 1 : 0)};
+  visibility: ${(props) => (props.isOpen ? "visible" : "hidden")};
   transition: opacity 0.3s ease, visibility 0.3s ease;
   -webkit-overflow-scrolling: touch; /* Better scrolling on iOS */
   touch-action: none; /* Prevent scrolling behind modal */
@@ -467,13 +486,13 @@ const ModalContent = styled.div`
   border: 1px solid ${colors.primaryPale};
   overflow-y: auto; /* Allow scrolling within modal if content is too tall */
   max-height: 90vh; /* Limit height on small screens */
-  
+
   @media (max-width: 768px) {
     padding: 1.5rem;
     width: 85%;
     max-height: 80vh;
   }
-  
+
   @media (max-width: 480px) {
     padding: 1.2rem;
     width: 90%;
@@ -497,12 +516,12 @@ const CloseButton = styled.button`
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  
+
   @media (max-width: 768px) {
     top: 0.8rem;
     right: 0.8rem;
   }
-  
+
   &:hover {
     color: ${colors.primary};
     background: ${colors.primaryPale};
@@ -512,7 +531,7 @@ const CloseButton = styled.button`
 // Add new styled components for the improved modal layout
 const ModalSection = styled.div`
   margin-bottom: 1.5rem;
-  
+
   @media (max-width: 768px) {
     margin-bottom: 1.2rem;
   }
@@ -527,7 +546,6 @@ const ModalSectionTitle = styled.div`
   letter-spacing: 0.5px;
 `;
 
-
 const DualText = styled.div`
   display: flex;
   flex-direction: column;
@@ -540,10 +558,10 @@ const KoreanText = styled.div`
   line-height: 1.5;
   position: relative;
   padding-left: 0.8rem;
-  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-  
+  font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 0;
     top: 0;
@@ -552,7 +570,7 @@ const KoreanText = styled.div`
     background: ${colors.accent};
     border-radius: 2px;
   }
-  
+
   @media (max-width: 768px) {
     font-size: 0.9rem;
   }
@@ -579,7 +597,7 @@ const ModalSynonym = styled.span`
   padding: 0.3rem 0.8rem;
   border-radius: 30px;
   font-weight: 500;
-  
+
   @media (max-width: 768px) {
     font-size: 0.8rem;
     padding: 0.25rem 0.6rem;
@@ -592,7 +610,7 @@ const ModalWord = styled.h3`
   font-weight: 700;
   color: ${colors.primary};
   margin-bottom: 0.3rem;
-  
+
   @media (max-width: 768px) {
     font-size: 1.7rem;
   }
@@ -603,7 +621,7 @@ const ModalMeaning = styled.p`
   font-size: 1.1rem;
   color: ${colors.text.dark};
   line-height: 1.6;
-  
+
   @media (max-width: 768px) {
     font-size: 1rem;
   }
@@ -615,7 +633,7 @@ const ModalExample = styled.div`
   font-style: italic;
   color: ${colors.text.medium};
   line-height: 1.6;
-  
+
   @media (max-width: 768px) {
     font-size: 0.9rem;
   }
@@ -636,69 +654,35 @@ const QuickReadingToggle = styled.button`
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  
+
   @media (max-width: 768px) {
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
     height: 2rem;
   }
-  
+
   &:hover {
     background: ${colors.primaryLight};
     transform: translateY(-1px);
   }
-  
+
   &.active {
     background: ${colors.accent};
   }
 `;
 
-// Update the ProfileButton component to be positioned at the top and include text
-const ProfileButton = styled.button`
-  background: transparent;
-  color: ${colors.text.medium};
-  border: 1px solid ${colors.primaryPale};
-  border-radius: 20px;
-  padding: 0.4rem 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-  
-  @media (max-width: 768px) {
-    font-size: 0.85rem;
-    padding: 0.3rem 0.7rem;
-    top: 1rem;
-    right: 1rem;
-  }
-  
-  @media (max-width: 480px) {
-    top: 0.8rem;
-    right: 0.8rem;
-  }
-  
-  &:hover {
-    background: ${colors.primaryPale};
-    transform: translateY(-1px);
-  }
-`;
-
-// Modify the InfoContainer to add space for the profile button
+// Add InfoContainer styled component
 const InfoContainer = styled.div`
   display: flex;
   align-items: center;
   margin-bottom: 1rem;
   gap: 0.8rem;
   flex-wrap: wrap;
-  
+  margin-top: 1rem;
+
   @media (max-width: 768px) {
     gap: 0.6rem;
+    margin-top: 0.8rem;
   }
 `;
 
@@ -732,14 +716,14 @@ const SaveButton = styled.button`
   display: inline-flex;
   align-items: center;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
   &:hover {
     background-color: ${colors.primary};
     transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
   }
-  
+
   &:disabled {
     background-color: #cccccc;
     cursor: default;
@@ -747,7 +731,7 @@ const SaveButton = styled.button`
     box-shadow: none;
     opacity: 0.7;
   }
-  
+
   @media (max-width: 768px) {
     font-size: 0.8rem;
     padding: 0.3rem 0.7rem;
@@ -761,13 +745,13 @@ const SavedIndicator = styled.div`
   font-size: 0.9rem;
   margin-left: 1rem;
   font-weight: 500;
-  
+
   &::before {
-    content: '✓';
+    content: "✓";
     margin-right: 0.3rem;
     font-weight: bold;
   }
-  
+
   @media (max-width: 768px) {
     font-size: 0.8rem;
   }
@@ -779,40 +763,328 @@ const WordTitleRow = styled.div`
   margin-bottom: 0.3rem;
 `;
 
-const highlightFirstLetters = (text: string): string => {
+// Add a helper function to better handle how words with hyphens are highlighted
+const highlightWithHyphens = (text: string): string => {
   // Split text into words, preserving punctuation
-  const words = text.split(/(\s+|[.,!?;:'"()\[\]{}—\-])/);
-  
-  return words.map(word => {
-    // Skip if it's just whitespace or punctuation
-    if (!word.trim() || /^[.,!?;:'"()\[\]{}—\-]$/.test(word)) {
-      return word;
+  const words = text.split(/(\s+|[.,!?;:'"()[\]{}—])/);
+
+  return words
+    .map((word) => {
+      // Skip if it's just whitespace or punctuation
+      if (!word.trim() || /^[.,!?;:'"()[\]{}—]$/.test(word)) {
+        return word;
+      }
+
+      // Check if this is a hyphenated word
+      if (word.includes("-")) {
+        // Split by hyphen and handle each part separately
+        const parts = word.split("-");
+        return parts
+          .map((part) => {
+            if (!part) return "";
+
+            // Calculate how many letters to highlight for each part
+            const highlightCount = Math.max(
+              1,
+              Math.min(3, Math.floor(part.length / 2))
+            );
+
+            // Split the part into highlighted and non-highlighted sections
+            const highlighted = part.slice(0, highlightCount);
+            const rest = part.slice(highlightCount);
+
+            // Return the part with highlighted section
+            return `<span class="highlighted">${highlighted}</span>${rest}`;
+          })
+          .join("-"); // Rejoin with hyphen
+      }
+
+      // Regular word (non-hyphenated) - original logic
+      const highlightCount = Math.max(
+        1,
+        Math.min(5, Math.floor(word.length / 2))
+      );
+      const highlighted = word.slice(0, highlightCount);
+      const rest = word.slice(highlightCount);
+
+      return `<span class="highlighted">${highlighted}</span>${rest}`;
+    })
+    .join("");
+};
+
+// Update the highlightFirstLetters function to use the new helper
+const highlightFirstLetters = (text: string): string => {
+  return highlightWithHyphens(text);
+};
+
+// Add a helper function to extract a complete word from bionic reading mode text
+const extractFullWordFromBionicText = (
+  element: HTMLElement,
+  clickX: number,
+  clickY: number
+): { word: string; rect?: DOMRect } => {
+  try {
+    // Get the range at the click point
+    const range = document.caretRangeFromPoint(clickX, clickY);
+    if (!range) return { word: "" };
+
+    // Get the text container that holds all the text
+    const textContainer = element.closest(".article-text");
+    if (!textContainer) return { word: "" };
+
+    // Get the original text without highlighting
+    const originalText = textContainer.getAttribute("data-original-text") || "";
+    if (!originalText) return { word: "" };
+
+    // Extract all text from the DOM, preserving the structure without any spans
+    let fullText = "";
+    const collectText = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        fullText += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const child of Array.from(node.childNodes)) {
+          collectText(child);
+        }
+      }
+    };
+    collectText(textContainer);
+
+    // Get the element and position at the clicked point
+    const clickedNode = range.startContainer;
+    const clickOffset = range.startOffset;
+
+    // Find our exact position in the full text
+    let currentPosition = 0;
+    let clickPosition = -1;
+
+    const findPosition = (node: Node) => {
+      if (clickPosition >= 0) return; // Already found
+
+      if (node === clickedNode) {
+        clickPosition = currentPosition + clickOffset;
+        return;
+      }
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        currentPosition += node.textContent?.length || 0;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const child of Array.from(node.childNodes)) {
+          findPosition(child);
+        }
+      }
+    };
+
+    findPosition(textContainer);
+
+    // If we couldn't find the exact position, exit
+    if (clickPosition < 0) return { word: "" };
+
+    // Now expand in both directions until we hit a space or em-dash
+    let startPos = clickPosition;
+    let endPos = clickPosition;
+
+    // Expand backward until we hit a space or em-dash
+    while (
+      startPos > 0 &&
+      fullText[startPos - 1] !== " " &&
+      fullText[startPos - 1] !== "—"
+    ) {
+      startPos--;
     }
-    
-    // Calculate how many letters to highlight
-    const highlightCount = Math.max(1, Math.min(5, Math.floor(word.length / 2)));
-    
-    // Split the word into highlighted and non-highlighted parts
-    const highlighted = word.slice(0, highlightCount);
-    const rest = word.slice(highlightCount);
-    
-    // Return the word with highlighted part
-    return `<span class="highlighted">${highlighted}</span>${rest}`;
-  }).join('');
+
+    // Expand forward until we hit a space or em-dash
+    while (
+      endPos < fullText.length &&
+      fullText[endPos] !== " " &&
+      fullText[endPos] !== "—"
+    ) {
+      endPos++;
+    }
+
+    // Extract the word at the click position
+    let word = fullText.substring(startPos, endPos);
+
+    // Clean it of punctuation but keep hyphens
+    word = word.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
+
+    // Return the word and the clicked element's rect for positioning
+    return {
+      word,
+      rect:
+        (range.startContainer.nodeType === Node.TEXT_NODE
+          ? range.startContainer.parentElement
+          : (range.startContainer as Element)
+        )?.getBoundingClientRect() || undefined,
+    };
+  } catch (error) {
+    console.error("Error extracting word from text:", error);
+    return { word: "" };
+  }
+};
+
+// Custom wrapper to hide the topbar gradient from layout.tsx
+const ArticlePageWrapper = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: ${colors.primaryBg};
+  z-index: 999;
+  min-height: 100vh;
+  width: 100vw;
+  overflow-y: auto;
+  overflow-x: hidden;
+`;
+
+// Define necessary styled components
+const ParagraphContainer = styled.div`
+  margin-bottom: 1.8rem;
+  position: relative;
+`;
+
+// Add a styled component for the translation toggle button
+const TranslationToggleButton = styled.button`
+  background: ${colors.primaryPale};
+  color: ${colors.primary};
+  border: none;
+  border-radius: 20px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    background: ${colors.accent};
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  }
+
+  &::before {
+    content: "🇰🇷";
+    margin-right: 6px;
+    font-size: 1rem;
+  }
+
+  &.active {
+    background: ${colors.accent};
+    color: white;
+  }
+`;
+
+// Define a new modal overlay for word definitions
+const DefinitionModalOverlay = styled(ModalOverlay)`
+  /* Inherit styles from ModalOverlay */
+`;
+
+// Define a new modal content for word definitions
+const DefinitionModalContent = styled(ModalContent)`
+  width: 450px;
+  padding: 1.8rem;
+
+  @media (max-width: 768px) {
+    width: 80%;
+  }
+`;
+
+// Update the word definition displays for the modal
+const WordDefinitionTitle = styled.div`
+  font-weight: bold;
+  color: ${colors.primary};
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid ${colors.primaryPale};
+`;
+
+const WordDefinitionContent = styled.div`
+  color: ${colors.text.medium};
+  font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  line-height: 1.6;
+  white-space: pre-line;
+  font-size: 1rem;
+`;
+
+const LoadingDefinitionContent = styled.div`
+  color: ${colors.text.light};
+  font-style: italic;
+  padding: 1rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+`;
+
+// Replace DeepL with GPT-4o-mini for contextual word definitions
+const getWordDefinition = async (
+  word: string,
+  context: string
+): Promise<string> => {
+  try {
+    const apiKey =
+      "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";
+    const url = "https://api.openai.com/v1/chat/completions";
+
+    const prompt = `다음 문장에서 '${word}'의 정의를 한국어로 제공해주세요. 단어의 의미를 문장의 맥락에 맞게 설명해주세요. 반드시 존대말로 작성해주세요.
+
+문장: "${context}"
+
+* 결과 형식:
+뜻풀이: [문장 문맥에 맞는 단어 정의]
+`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 300,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("GPT API Error:", error);
+    return `정의를 가져오는 중 오류가 발생했습니다: ${error}`;
+  }
 };
 
 const Article = () => {
   const { articleId } = useParams<{ articleId: string }>();
   const { currentUser } = useAuth(); // Get the current user from auth context
-  const navigate = useNavigate(); // Add this line to import useNavigate
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isKoreanTitleVisible, setIsKoreanTitleVisible] = useState(false);
-  const [visibleKoreanParagraphs, setVisibleKoreanParagraphs] = useState<number[]>([]);
+  const [visibleKoreanParagraphs, setVisibleKoreanParagraphs] = useState<
+    number[]
+  >([]);
   const [currentKeywordIndex, setCurrentKeywordIndex] = useState(0);
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
-  const [selectedWordData, setSelectedWordData] = useState<WordData | null>(null);
+  const [selectedWordData, setSelectedWordData] = useState<WordData | null>(
+    null
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -824,30 +1096,38 @@ const Article = () => {
   const [savedWords, setSavedWords] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Update state for word definition modal
+  const [wordDefinitionModal, setWordDefinitionModal] = useState({
+    isOpen: false,
+    word: "",
+    definition: "",
+    isLoading: false,
+  });
+
   useEffect(() => {
     const fetchArticle = async () => {
       if (!articleId) return;
 
       try {
-        const articleRef = doc(db, 'articles', articleId);
+        const articleRef = doc(db, "articles", articleId);
         const articleSnap = await getDoc(articleRef);
 
         if (articleSnap.exists()) {
           const data = articleSnap.data() as ArticleData;
           setArticle(data);
-          
+
           // Prefetch word details for all keywords
           if (data.keywords && data.keywords.length > 0) {
-            data.keywords.forEach(word => {
+            data.keywords.forEach((word) => {
               fetchWordDetails(word);
             });
           }
         } else {
-          setError('Article not found');
+          setError("Article not found");
         }
       } catch (err) {
-        setError('Error fetching article');
-        console.error('Error fetching article:', err);
+        setError("Error fetching article");
+        console.error("Error fetching article:", err);
       } finally {
         setLoading(false);
       }
@@ -863,39 +1143,39 @@ const Article = () => {
         setSavedWords([]);
         return;
       }
-      
+
       try {
-        const userRef = doc(db, 'users', currentUser.uid);
+        const userRef = doc(db, "users", currentUser.uid);
         const userSnap = await getDoc(userRef);
-        
+
         if (userSnap.exists()) {
           const userData = userSnap.data();
           setSavedWords(userData.saved_words || []);
         } else {
           // Create user document if it doesn't exist
           await setDoc(userRef, {
-            saved_words: []
+            saved_words: [],
           });
           setSavedWords([]);
         }
       } catch (err) {
-        console.error('Error fetching saved words:', err);
+        console.error("Error fetching saved words:", err);
         setSavedWords([]);
       }
     };
-    
+
     fetchSavedWords();
   }, [currentUser]);
 
   const fetchWordDetails = async (word: string) => {
     // Skip if already fetched or currently fetching
     if (wordDetails[word] || wordLoading[word]) return;
-    
-    setWordLoading(prev => ({ ...prev, [word]: true }));
-    
+
+    setWordLoading((prev) => ({ ...prev, [word]: true }));
+
     // Set a timeout to ensure wordLoading is reset even if the fetch operation fails
     const timeoutId = setTimeout(() => {
-      setWordLoading(prev => {
+      setWordLoading((prev) => {
         // Only reset if it's still loading (operation didn't complete)
         if (prev[word]) {
           console.error(`Fetch timeout for word "${word}"`);
@@ -904,14 +1184,14 @@ const Article = () => {
         return prev;
       });
     }, 5000); // 5 seconds timeout
-    
+
     try {
-      const wordRef = doc(db, 'words', word);
+      const wordRef = doc(db, "words", word);
       const wordSnap = await getDoc(wordRef);
-      
+
       if (wordSnap.exists()) {
         const wordData = wordSnap.data() as WordData;
-        setWordDetails(prev => ({ ...prev, [word]: wordData }));
+        setWordDetails((prev) => ({ ...prev, [word]: wordData }));
       } else {
         console.error(`Word "${word}" not found in the database`);
       }
@@ -919,153 +1199,154 @@ const Article = () => {
       console.error(`Error fetching word "${word}":`, err);
     } finally {
       clearTimeout(timeoutId); // Clear the timeout as the operation completed
-      setWordLoading(prev => ({ ...prev, [word]: false }));
+      setWordLoading((prev) => ({ ...prev, [word]: false }));
     }
   };
 
   useEffect(() => {
     if (isQuickReading && article) {
       // Get all text content elements
-      const textElements = document.querySelectorAll('.article-text');
-      
-      textElements.forEach(element => {
-        const originalText = element.getAttribute('data-original-text') || element.textContent || '';
+      const textElements = document.querySelectorAll(".article-text");
+
+      textElements.forEach((element) => {
+        const originalText =
+          element.getAttribute("data-original-text") ||
+          element.textContent ||
+          "";
         element.innerHTML = highlightFirstLetters(originalText);
       });
     } else {
       // Restore original text
-      const textElements = document.querySelectorAll('.article-text');
-      textElements.forEach(element => {
-        const originalText = element.getAttribute('data-original-text') || '';
+      const textElements = document.querySelectorAll(".article-text");
+      textElements.forEach((element) => {
+        const originalText = element.getAttribute("data-original-text") || "";
         element.textContent = originalText;
       });
     }
-  }, [isQuickReading, article]);
+  }, [isQuickReading, article, fetchWordDetails]);
 
   const toggleKoreanTitle = () => {
     setIsKoreanTitleVisible(!isKoreanTitleVisible);
   };
 
   const toggleKoreanParagraph = (index: number) => {
-    setVisibleKoreanParagraphs(prev => 
-      prev.includes(index) 
-        ? prev.filter(i => i !== index) 
-        : [...prev, index]
+    setVisibleKoreanParagraphs((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
   };
 
   const handleLastKeyword = () => {
     if (!article?.keywords || article.keywords.length <= 1) return;
-    
+
     // Calculate exactly how many cards we need to show - set to the last keyword
     const totalCards = article.keywords.length;
     const lastIndex = totalCards - 1;
-    
+
     setCurrentKeywordIndex(lastIndex);
-    
+
     if (sliderRef.current) {
       // Determine card width based on screen size
       const isMobile = window.innerWidth <= 768;
       const cardWidth = isMobile ? 230 : 250;
       const marginWidth = 8;
-      
+
       // Calculate exact position to show the last card at the left
       const scrollPosition = lastIndex * (cardWidth + marginWidth);
-      
+
       sliderRef.current.scrollTo({
         left: scrollPosition,
-        behavior: 'smooth'
+        behavior: "smooth",
       });
     }
   };
 
   const handleNextKeyword = () => {
     if (!article?.keywords) return;
-    
+
     // Calculate the maximum index based on visible cards
     const maxIndex = Math.max(0, article.keywords.length - 1);
-    
+
     // Special case for the second-to-last position
     if (currentKeywordIndex === maxIndex - 1) {
       return handleLastKeyword();
     }
-    
+
     // Allow scrolling all the way to the last keyword
     if (currentKeywordIndex >= maxIndex) return;
-    
+
     const nextIndex = currentKeywordIndex + 1;
     setCurrentKeywordIndex(nextIndex);
-    
+
     if (sliderRef.current) {
       // Determine card width based on screen size
       const isMobile = window.innerWidth <= 768;
       const cardWidth = isMobile ? 230 : 250;
       const marginWidth = 8;
-      
+
       // Calculate exact position (each card has margin-right except the last one)
       const scrollPosition = nextIndex * (cardWidth + marginWidth);
-      
+
       sliderRef.current.scrollTo({
         left: scrollPosition,
-        behavior: 'smooth'
+        behavior: "smooth",
       });
     }
   };
 
   const handlePrevKeyword = () => {
     if (currentKeywordIndex <= 0) return;
-    
+
     const prevIndex = currentKeywordIndex - 1;
     setCurrentKeywordIndex(prevIndex);
-    
+
     if (sliderRef.current) {
       // Determine card width based on screen size
       const isMobile = window.innerWidth <= 768;
       const cardWidth = isMobile ? 230 : 250;
       const marginWidth = 8;
-      
+
       // Calculate exact position (each card has margin-right except the last one)
       const scrollPosition = prevIndex * (cardWidth + marginWidth);
-      
+
       sliderRef.current.scrollTo({
         left: scrollPosition,
-        behavior: 'smooth'
+        behavior: "smooth",
       });
     }
   };
 
   const openKeywordModal = async (word: string) => {
     setSelectedKeyword(word);
-    
+
     // Get word details if not already loaded
     if (!wordDetails[word]) {
       await fetchWordDetails(word);
     }
-    
+
     setSelectedWordData(wordDetails[word] || null);
     setIsModalOpen(true);
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
   };
 
   const closeKeywordModal = () => {
     setIsModalOpen(false);
     // Re-enable scrolling when modal is closed
-    document.body.style.overflow = '';
+    document.body.style.overflow = "";
   };
 
   // Close modal when Escape key is pressed
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isModalOpen) {
+      if (event.key === "Escape" && isModalOpen) {
         closeKeywordModal();
       }
     };
 
-    window.addEventListener('keydown', handleEscKey);
+    window.addEventListener("keydown", handleEscKey);
     return () => {
-      window.removeEventListener('keydown', handleEscKey);
+      window.removeEventListener("keydown", handleEscKey);
       // Make sure to reset body overflow in case component unmounts while modal is open
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     };
   }, [isModalOpen]);
 
@@ -1110,46 +1391,145 @@ const Article = () => {
     const totalWords = content.reduce((acc, paragraph) => {
       return acc + paragraph.split(/\s+/).length;
     }, 0);
-    
+
     const readingTimeInSeconds = (totalWords / 150) * 60; // 150 words per minute
     const minutes = Math.floor(readingTimeInSeconds / 60);
     const seconds = Math.round(readingTimeInSeconds % 60);
-    
+
     return `${minutes}분 ${seconds}초`;
   };
 
   const handleSaveWord = async (word: string) => {
     if (!currentUser || isSaving) return;
-    
+
     setIsSaving(true);
-    
+
     try {
-      const userRef = doc(db, 'users', currentUser.uid);
-      
+      const userRef = doc(db, "users", currentUser.uid);
+
       if (savedWords.includes(word)) {
         // Remove word if already saved
         await updateDoc(userRef, {
-          saved_words: arrayRemove(word)
+          saved_words: arrayRemove(word),
         });
-        setSavedWords(prevWords => prevWords.filter(w => w !== word));
+        setSavedWords((prevWords) => prevWords.filter((w) => w !== word));
       } else {
         // Add word if not saved
         await updateDoc(userRef, {
-          saved_words: arrayUnion(word)
+          saved_words: arrayUnion(word),
         });
-        setSavedWords(prevWords => [...prevWords, word]);
+        setSavedWords((prevWords) => [...prevWords, word]);
       }
     } catch (err) {
-      console.error('Error saving word:', err);
-      alert('단어 저장 중 오류가 발생했습니다.');
+      console.error("Error saving word:", err);
+      alert("단어 저장 중 오류가 발생했습니다.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Add a navigation function
-  const navigateToProfile = () => {
-    navigate('/profile');
+  // Handle word click for definition lookup
+  const handleWordClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Get the paragraph element that contains the clicked text
+    const paragraphElement = (e.target as HTMLElement).closest(
+      ".article-text"
+    ) as HTMLElement | null;
+    if (!paragraphElement) return;
+
+    // Always work with the original text rather than the HTML with highlights
+    const originalText =
+      paragraphElement.getAttribute("data-original-text") || "";
+    if (!originalText) return;
+
+    let selectedWord = "";
+
+    // Clear any existing text selection first to prevent issues
+    window.getSelection()?.removeAllRanges();
+
+    // Use our extraction function for all modes - this helps with the single-click issue
+    const { word } = extractFullWordFromBionicText(
+      paragraphElement,
+      e.clientX,
+      e.clientY
+    );
+
+    if (word) {
+      selectedWord = word;
+    }
+
+    // Clean up the selected word and ensure it's valid
+    selectedWord = selectedWord
+      // Keep regular hyphens but remove other punctuation
+      .replace(/[.,!?;:'"()[\]{}]|…/g, "")
+      .trim();
+
+    // Don't proceed if we couldn't get a word or if it's too long/complex
+    if (
+      !selectedWord ||
+      selectedWord.length > 30 ||
+      // Allow hyphenated words (count as one term) but not multiple space-separated words
+      (selectedWord.split(/\s+/).length > 1 && !selectedWord.includes("-"))
+    ) {
+      console.log("Invalid selection, not proceeding:", selectedWord);
+      return;
+    }
+
+    console.log("Final selected word:", selectedWord);
+
+    // Get the surrounding context (the sentence containing the word)
+    const sentenceRegex = new RegExp(
+      `[^.!?]*\\b${selectedWord.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      )}\\b[^.!?]*[.!?]`,
+      "i"
+    );
+    const sentenceMatch = originalText.match(sentenceRegex);
+    const context = sentenceMatch ? sentenceMatch[0].trim() : originalText;
+
+    // Set loading state for the modal
+    setWordDefinitionModal({
+      isOpen: true,
+      word: selectedWord,
+      definition: "",
+      isLoading: true,
+    });
+
+    // Prevent scrolling while modal is open
+    document.body.style.overflow = "hidden";
+
+    // Get definition
+    try {
+      console.log("Requesting definition for:", selectedWord);
+      const definition = await getWordDefinition(selectedWord, context);
+      console.log("Definition received:", definition);
+
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        definition: definition,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Definition error:", error);
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        definition: "정의를 가져오는 중 오류가 발생했습니다.",
+        isLoading: false,
+      }));
+    }
+  };
+
+  // Close definition modal
+  const closeDefinitionModal = () => {
+    setWordDefinitionModal((prev) => ({
+      ...prev,
+      isOpen: false,
+    }));
+    // Re-enable scrolling
+    document.body.style.overflow = "";
   };
 
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
@@ -1157,269 +1537,371 @@ const Article = () => {
   if (!article) return <ErrorContainer>No article found</ErrorContainer>;
 
   const { content = { english: [], korean: [] }, keywords = [] } = article;
-  
+
   // Update next button visibility logic to ensure it stays visible until the last card
   const hasMoreKeywords = currentKeywordIndex < keywords.length - 1;
   // Check if we're near the end but not at the very last card
-  const isAtLastButNotEnd = currentKeywordIndex >= keywords.length - 3 && currentKeywordIndex < keywords.length - 1;
+  const isAtLastButNotEnd =
+    currentKeywordIndex >= keywords.length - 3 &&
+    currentKeywordIndex < keywords.length - 1;
   const hasPrevKeywords = currentKeywordIndex > 0;
 
   return (
-    <ArticleContainer>
-      <ProfileButton onClick={navigateToProfile} aria-label="Go to profile">
-        👤 내 계정
-      </ProfileButton>
-      
-      <Title onClick={toggleKoreanTitle} className="article-text" data-original-text={article?.title.english}>
-        {article?.title.english}
-      </Title>
-      <Subtitle isVisible={isKoreanTitleVisible} className="article-text" data-original-text={article?.title.korean}>
-        {article?.title.korean}
-      </Subtitle>
-      <InfoContainer>
-        <ReadingTime>
-          예상 읽기 시간: {calculateReadingTime(content.english)}
-        </ReadingTime>
-        <QuickReadingToggle 
-          onClick={() => setIsQuickReading(!isQuickReading)}
-          className={isQuickReading ? 'active' : ''}
+    <ArticlePageWrapper>
+      <GNB />
+      <ArticleContainer>
+        <Title
+          onClick={toggleKoreanTitle}
+          className="article-text"
+          data-original-text={article?.title.english}
         >
-          {isQuickReading ? '✕ 속독 모드 해제' : '⚡ 속독 모드'}
-        </QuickReadingToggle>
-      </InfoContainer>
-      <CalloutBox>텍스트를 누르면 한국어 번역을 확인하실 수 있습니다</CalloutBox>
+          {article?.title.english}
+        </Title>
+        <Subtitle
+          isVisible={isKoreanTitleVisible}
+          className="article-text"
+          data-original-text={article?.title.korean}
+        >
+          {article?.title.korean}
+        </Subtitle>
+        <InfoContainer>
+          <ReadingTime>
+            예상 읽기 시간: {calculateReadingTime(content.english)}
+          </ReadingTime>
+          <QuickReadingToggle
+            onClick={() => setIsQuickReading(!isQuickReading)}
+            className={isQuickReading ? "active" : ""}
+          >
+            {isQuickReading ? "✕ 속독 모드 해제" : "⚡ 속독 모드"}
+          </QuickReadingToggle>
+        </InfoContainer>
+        <CalloutBox>
+          단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을
+          클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다.
+        </CalloutBox>
 
-      {content.english?.length > 0 && (
-        <ContentSection>
-          {content.english.map((paragraph, index) => (
-            <div key={index}>
-              <Paragraph 
-                onClick={() => toggleKoreanParagraph(index)} 
-                className="article-text" 
-                data-original-text={paragraph}
-              >
-                {paragraph}
-              </Paragraph>
-              {content.korean[index] && (
-                <KoreanParagraph 
-                  isVisible={visibleKoreanParagraphs.includes(index)}
+        {content.english?.length > 0 && (
+          <ContentSection>
+            {content.english.map((paragraph, index) => (
+              <ParagraphContainer key={index}>
+                <Paragraph
                   className="article-text"
-                  data-original-text={content.korean[index]}
+                  data-original-text={paragraph}
+                  onClick={handleWordClick}
                 >
-                  {content.korean[index]}
-                </KoreanParagraph>
-              )}
-            </div>
-          ))}
-        </ContentSection>
-      )}
-
-      {keywords && keywords.length > 0 && (
-        <KeywordsSection>
-          <SectionTitle>Key Vocabulary</SectionTitle>
-          <KeywordsContainer>
-            <KeywordsSlider 
-              ref={sliderRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-              {keywords.map((word, index) => {
-                const wordData = wordDetails[word];
-                // Skip rendering cards that have failed to load or are still loading
-                const isLoading = wordLoading[word];
-                if (!wordData && !isLoading) return null;
-                
-                return (
-                  <KeywordCard 
-                    key={index} 
-                    onClick={() => openKeywordModal(word)}
+                  {paragraph}
+                </Paragraph>
+                <TranslationToggleButton
+                  onClick={() => toggleKoreanParagraph(index)}
+                  className={
+                    visibleKoreanParagraphs.includes(index) ? "active" : ""
+                  }
+                >
+                  {visibleKoreanParagraphs.includes(index)
+                    ? "한국어 번역 숨기기"
+                    : "한국어 번역 보기"}
+                </TranslationToggleButton>
+                {content.korean[index] && (
+                  <KoreanParagraph
+                    isVisible={visibleKoreanParagraphs.includes(index)}
+                    className="article-text"
+                    data-original-text={content.korean[index]}
                   >
-                    <Word>{word}</Word>
-                    {wordData && (
-                      <>
-                        {wordData.categories?.english && wordData.categories.english.length > 0 && (
-                          <Categories>
-                            {wordData.categories.english.slice(0, 2).map((cat, idx) => (
-                              <Category key={idx}>{cat}</Category>
-                            ))}
-                          </Categories>
-                        )}
-                        <Meaning>{wordData.definitions.english}</Meaning>
-                        {wordData.synonyms && wordData.synonyms.length > 0 && (
-                          <Synonyms>
-                            {wordData.synonyms.slice(0, 3).map((syn, idx) => (
-                              <Synonym key={idx}>{syn}</Synonym>
-                            ))}
-                          </Synonyms>
-                        )}
-                        {wordData.examples && wordData.examples.length > 0 && wordData.examples[0].english.length > 0 && (
-                          <Example>"{wordData.examples[0].english[0]}"</Example>
-                        )}
-                      </>
-                    )}
-                    {isLoading && <Meaning>Loading word details...</Meaning>}
-                  </KeywordCard>
-                );
-              })}
-            </KeywordsSlider>
-            {hasPrevKeywords && (
-              <PrevButton 
-                onClick={handlePrevKeyword} 
-                aria-label="Previous keyword" 
-              />
-            )}
-            {hasMoreKeywords && (
-              <NextButton 
-                onClick={isAtLastButNotEnd ? handleLastKeyword : handleNextKeyword} 
-                aria-label="Next keyword" 
-              />
-            )}
-          </KeywordsContainer>
-        </KeywordsSection>
-      )}
+                    {content.korean[index]}
+                  </KoreanParagraph>
+                )}
+              </ParagraphContainer>
+            ))}
+          </ContentSection>
+        )}
 
-      {/* Keyword modal */}
-      <ModalOverlay isOpen={isModalOpen} onClick={closeKeywordModal}>
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <CloseButton onClick={closeKeywordModal}>×</CloseButton>
-          {selectedKeyword && selectedWordData && (
-            <>
-              <WordTitleRow>
-                <ModalWord>{selectedKeyword}</ModalWord>
-                {currentUser ? (
-                  savedWords.includes(selectedKeyword) ? (
-                    <SavedIndicator>저장됨</SavedIndicator>
-                  ) : (
-                    <SaveButton 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSaveWord(selectedKeyword);
-                      }}
-                      disabled={isSaving}
+        {keywords && keywords.length > 0 && (
+          <KeywordsSection>
+            <SectionTitle>Key Vocabulary</SectionTitle>
+            <KeywordsContainer>
+              <KeywordsSlider
+                ref={sliderRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                {keywords.map((word, index) => {
+                  const wordData = wordDetails[word];
+                  // Skip rendering cards that have failed to load or are still loading
+                  const isLoading = wordLoading[word];
+                  if (!wordData && !isLoading) return null;
+
+                  return (
+                    <KeywordCard
+                      key={index}
+                      onClick={() => openKeywordModal(word)}
                     >
-                      {isSaving ? '저장 중...' : '⭐️ 단어장에 추가'}
-                    </SaveButton>
-                  )
-                ) : null}
-              </WordTitleRow>
-              
-              {/* Categories */}
-              {selectedWordData.categories?.english && selectedWordData.categories.english.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.2rem' }}>
-                  {selectedWordData.categories.english.map((category, idx) => (
-                    <span 
-                      key={idx} 
-                      style={{ 
-                        fontSize: '0.8rem', 
-                        color: colors.accent, 
-                        backgroundColor: colors.primaryPale,
-                        padding: '0.2rem 0.6rem',
-                        borderRadius: '4px',
-                        fontStyle: 'italic'
+                      <Word>{word}</Word>
+                      {wordData && (
+                        <>
+                          {wordData.categories?.english &&
+                            wordData.categories.english.length > 0 && (
+                              <Categories>
+                                {wordData.categories.english
+                                  .slice(0, 2)
+                                  .map((cat, idx) => (
+                                    <Category key={idx}>{cat}</Category>
+                                  ))}
+                              </Categories>
+                            )}
+                          <Meaning>{wordData.definitions.english}</Meaning>
+                          {wordData.synonyms &&
+                            wordData.synonyms.length > 0 && (
+                              <Synonyms>
+                                {wordData.synonyms
+                                  .slice(0, 3)
+                                  .map((syn, idx) => (
+                                    <Synonym key={idx}>{syn}</Synonym>
+                                  ))}
+                              </Synonyms>
+                            )}
+                          {wordData.examples &&
+                            wordData.examples.length > 0 &&
+                            wordData.examples[0].english.length > 0 && (
+                              <Example>
+                                "{wordData.examples[0].english[0]}"
+                              </Example>
+                            )}
+                        </>
+                      )}
+                      {isLoading && <Meaning>Loading word details...</Meaning>}
+                    </KeywordCard>
+                  );
+                })}
+              </KeywordsSlider>
+              {hasPrevKeywords && (
+                <PrevButton
+                  onClick={handlePrevKeyword}
+                  aria-label="Previous keyword"
+                />
+              )}
+              {hasMoreKeywords && (
+                <NextButton
+                  onClick={
+                    isAtLastButNotEnd ? handleLastKeyword : handleNextKeyword
+                  }
+                  aria-label="Next keyword"
+                />
+              )}
+            </KeywordsContainer>
+          </KeywordsSection>
+        )}
+
+        {/* Keyword modal */}
+        <ModalOverlay isOpen={isModalOpen} onClick={closeKeywordModal}>
+          <ModalContent onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <CloseButton onClick={closeKeywordModal}>×</CloseButton>
+            {selectedKeyword && selectedWordData && (
+              <>
+                <WordTitleRow>
+                  <ModalWord>{selectedKeyword}</ModalWord>
+                  {currentUser ? (
+                    savedWords.includes(selectedKeyword) ? (
+                      <SavedIndicator>저장됨</SavedIndicator>
+                    ) : (
+                      <SaveButton
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSaveWord(selectedKeyword);
+                        }}
+                        disabled={isSaving}
+                      >
+                        {isSaving ? "저장 중..." : "⭐️ 단어장에 추가"}
+                      </SaveButton>
+                    )
+                  ) : null}
+                </WordTitleRow>
+
+                {/* Categories */}
+                {selectedWordData.categories?.english &&
+                  selectedWordData.categories.english.length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                        marginBottom: "1.2rem",
                       }}
                     >
-                      {category}
-                    </span>
-                  ))}
-                </div>
-              )}
-              
-              {/* Definition Section */}
-              <ModalSection>
-                <ModalSectionTitle>Definition</ModalSectionTitle>
-                <DualText>
-                  <ModalMeaning>{selectedWordData.definitions.english}</ModalMeaning>
-                  <KoreanText>{selectedWordData.definitions.korean}</KoreanText>
-                </DualText>
-              </ModalSection>
-              
-              {/* Synonyms Section */}
-              {selectedWordData.synonyms && selectedWordData.synonyms.length > 0 && (
+                      {selectedWordData.categories.english.map(
+                        (category, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              fontSize: "0.8rem",
+                              color: colors.accent,
+                              backgroundColor: colors.primaryPale,
+                              padding: "0.2rem 0.6rem",
+                              borderRadius: "4px",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            {category}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                {/* Definition Section */}
                 <ModalSection>
-                  <ModalSectionTitle>Synonyms</ModalSectionTitle>
-                  <ModalSynonyms>
-                    {selectedWordData.synonyms.map((syn, idx) => (
-                      <ModalSynonym key={idx}>{syn}</ModalSynonym>
-                    ))}
-                  </ModalSynonyms>
+                  <ModalSectionTitle>Definition</ModalSectionTitle>
+                  <DualText>
+                    <ModalMeaning>
+                      {selectedWordData.definitions.english}
+                    </ModalMeaning>
+                    <KoreanText>
+                      {selectedWordData.definitions.korean}
+                    </KoreanText>
+                  </DualText>
                 </ModalSection>
-              )}
-              
-              {/* Antonyms Section */}
-              {selectedWordData.antonyms && selectedWordData.antonyms.length > 0 && (
-                <ModalSection>
-                  <ModalSectionTitle>Antonyms</ModalSectionTitle>
-                  <ModalSynonyms>
-                    {selectedWordData.antonyms.map((ant, idx) => (
-                      <ModalSynonym key={idx}>{ant}</ModalSynonym>
-                    ))}
-                  </ModalSynonyms>
-                </ModalSection>
-              )}
-              
-              {/* Examples Section */}
-              {selectedWordData.examples && selectedWordData.examples.length > 0 && (
-                <ModalSection>
-                  <ModalSectionTitle>Examples</ModalSectionTitle>
-                  <div style={{ 
-                    borderRadius: '8px',
-                    padding: '0.5rem 0'
-                  }}>
-                    {selectedWordData.examples[0].english.map((example, idx) => (
-                      <div key={idx} style={{ 
-                        marginBottom: idx < selectedWordData.examples[0].english.length - 1 ? '1.2rem' : 0,
-                        paddingBottom: idx < selectedWordData.examples[0].english.length - 1 ? '1.2rem' : 0,
-                        borderBottom: idx < selectedWordData.examples[0].english.length - 1 ? `1px solid ${colors.primaryPale}` : 'none'
-                      }}>
-                        <ModalExample>"{example}"</ModalExample>
-                        {selectedWordData.examples[0].korean && selectedWordData.examples[0].korean[idx] && (
-                          <ExampleKoreanText>
-                            {selectedWordData.examples[0].korean[idx]}
-                          </ExampleKoreanText>
+
+                {/* Synonyms Section */}
+                {selectedWordData.synonyms &&
+                  selectedWordData.synonyms.length > 0 && (
+                    <ModalSection>
+                      <ModalSectionTitle>Synonyms</ModalSectionTitle>
+                      <ModalSynonyms>
+                        {selectedWordData.synonyms.map((syn, idx) => (
+                          <ModalSynonym key={idx}>{syn}</ModalSynonym>
+                        ))}
+                      </ModalSynonyms>
+                    </ModalSection>
+                  )}
+
+                {/* Antonyms Section */}
+                {selectedWordData.antonyms &&
+                  selectedWordData.antonyms.length > 0 && (
+                    <ModalSection>
+                      <ModalSectionTitle>Antonyms</ModalSectionTitle>
+                      <ModalSynonyms>
+                        {selectedWordData.antonyms.map((ant, idx) => (
+                          <ModalSynonym key={idx}>{ant}</ModalSynonym>
+                        ))}
+                      </ModalSynonyms>
+                    </ModalSection>
+                  )}
+
+                {/* Examples Section */}
+                {selectedWordData.examples &&
+                  selectedWordData.examples.length > 0 && (
+                    <ModalSection>
+                      <ModalSectionTitle>Examples</ModalSectionTitle>
+                      <div
+                        style={{
+                          borderRadius: "8px",
+                          padding: "0.5rem 0",
+                        }}
+                      >
+                        {selectedWordData.examples[0].english.map(
+                          (example, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                marginBottom:
+                                  idx <
+                                  selectedWordData.examples[0].english.length -
+                                    1
+                                    ? "1.2rem"
+                                    : 0,
+                                paddingBottom:
+                                  idx <
+                                  selectedWordData.examples[0].english.length -
+                                    1
+                                    ? "1.2rem"
+                                    : 0,
+                                borderBottom:
+                                  idx <
+                                  selectedWordData.examples[0].english.length -
+                                    1
+                                    ? `1px solid ${colors.primaryPale}`
+                                    : "none",
+                              }}
+                            >
+                              <ModalExample>"{example}"</ModalExample>
+                              {selectedWordData.examples[0].korean &&
+                                selectedWordData.examples[0].korean[idx] && (
+                                  <ExampleKoreanText>
+                                    {selectedWordData.examples[0].korean[idx]}
+                                  </ExampleKoreanText>
+                                )}
+                            </div>
+                          )
                         )}
                       </div>
-                    ))}
-                  </div>
-                </ModalSection>
-              )}
-            </>
-          )}
-          {selectedKeyword && !selectedWordData && (
-            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <div style={{ 
-                fontSize: '1.2rem', 
-                color: colors.text.medium, 
-                marginBottom: '0.5rem' 
-              }}>
-                Loading details...
+                    </ModalSection>
+                  )}
+              </>
+            )}
+            {selectedKeyword && !selectedWordData && (
+              <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
+                <div
+                  style={{
+                    fontSize: "1.2rem",
+                    color: colors.text.medium,
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Loading details...
+                </div>
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    margin: "1rem auto",
+                    border: `3px solid ${colors.primaryPale}`,
+                    borderTop: `3px solid ${colors.accent}`,
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                  }}
+                ></div>
+                <style>
+                  {`
+                    @keyframes spin {
+                      0% { transform: rotate(0deg); }
+                      100% { transform: rotate(360deg); }
+                    }
+                  `}
+                </style>
               </div>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                margin: '1rem auto',
-                border: `3px solid ${colors.primaryPale}`,
-                borderTop: `3px solid ${colors.accent}`,
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-              }}></div>
-              <style>
-                {`
-                  @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                  }
-                `}
-              </style>
-            </div>
-          )}
-        </ModalContent>
-      </ModalOverlay>
-    </ArticleContainer>
+            )}
+          </ModalContent>
+        </ModalOverlay>
+
+        {/* Word definition modal */}
+        <DefinitionModalOverlay
+          isOpen={wordDefinitionModal.isOpen}
+          onClick={closeDefinitionModal}
+        >
+          <DefinitionModalContent
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            <CloseButton onClick={closeDefinitionModal}>×</CloseButton>
+            <WordDefinitionTitle>
+              {wordDefinitionModal.word}
+            </WordDefinitionTitle>
+            {wordDefinitionModal.isLoading ? (
+              <LoadingDefinitionContent>
+                정의를 가져오는 중...
+              </LoadingDefinitionContent>
+            ) : (
+              <WordDefinitionContent>
+                {wordDefinitionModal.definition}
+              </WordDefinitionContent>
+            )}
+          </DefinitionModalContent>
+        </DefinitionModalOverlay>
+      </ArticleContainer>
+    </ArticlePageWrapper>
   );
 };
 

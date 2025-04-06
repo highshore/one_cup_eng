@@ -2,6 +2,7 @@ import { useState } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import React from "react";
+import GNB from "../components/gnb";
 
 // Define colors object since it's not exported from layout.tsx
 const colors = {
@@ -795,6 +796,11 @@ const SubscribeButton = styled(Link)`
   }
 `;
 
+// Define styled component for page wrapper
+const PageWrapper = styled.div`
+  padding-top: 70px; /* Add padding to account for fixed navbar */
+`;
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"IT" | "Business">("IT");
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
@@ -942,7 +948,8 @@ export default function Home() {
   ];
 
   return (
-    <div>
+    <PageWrapper>
+      <GNB />
       {/* Hero Section */}
       <HeroSection>
         <BubbleBackground>
@@ -954,7 +961,7 @@ export default function Home() {
           <Bubble size={140} top={80} left={50} delay={2.5} opacity={0.26} />
         </BubbleBackground>
         <HeroContent>
-          <HeroTitle>1 Cup English</HeroTitle>
+          <HeroTitle>1 CUP ENGLISH</HeroTitle>
           <HeroSubtitle>
             아메리카노 한잔 값으로 배우는 비즈니스 영어
           </HeroSubtitle>
@@ -1121,6 +1128,6 @@ export default function Home() {
           ))}
         </FAQContainer>
       </FAQSection>
-    </div>
+    </PageWrapper>
   );
 }

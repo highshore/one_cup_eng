@@ -5,17 +5,17 @@ import logoImage from "../assets/1cup_logo_circular.png";
 
 // Define colors to match with layout.tsx
 const colors = {
-  primary: '#2C1810',
-  primaryLight: '#4A2F23',
-  primaryDark: '#1A0F0A',
-  primaryPale: '#F5EBE6',
-  primaryBg: '#FDF9F6',
-  accent: '#C8A27A',
+  primary: "#2C1810",
+  primaryLight: "#4A2F23",
+  primaryDark: "#1A0F0A",
+  primaryPale: "#F5EBE6",
+  primaryBg: "#FDF9F6",
+  accent: "#C8A27A",
   text: {
-    dark: '#2C1810',
-    medium: '#4A2F23',
-    light: '#8B6B4F'
-  }
+    dark: "#2C1810",
+    medium: "#4A2F23",
+    light: "#8B6B4F",
+  },
 };
 
 // Layout Components
@@ -194,7 +194,7 @@ export const SubmitButton = styled.input`
   &:hover {
     background-color: ${colors.primaryLight};
   }
-  
+
   &:active {
     transform: translateY(1px);
     transition: transform 0.1s;
@@ -203,9 +203,9 @@ export const SubmitButton = styled.input`
   &:focus {
     outline: none;
   }
-  
+
   &:disabled {
-    background-color: #B0B0B0;
+    background-color: #b0b0b0;
     cursor: not-allowed;
   }
 `;
@@ -279,8 +279,17 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
     <PageWrapper>
       <ContentContainer>
         <Header>
-          <Logo src={logoImage} alt="1 Cup English Logo" />
-          <ServiceName>1 Cup English</ServiceName>
+          <Link
+            to="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              textDecoration: "none",
+            }}
+          >
+            <Logo src={logoImage} alt="1 Cup English Logo" />
+            <ServiceName>1 Cup English</ServiceName>
+          </Link>
         </Header>
         {children}
         <Footer>
@@ -291,4 +300,3 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
     </PageWrapper>
   );
 }
-
