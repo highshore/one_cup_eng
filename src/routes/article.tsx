@@ -777,6 +777,165 @@ const WordTitleRow = styled.div`
   margin-bottom: 0.3rem;
 `;
 
+// Add a helper function to better handle how words with hyphens are highlighted
+const highlightWithHyphens = (text: string): string => {
+  // Split text into words, preserving punctuation
+  const words = text.split(/(\s+|[.,!?;:'"()[\]{}—])/);
+
+  return words
+    .map((word) => {
+      // Skip if it's just whitespace or punctuation
+      if (!word.trim() || /^[.,!?;:'"()[\]{}—]$/.test(word)) {
+        return word;
+      }
+
+      // Check if this is a hyphenated word
+      if (word.includes("-")) {
+        // Split by hyphen and handle each part separately
+        const parts = word.split("-");
+        return parts
+          .map((part) => {
+            if (!part) return "";
+
+            // Calculate how many letters to highlight for each part
+            const highlightCount = Math.max(
+              1,
+              Math.min(3, Math.floor(part.length / 2))
+            );
+
+            // Split the part into highlighted and non-highlighted sections
+            const highlighted = part.slice(0, highlightCount);
+            const rest = part.slice(highlightCount);
+
+            // Return the part with highlighted section
+            return `<span class="highlighted">${highlighted}</span>${rest}`;
+          })
+          .join("-"); // Rejoin with hyphen
+      }
+
+      // Regular word (non-hyphenated) - original logic
+      const highlightCount = Math.max(
+        1,
+        Math.min(5, Math.floor(word.length / 2))
+      );
+      const highlighted = word.slice(0, highlightCount);
+      const rest = word.slice(highlightCount);
+
+      return `<span class="highlighted">${highlighted}</span>${rest}`;
+    })
+    .join("");
+};
+
+// Update the highlightFirstLetters function to use the new helper
+const highlightFirstLetters = (text: string): string => {
+  return highlightWithHyphens(text);
+};
+
+// Add a helper function to extract a complete word from bionic reading mode text
+const extractFullWordFromBionicText = (
+  element: HTMLElement,
+  clickX: number,
+  clickY: number
+): { word: string; rect?: DOMRect } => {
+  try {
+    // Get the range at the click point
+    const range = document.caretRangeFromPoint(clickX, clickY);
+    if (!range) return { word: "" };
+
+    // Get the text container that holds all the text
+    const textContainer = element.closest(".article-text");
+    if (!textContainer) return { word: "" };
+
+    // Get the original text without highlighting
+    const originalText = textContainer.getAttribute("data-original-text") || "";
+    if (!originalText) return { word: "" };
+
+    // Extract all text from the DOM, preserving the structure without any spans
+    let fullText = "";
+    const collectText = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        fullText += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const child of Array.from(node.childNodes)) {
+          collectText(child);
+        }
+      }
+    };
+    collectText(textContainer);
+
+    // Get the element and position at the clicked point
+    const clickedNode = range.startContainer;
+    const clickOffset = range.startOffset;
+
+    // Find our exact position in the full text
+    let currentPosition = 0;
+    let clickPosition = -1;
+
+    const findPosition = (node: Node) => {
+      if (clickPosition >= 0) return; // Already found
+
+      if (node === clickedNode) {
+        clickPosition = currentPosition + clickOffset;
+        return;
+      }
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        currentPosition += node.textContent?.length || 0;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const child of Array.from(node.childNodes)) {
+          findPosition(child);
+        }
+      }
+    };
+
+    findPosition(textContainer);
+
+    // If we couldn't find the exact position, exit
+    if (clickPosition < 0) return { word: "" };
+
+    // Now expand in both directions until we hit a space or em-dash
+    let startPos = clickPosition;
+    let endPos = clickPosition;
+
+    // Expand backward until we hit a space or em-dash
+    while (
+      startPos > 0 &&
+      fullText[startPos - 1] !== " " &&
+      fullText[startPos - 1] !== "—"
+    ) {
+      startPos--;
+    }
+
+    // Expand forward until we hit a space or em-dash
+    while (
+      endPos < fullText.length &&
+      fullText[endPos] !== " " &&
+      fullText[endPos] !== "—"
+    ) {
+      endPos++;
+    }
+
+    // Extract the word at the click position
+    let word = fullText.substring(startPos, endPos);
+
+    // Clean it of punctuation but keep hyphens
+    word = word.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
+
+    // Return the word and the clicked element's rect for positioning
+    return {
+      word,
+      rect:
+        (range.startContainer.nodeType === Node.TEXT_NODE
+          ? range.startContainer.parentElement
+          : (range.startContainer as Element)
+        )?.getBoundingClientRect() || undefined,
+    };
+  } catch (error) {
+    console.error("Error extracting word from text:", error);
+    return { word: "" };
+  }
+};
+
 // Update ArticlePageWrapper to accept isAudioMode prop
 const ArticlePageWrapper = styled.div<{ isAudioMode?: boolean }>`
   position: fixed;
@@ -1113,6 +1272,22 @@ const Article = () => {
   const audioTimestampsRef = useRef<AudioTimestamp[]>([]);
   const audioTimeUpdateRef = useRef<number | null>(null);
 
+  // Replace the complex wordTimestampMap with a simpler sequential approach
+  // Track the sequential order of words and their timestamps
+  const [sequentialWords, setSequentialWords] = useState<
+    {
+      index: number;
+      word: string;
+      start: number;
+      end: number;
+      paragraphIndex: number;
+      wordPosition: number;
+    }[]
+  >([]);
+
+  // Current word index in the sequential array (not timestamp index)
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+
   // SVG components for play/pause
   const PlayIcon = () => (
     <svg
@@ -1148,40 +1323,162 @@ const Article = () => {
     </svg>
   );
 
-  // Completely revise the prepareParagraphText function to use the precomputed mappings
-  // const prepareParagraphText = (paragraph: string, paragraphIndex: number) => {
-  //   if (!isAudioMode || !article?.audio?.timestamps) {
-  //     return paragraph;
-  //   }
-  //
-  //   // Get the mapping for this paragraph
-  //   const paragraphMapping = wordMappings[paragraphIndex] || {};
-  //
-  //   // Split the paragraph into words and preserve spaces/punctuation
-  //   const wordPattern = /([^\s]+)(\s*)/g;
-  //   let match;
-  //   let result = [];
-  //   let lastIndex = 0;
-  //   let wordIndex = 0;
-  //
-  //   while ((match = wordPattern.exec(paragraph)) !== null) {
-  //     const word = match[1]; // The word without spaces
-  //     const whitespace = match[2]; // The following whitespace
-  //     const matchStart = match.index;
-  //     const matchEnd = matchStart + match[0].length;
-  //
-  //     // Check if this word has a mapped timestamp
-  //     const timestampIndex = paragraphMapping[wordIndex];
-  //
-  //     // Is this the active word?
-  //     const isActiveWord = timestampIndex === activeWordIndex;
-  //
-  //     // Add the word with appropriate styling
-  //     // ...rest of function...
-  //   }
-  // };
+  // Simplify the prepareParagraphText function to use sequential word data
+  const prepareParagraphText = (paragraph: string, paragraphIndex: number) => {
+    if (!isAudioMode || sequentialWords.length === 0) {
+      return paragraph;
+    }
+
+    // Get all the words in this paragraph and their positions
+    const words = paragraph.split(/(\s+)/);
+    let result = [];
+    let wordIndex = 0;
+
+    for (let i = 0; i < words.length; i++) {
+      const content = words[i];
+      const isWhitespace = /^\s+$/.test(content);
+
+      if (!isWhitespace) {
+        // Check if this word should be highlighted
+        const cleanWord = content
+          .replace(/[.,!?;:'"()[\]{}]|…/g, "")
+          .trim()
+          .toLowerCase();
+
+        if (cleanWord) {
+          // Find this word in the sequential array by position
+          const sequentialIndex = sequentialWords.findIndex(
+            (seq) =>
+              seq.paragraphIndex === paragraphIndex &&
+              seq.wordPosition === wordIndex
+          );
+
+          const isCurrentWord = sequentialIndex === currentWordIndex;
+
+          if (sequentialIndex >= 0) {
+            // This word has a timestamp
+            result.push(
+              <span
+                key={`word-${i}`}
+                style={{
+                  ...(isCurrentWord
+                    ? {
+                        backgroundColor: colors.accent,
+                        color: "white",
+                        padding: "0 0.1rem",
+                        borderRadius: "2px",
+                        display: "inline",
+                        lineHeight: "1",
+                      }
+                    : {
+                        cursor: "pointer",
+                      }),
+                }}
+                data-sequential-index={sequentialIndex}
+                onClick={() => {
+                  if (audioRef.current) {
+                    audioRef.current.currentTime =
+                      sequentialWords[sequentialIndex].start;
+                    if (!isPlaying) {
+                      audioRef.current.play();
+                      setIsPlaying(true);
+                    }
+                  }
+                }}
+              >
+                {content}
+              </span>
+            );
+          } else {
+            // Regular word without a timestamp
+            result.push(
+              <React.Fragment key={`word-${i}`}>{content}</React.Fragment>
+            );
+          }
+
+          wordIndex++;
+        } else {
+          // Non-word content (like punctuation alone)
+          result.push(
+            <React.Fragment key={`word-${i}`}>{content}</React.Fragment>
+          );
+        }
+      } else {
+        // Whitespace
+        result.push(
+          <React.Fragment key={`space-${i}`}>{content}</React.Fragment>
+        );
+      }
+    }
+
+    return <>{result}</>;
+  };
 
   // ... rest of the component code ...
+
+  // Define the time update handler before it's used
+  const handleTimeUpdate = () => {
+    if (audioTimeUpdateRef.current) {
+      cancelAnimationFrame(audioTimeUpdateRef.current);
+    }
+
+    audioTimeUpdateRef.current = requestAnimationFrame(() => {
+      if (audioRef.current && sequentialWords.length > 0) {
+        const currentTime = audioRef.current.currentTime;
+        setCurrentTime(currentTime);
+
+        // Update progress percentage
+        const progress = (currentTime / (audioRef.current.duration || 1)) * 100;
+        setAudioProgress(progress);
+
+        // Find the current word being spoken in the sequential array
+        const wordIndex = sequentialWords.findIndex(
+          (item) => currentTime >= item.start && currentTime <= item.end
+        );
+
+        if (wordIndex !== currentWordIndex) {
+          setCurrentWordIndex(wordIndex);
+
+          // If a word is active, scroll to it
+          if (wordIndex >= 0) {
+            setTimeout(() => {
+              const wordElement = document.querySelector(
+                `[data-sequential-index="${wordIndex}"]`
+              );
+              if (wordElement) {
+                // Only scroll if the element is outside the viewport
+                const rect = wordElement.getBoundingClientRect();
+                const isInViewport =
+                  rect.top >= 0 &&
+                  rect.left >= 0 &&
+                  rect.bottom <=
+                    (window.innerHeight ||
+                      document.documentElement.clientHeight) &&
+                  rect.right <=
+                    (window.innerWidth || document.documentElement.clientWidth);
+
+                if (!isInViewport) {
+                  wordElement.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                    inline: "nearest",
+                  });
+                }
+              }
+            }, 100);
+          }
+        }
+      }
+    });
+  };
+
+  // Handle audio ended event
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+    }
+  };
 
   // Add audio context initialization
   useEffect(() => {
@@ -1288,33 +1585,7 @@ const Article = () => {
         }
       };
     }
-  }, [article?.audio?.url]); // Depend on article.audio.url instead of entire article
-
-  // Handle audio timeupdate event with requestAnimationFrame for smoother updates
-  const handleTimeUpdate = () => {
-    if (audioTimeUpdateRef.current) {
-      cancelAnimationFrame(audioTimeUpdateRef.current);
-    }
-
-    audioTimeUpdateRef.current = requestAnimationFrame(() => {
-      if (audioRef.current) {
-        const currentTime = audioRef.current.currentTime;
-        setCurrentTime(currentTime);
-
-        // Update progress percentage
-        const progress = (currentTime / (audioRef.current.duration || 1)) * 100;
-        setAudioProgress(progress);
-      }
-    });
-  };
-
-  // Handle audio ended event
-  const handleAudioEnded = () => {
-    setIsPlaying(false);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-    }
-  };
+  }, [article?.audio?.url]); // Only depend on the audio URL
 
   // Toggle audio playback
   const togglePlayPause = () => {
@@ -1506,6 +1777,15 @@ const Article = () => {
   useEffect(() => {
     if (isQuickReading && article && !isAudioMode) {
       // Get all text content elements
+      const textElements = document.querySelectorAll(".article-text");
+
+      textElements.forEach((element) => {
+        const originalText =
+          element.getAttribute("data-original-text") ||
+          element.textContent ||
+          "";
+        element.innerHTML = highlightFirstLetters(originalText);
+      });
     } else if (!isAudioMode) {
       // Restore original text when not in audio mode and not in quick reading mode
       const textElements = document.querySelectorAll(".article-text");
@@ -1746,6 +2026,15 @@ const Article = () => {
     window.getSelection()?.removeAllRanges();
 
     // Use our extraction function for all modes - this helps with the single-click issue
+    const { word } = extractFullWordFromBionicText(
+      paragraphElement,
+      e.clientX,
+      e.clientY
+    );
+
+    if (word) {
+      selectedWord = word;
+    }
 
     // Clean up the selected word and ensure it's valid
     selectedWord = selectedWord
@@ -1821,61 +2110,158 @@ const Article = () => {
 
   // Add this effect to process and map all timestamps when article loads
   useEffect(() => {
-    if (article?.audio?.timestamps && article.content.english) {
-      const mappings: {
-        [paragraphIndex: number]: {
-          [wordIndex: number]: number;
-        };
-      } = {};
+    if (!article?.content?.english || !article.audio?.timestamps) return;
 
-      // Process each paragraph
-      article.content.english.forEach((paragraph, paragraphIndex) => {
-        mappings[paragraphIndex] = {};
+    const words: {
+      text: string;
+      originalText: string;
+      paragraphIndex: number;
+      wordIndexInParagraph: number;
+      globalIndex: number;
+    }[] = [];
 
-        // Split paragraph into words (keeping track of their positions)
-        const words: {
-          text: string;
-          start: number;
-          end: number;
-          originalText: string;
-        }[] = [];
+    // Flatten all paragraphs and create a global word index
+    let globalWordIndex = 0;
 
-        const wordPattern = /([^\s]+)(\s*)/g;
-        let match;
+    article.content.english.forEach((paragraph, paragraphIndex) => {
+      // Split paragraph into words
+      const wordPattern = /(\S+)(\s*)/g;
+      let match;
+      let wordIndexInParagraph = 0;
 
-        while ((match = wordPattern.exec(paragraph)) !== null) {
-          const wordText = match[1]
-            .replace(/[.,!?;:'"()[\]{}]|…/g, "")
-            .trim()
-            .toLowerCase();
-          if (wordText) {
-            words.push({
-              text: wordText,
-              start: match.index!,
-              end: match.index! + match[1].length,
-              originalText: match[1],
-            });
-          }
+      while ((match = wordPattern.exec(paragraph)) !== null) {
+        const word = match[1];
+        // Clean the word (remove punctuation, lowercase)
+        const cleanWord = word
+          .replace(/[.,!?;:'"()[\]{}]|…/g, "")
+          .trim()
+          .toLowerCase();
+
+        if (cleanWord) {
+          words.push({
+            text: cleanWord,
+            originalText: word,
+            paragraphIndex,
+            wordIndexInParagraph,
+            globalIndex: globalWordIndex,
+          });
+
+          wordIndexInParagraph++;
+          globalWordIndex++;
         }
+      }
+    });
 
-        // Match each timestamp with a word in the paragraph
-        if (article.audio?.timestamps) {
-          article.audio.timestamps.forEach((timestamp, timestampIndex) => {
-            const timestampWord = timestamp.word.trim().toLowerCase();
+    // Save the array of all words
 
-            // Try to find an exact match
-            for (let i = 0; i < words.length; i++) {
-              if (words[i].text === timestampWord) {
-                mappings[paragraphIndex][i] = timestampIndex;
-                break;
-              }
-            }
+    // Create a map from word index to timestamp
+    const timestampMap: {
+      [wordIndex: number]: {
+        start: number;
+        end: number;
+        timestampIndex: number;
+      };
+    } = {};
+
+    // For each timestamp, find the closest matching word
+    article.audio.timestamps.forEach((timestamp, timestampIndex) => {
+      const timestampWord = timestamp.word.trim().toLowerCase();
+
+      // Find all instances of this word in the article
+      const matchingWordIndices = words
+        .map((word, index) => (word.text === timestampWord ? index : -1))
+        .filter((index) => index !== -1);
+
+      if (matchingWordIndices.length > 0) {
+        // For each match, store the timestamp data
+        matchingWordIndices.forEach((wordIndex) => {
+          timestampMap[wordIndex] = {
+            start: timestamp.start,
+            end: timestamp.end,
+            timestampIndex,
+          };
+        });
+      }
+    });
+  }, [article]);
+
+  // Add this effect to process article content and timestamps sequentially
+  useEffect(() => {
+    if (!article?.content?.english || !article?.audio?.timestamps) return;
+
+    // Process the timestamps to ensure they're in chronological order
+    const orderedTimestamps = [...article.audio.timestamps].sort(
+      (a, b) => a.start - b.start
+    );
+
+    // Map words in the article to their positions (paragraph and word index)
+    const wordPositions: {
+      word: string;
+      paragraphIndex: number;
+      wordIndex: number;
+    }[] = [];
+
+    // Build a flat list of all words with their positions
+    article.content.english.forEach((paragraph, paragraphIndex) => {
+      const words = paragraph.split(/\s+/);
+      words.forEach((word, wordIndex) => {
+        // Clean the word (remove punctuation) for matching
+        const cleanWord = word.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
+        if (cleanWord) {
+          wordPositions.push({
+            word: cleanWord.toLowerCase(),
+            paragraphIndex,
+            wordIndex,
           });
         }
       });
+    });
 
-      // Save the mappings
-    }
+    // Create a sequential array of words with their timestamps
+    const sequential: {
+      index: number;
+      word: string;
+      start: number;
+      end: number;
+      paragraphIndex: number;
+      wordPosition: number;
+    }[] = [];
+
+    // For each timestamp, find its position in the article content
+    orderedTimestamps.forEach((timestamp, index) => {
+      const timestampWord = timestamp.word.trim().toLowerCase();
+
+      // Find this word in our positions array (if we haven't used it yet)
+      // This ensures we match words in the order they appear in the text
+      const unusedPositions = wordPositions.filter(
+        (pos) =>
+          pos.word === timestampWord &&
+          !sequential.some(
+            (seq) =>
+              seq.paragraphIndex === pos.paragraphIndex &&
+              seq.wordPosition === pos.wordIndex
+          )
+      );
+
+      if (unusedPositions.length > 0) {
+        // Use the first unused instance of this word
+        const position = unusedPositions[0];
+        sequential.push({
+          index,
+          word: timestampWord,
+          start: timestamp.start,
+          end: timestamp.end,
+          paragraphIndex: position.paragraphIndex,
+          wordPosition: position.wordIndex,
+        });
+      }
+    });
+
+    // Sort the sequential array by timestamp start time to ensure proper order
+    sequential.sort((a, b) => a.start - b.start);
+
+    // Save the sequential word data
+    setSequentialWords(sequential);
   }, [article]);
 
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
@@ -1946,7 +2332,9 @@ const Article = () => {
                   data-original-text={paragraph}
                   onClick={isAudioMode ? undefined : handleWordClick}
                 >
-                  {paragraph}
+                  {isAudioMode
+                    ? prepareParagraphText(paragraph, index)
+                    : paragraph}
                 </Paragraph>
                 <TranslationToggleButton
                   onClick={() => toggleKoreanParagraph(index)}
