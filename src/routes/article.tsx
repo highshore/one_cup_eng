@@ -13,6 +13,13 @@ import { db } from "../firebase";
 import styled from "styled-components";
 import { useAuth } from "../contexts/AuthContext";
 import GNB from "../components/gnb";
+import React from "react";
+
+interface AudioTimestamp {
+  start: number;
+  end: number;
+  word: string;
+}
 
 interface ArticleData {
   content: {
@@ -26,6 +33,10 @@ interface ArticleData {
     korean: string;
   };
   url: string;
+  audio?: {
+    url: string;
+    timestamps: AudioTimestamp[];
+  };
 }
 
 interface WordData {
@@ -61,7 +72,7 @@ const colors = {
 };
 
 const ArticleContainer = styled.div`
-  max-width: 800px;
+  max-width: 850px;
   margin: 0 auto;
   padding: 1rem 1.5rem;
   min-height: 100vh;
@@ -69,6 +80,7 @@ const ArticleContainer = styled.div`
     "Segoe UI", "Roboto", "Oxygen", "Ubuntu", sans-serif;
   position: relative;
   padding-top: 90px; /* Add space for the fixed GNB */
+  padding-bottom: 70px; /* Add space for audio player */
 
   @media (max-width: 768px) {
     padding: 1.5rem 1rem;
@@ -76,11 +88,13 @@ const ArticleContainer = styled.div`
     width: 100%;
     min-height: auto; /* Fix for mobile height issues */
     overflow-x: hidden;
+    padding-bottom: 70px; /* Add space for audio player */
   }
 
   @media (max-width: 480px) {
     padding: 1.2rem 0.8rem;
     padding-top: 70px; /* Further adjust for very small screens */
+    padding-bottom: 70px; /* Add space for audio player */
   }
 `;
 
@@ -763,167 +777,8 @@ const WordTitleRow = styled.div`
   margin-bottom: 0.3rem;
 `;
 
-// Add a helper function to better handle how words with hyphens are highlighted
-const highlightWithHyphens = (text: string): string => {
-  // Split text into words, preserving punctuation
-  const words = text.split(/(\s+|[.,!?;:'"()[\]{}—])/);
-
-  return words
-    .map((word) => {
-      // Skip if it's just whitespace or punctuation
-      if (!word.trim() || /^[.,!?;:'"()[\]{}—]$/.test(word)) {
-        return word;
-      }
-
-      // Check if this is a hyphenated word
-      if (word.includes("-")) {
-        // Split by hyphen and handle each part separately
-        const parts = word.split("-");
-        return parts
-          .map((part) => {
-            if (!part) return "";
-
-            // Calculate how many letters to highlight for each part
-            const highlightCount = Math.max(
-              1,
-              Math.min(3, Math.floor(part.length / 2))
-            );
-
-            // Split the part into highlighted and non-highlighted sections
-            const highlighted = part.slice(0, highlightCount);
-            const rest = part.slice(highlightCount);
-
-            // Return the part with highlighted section
-            return `<span class="highlighted">${highlighted}</span>${rest}`;
-          })
-          .join("-"); // Rejoin with hyphen
-      }
-
-      // Regular word (non-hyphenated) - original logic
-      const highlightCount = Math.max(
-        1,
-        Math.min(5, Math.floor(word.length / 2))
-      );
-      const highlighted = word.slice(0, highlightCount);
-      const rest = word.slice(highlightCount);
-
-      return `<span class="highlighted">${highlighted}</span>${rest}`;
-    })
-    .join("");
-};
-
-// Update the highlightFirstLetters function to use the new helper
-const highlightFirstLetters = (text: string): string => {
-  return highlightWithHyphens(text);
-};
-
-// Add a helper function to extract a complete word from bionic reading mode text
-const extractFullWordFromBionicText = (
-  element: HTMLElement,
-  clickX: number,
-  clickY: number
-): { word: string; rect?: DOMRect } => {
-  try {
-    // Get the range at the click point
-    const range = document.caretRangeFromPoint(clickX, clickY);
-    if (!range) return { word: "" };
-
-    // Get the text container that holds all the text
-    const textContainer = element.closest(".article-text");
-    if (!textContainer) return { word: "" };
-
-    // Get the original text without highlighting
-    const originalText = textContainer.getAttribute("data-original-text") || "";
-    if (!originalText) return { word: "" };
-
-    // Extract all text from the DOM, preserving the structure without any spans
-    let fullText = "";
-    const collectText = (node: Node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        fullText += node.textContent;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const child of Array.from(node.childNodes)) {
-          collectText(child);
-        }
-      }
-    };
-    collectText(textContainer);
-
-    // Get the element and position at the clicked point
-    const clickedNode = range.startContainer;
-    const clickOffset = range.startOffset;
-
-    // Find our exact position in the full text
-    let currentPosition = 0;
-    let clickPosition = -1;
-
-    const findPosition = (node: Node) => {
-      if (clickPosition >= 0) return; // Already found
-
-      if (node === clickedNode) {
-        clickPosition = currentPosition + clickOffset;
-        return;
-      }
-
-      if (node.nodeType === Node.TEXT_NODE) {
-        currentPosition += node.textContent?.length || 0;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const child of Array.from(node.childNodes)) {
-          findPosition(child);
-        }
-      }
-    };
-
-    findPosition(textContainer);
-
-    // If we couldn't find the exact position, exit
-    if (clickPosition < 0) return { word: "" };
-
-    // Now expand in both directions until we hit a space or em-dash
-    let startPos = clickPosition;
-    let endPos = clickPosition;
-
-    // Expand backward until we hit a space or em-dash
-    while (
-      startPos > 0 &&
-      fullText[startPos - 1] !== " " &&
-      fullText[startPos - 1] !== "—"
-    ) {
-      startPos--;
-    }
-
-    // Expand forward until we hit a space or em-dash
-    while (
-      endPos < fullText.length &&
-      fullText[endPos] !== " " &&
-      fullText[endPos] !== "—"
-    ) {
-      endPos++;
-    }
-
-    // Extract the word at the click position
-    let word = fullText.substring(startPos, endPos);
-
-    // Clean it of punctuation but keep hyphens
-    word = word.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
-
-    // Return the word and the clicked element's rect for positioning
-    return {
-      word,
-      rect:
-        (range.startContainer.nodeType === Node.TEXT_NODE
-          ? range.startContainer.parentElement
-          : (range.startContainer as Element)
-        )?.getBoundingClientRect() || undefined,
-    };
-  } catch (error) {
-    console.error("Error extracting word from text:", error);
-    return { word: "" };
-  }
-};
-
-// Custom wrapper to hide the topbar gradient from layout.tsx
-const ArticlePageWrapper = styled.div`
+// Update ArticlePageWrapper to accept isAudioMode prop
+const ArticlePageWrapper = styled.div<{ isAudioMode?: boolean }>`
   position: fixed;
   top: 0;
   left: 0;
@@ -935,6 +790,7 @@ const ArticlePageWrapper = styled.div`
   width: 100vw;
   overflow-y: auto;
   overflow-x: hidden;
+  padding-bottom: ${(props) => (props.isAudioMode ? "70px" : "0")};
 `;
 
 // Define necessary styled components
@@ -1066,9 +922,151 @@ const getWordDefinition = async (
     return data.choices[0].message.content;
   } catch (error) {
     console.error("GPT API Error:", error);
-    return `정의를 가져오는 중 오류가 발생했습니다: ${error}`;
+    return `뜻풀이를 가져오는 중 오류가 발생했습니다: ${error}`;
   }
 };
+
+// Add audio player components
+const AudioPlayerContainer = styled.div<{ isVisible: boolean }>`
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%)
+    translateY(${(props) => (props.isVisible ? "0" : "100%")});
+  width: 100%;
+  max-width: 850px;
+  background: ${colors.primary};
+  color: white;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  z-index: 100;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    padding: 0.8rem;
+    flex-wrap: wrap;
+  }
+`;
+
+const AudioControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0 0.3rem;
+  flex-wrap: nowrap;
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+    margin: 0 0.2rem;
+  }
+`;
+
+const AudioButton = styled.button`
+  background: transparent;
+  color: white;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  @media (max-width: 768px) {
+    font-size: 1.3rem;
+    width: 36px;
+    height: 36px;
+  }
+`;
+
+const AudioProgress = styled.div`
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  margin: 0 1rem;
+  cursor: pointer;
+
+  @media (max-width: 768px) {
+    margin: 0 0.8rem;
+  }
+`;
+
+const AudioProgressFill = styled.div<{ progress: number }>`
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: ${(props) => props.progress}%;
+  background: ${colors.accent};
+  border-radius: 3px;
+`;
+
+const AudioTime = styled.div`
+  font-size: 0.9rem;
+  color: white;
+  margin: 0 0.5rem;
+  min-width: 50px;
+  text-align: center;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    min-width: 44px;
+  }
+`;
+
+const SpeedButton = styled.button<{ active: boolean }>`
+  background: ${(props) => (props.active ? colors.accent : "transparent")};
+  color: white;
+  border: 1px solid ${colors.accent};
+  border-radius: 20px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    background: ${colors.accent};
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+`;
+
+const AudioModeToggle = styled(QuickReadingToggle)`
+  background: ${colors.primaryDark};
+
+  &.active {
+    background: ${colors.accent};
+  }
+`;
 
 const Article = () => {
   const { articleId } = useParams<{ articleId: string }>();
@@ -1104,6 +1102,119 @@ const Article = () => {
     isLoading: false,
   });
 
+  // Add new states for audio feature
+  const [isAudioMode, setIsAudioMode] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioTimestampsRef = useRef<AudioTimestamp[]>([]);
+  const audioTimeUpdateRef = useRef<number | null>(null);
+
+  // SVG components for play/pause
+  const PlayIcon = () => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth="1.5"
+      stroke="currentColor"
+      style={{ width: "1.5rem", height: "1.5rem" }}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"
+      />
+    </svg>
+  );
+
+  const PauseIcon = () => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth="1.5"
+      stroke="currentColor"
+      style={{ width: "1.5rem", height: "1.5rem" }}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 5.25v13.5m-7.5-13.5v13.5"
+      />
+    </svg>
+  );
+
+  // Completely revise the prepareParagraphText function to use the precomputed mappings
+  // const prepareParagraphText = (paragraph: string, paragraphIndex: number) => {
+  //   if (!isAudioMode || !article?.audio?.timestamps) {
+  //     return paragraph;
+  //   }
+  //
+  //   // Get the mapping for this paragraph
+  //   const paragraphMapping = wordMappings[paragraphIndex] || {};
+  //
+  //   // Split the paragraph into words and preserve spaces/punctuation
+  //   const wordPattern = /([^\s]+)(\s*)/g;
+  //   let match;
+  //   let result = [];
+  //   let lastIndex = 0;
+  //   let wordIndex = 0;
+  //
+  //   while ((match = wordPattern.exec(paragraph)) !== null) {
+  //     const word = match[1]; // The word without spaces
+  //     const whitespace = match[2]; // The following whitespace
+  //     const matchStart = match.index;
+  //     const matchEnd = matchStart + match[0].length;
+  //
+  //     // Check if this word has a mapped timestamp
+  //     const timestampIndex = paragraphMapping[wordIndex];
+  //
+  //     // Is this the active word?
+  //     const isActiveWord = timestampIndex === activeWordIndex;
+  //
+  //     // Add the word with appropriate styling
+  //     // ...rest of function...
+  //   }
+  // };
+
+  // ... rest of the component code ...
+
+  // Add audio context initialization
+  useEffect(() => {
+    // Try to resume audio context if it's suspended (needed for some browsers)
+    const resumeAudioContext = () => {
+      try {
+        const audioContext = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+      } catch (e) {
+        console.error("Error resuming audio context:", e);
+      }
+    };
+
+    // Initialize on user interaction
+    const handleUserInteraction = () => {
+      resumeAudioContext();
+      // Remove event listeners after first interaction
+      document.removeEventListener("click", handleUserInteraction);
+      document.removeEventListener("touchstart", handleUserInteraction);
+    };
+
+    document.addEventListener("click", handleUserInteraction);
+    document.addEventListener("touchstart", handleUserInteraction);
+
+    return () => {
+      document.removeEventListener("click", handleUserInteraction);
+      document.removeEventListener("touchstart", handleUserInteraction);
+    };
+  }, []);
+
   useEffect(() => {
     const fetchArticle = async () => {
       if (!articleId) return;
@@ -1115,6 +1226,11 @@ const Article = () => {
         if (articleSnap.exists()) {
           const data = articleSnap.data() as ArticleData;
           setArticle(data);
+
+          // Store audio timestamps in ref for performance
+          if (data.audio?.timestamps) {
+            audioTimestampsRef.current = data.audio.timestamps;
+          }
 
           // Prefetch word details for all keywords
           if (data.keywords && data.keywords.length > 0) {
@@ -1135,6 +1251,190 @@ const Article = () => {
 
     fetchArticle();
   }, [articleId]);
+
+  // Initialize audio player when article data is loaded
+  useEffect(() => {
+    if (article?.audio?.url) {
+      // Create a new audio element only if not already created or if URL has changed
+      if (!audioRef.current || audioRef.current.src !== article.audio.url) {
+        if (audioRef.current) {
+          // Clean up existing audio element if we're creating a new one
+          audioRef.current.pause();
+          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+          audioRef.current.removeEventListener("ended", handleAudioEnded);
+        }
+
+        audioRef.current = new Audio(article.audio.url);
+
+        audioRef.current.addEventListener("loadedmetadata", () => {
+          if (audioRef.current) {
+            setDuration(audioRef.current.duration);
+          }
+        });
+
+        audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
+        audioRef.current.addEventListener("ended", handleAudioEnded);
+      }
+
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+          audioRef.current.removeEventListener("ended", handleAudioEnded);
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        if (audioTimeUpdateRef.current) {
+          cancelAnimationFrame(audioTimeUpdateRef.current);
+        }
+      };
+    }
+  }, [article?.audio?.url]); // Depend on article.audio.url instead of entire article
+
+  // Handle audio timeupdate event with requestAnimationFrame for smoother updates
+  const handleTimeUpdate = () => {
+    if (audioTimeUpdateRef.current) {
+      cancelAnimationFrame(audioTimeUpdateRef.current);
+    }
+
+    audioTimeUpdateRef.current = requestAnimationFrame(() => {
+      if (audioRef.current) {
+        const currentTime = audioRef.current.currentTime;
+        setCurrentTime(currentTime);
+
+        // Update progress percentage
+        const progress = (currentTime / (audioRef.current.duration || 1)) * 100;
+        setAudioProgress(progress);
+      }
+    });
+  };
+
+  // Handle audio ended event
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+    }
+  };
+
+  // Toggle audio playback
+  const togglePlayPause = () => {
+    if (!audioRef.current) return;
+
+    try {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        const playPromise = audioRef.current.play();
+
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.error("Audio playback error:", error);
+            // Reset playing state if there was an error
+            setIsPlaying(false);
+          });
+        }
+      }
+
+      setIsPlaying(!isPlaying);
+    } catch (error) {
+      console.error("Error toggling audio:", error);
+      setIsPlaying(false);
+    }
+  };
+
+  // Seek to a specific position in the audio
+  const seekAudio = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current) return;
+
+    const progressBar = e.currentTarget;
+    const clickPosition =
+      (e.clientX - progressBar.getBoundingClientRect().left) /
+      progressBar.clientWidth;
+    const seekTime = clickPosition * (audioRef.current.duration || 0);
+
+    audioRef.current.currentTime = seekTime;
+  };
+
+  // Change playback speed
+  const changePlaybackSpeed = (speed: number) => {
+    if (!audioRef.current) return;
+
+    audioRef.current.playbackRate = speed;
+    setPlaybackSpeed(speed);
+  };
+
+  // Format time for display (mm:ss)
+  const formatTime = (time: number): string => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
+  };
+
+  // Toggle audio mode
+  const toggleAudioMode = () => {
+    // If turning on audio mode, disable quick reading mode
+    if (!isAudioMode && isQuickReading) {
+      setIsQuickReading(false);
+    }
+
+    // If turning on audio mode, prepare the audio
+    if (!isAudioMode && article?.audio?.url) {
+      // Initialize or re-initialize audio element
+      if (!audioRef.current || audioRef.current.src !== article.audio.url) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+          audioRef.current.removeEventListener("ended", handleAudioEnded);
+        }
+
+        audioRef.current = new Audio(article.audio.url);
+        audioRef.current.addEventListener("loadedmetadata", () => {
+          if (audioRef.current) {
+            setDuration(audioRef.current.duration);
+          }
+        });
+        audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
+        audioRef.current.addEventListener("ended", handleAudioEnded);
+
+        // Preload audio
+        audioRef.current.load();
+      }
+    } else if (isAudioMode && audioRef.current) {
+      // If turning off audio mode, pause audio
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+
+    setIsAudioMode(!isAudioMode);
+  };
+
+  // When toggling quick reading mode, disable audio mode if it's on
+  useEffect(() => {
+    if (isQuickReading && isAudioMode) {
+      setIsAudioMode(false);
+
+      // Stop audio if playing
+      if (isPlaying && audioRef.current) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  }, [isQuickReading]);
+
+  // Clean up audio when audio mode is turned off
+  useEffect(() => {
+    if (!isAudioMode && isPlaying && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, [isAudioMode]);
+
+  // Update playback rate when changing speed
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed]);
 
   // Fetch user's saved words when user changes
   useEffect(() => {
@@ -1204,26 +1504,17 @@ const Article = () => {
   };
 
   useEffect(() => {
-    if (isQuickReading && article) {
+    if (isQuickReading && article && !isAudioMode) {
       // Get all text content elements
-      const textElements = document.querySelectorAll(".article-text");
-
-      textElements.forEach((element) => {
-        const originalText =
-          element.getAttribute("data-original-text") ||
-          element.textContent ||
-          "";
-        element.innerHTML = highlightFirstLetters(originalText);
-      });
-    } else {
-      // Restore original text
+    } else if (!isAudioMode) {
+      // Restore original text when not in audio mode and not in quick reading mode
       const textElements = document.querySelectorAll(".article-text");
       textElements.forEach((element) => {
         const originalText = element.getAttribute("data-original-text") || "";
         element.textContent = originalText;
       });
     }
-  }, [isQuickReading, article, fetchWordDetails]);
+  }, [isQuickReading, article, isAudioMode]); // Fixed dependency array
 
   const toggleKoreanTitle = () => {
     setIsKoreanTitleVisible(!isKoreanTitleVisible);
@@ -1433,6 +1724,11 @@ const Article = () => {
     e.preventDefault();
     e.stopPropagation();
 
+    // If in audio mode, don't show word definitions
+    if (isAudioMode) {
+      return;
+    }
+
     // Get the paragraph element that contains the clicked text
     const paragraphElement = (e.target as HTMLElement).closest(
       ".article-text"
@@ -1450,15 +1746,6 @@ const Article = () => {
     window.getSelection()?.removeAllRanges();
 
     // Use our extraction function for all modes - this helps with the single-click issue
-    const { word } = extractFullWordFromBionicText(
-      paragraphElement,
-      e.clientX,
-      e.clientY
-    );
-
-    if (word) {
-      selectedWord = word;
-    }
 
     // Clean up the selected word and ensure it's valid
     selectedWord = selectedWord
@@ -1516,7 +1803,7 @@ const Article = () => {
       console.error("Definition error:", error);
       setWordDefinitionModal((prev) => ({
         ...prev,
-        definition: "정의를 가져오는 중 오류가 발생했습니다.",
+        definition: "뜻풀이를 가져오는 중 오류가 발생했습니다.",
         isLoading: false,
       }));
     }
@@ -1531,6 +1818,65 @@ const Article = () => {
     // Re-enable scrolling
     document.body.style.overflow = "";
   };
+
+  // Add this effect to process and map all timestamps when article loads
+  useEffect(() => {
+    if (article?.audio?.timestamps && article.content.english) {
+      const mappings: {
+        [paragraphIndex: number]: {
+          [wordIndex: number]: number;
+        };
+      } = {};
+
+      // Process each paragraph
+      article.content.english.forEach((paragraph, paragraphIndex) => {
+        mappings[paragraphIndex] = {};
+
+        // Split paragraph into words (keeping track of their positions)
+        const words: {
+          text: string;
+          start: number;
+          end: number;
+          originalText: string;
+        }[] = [];
+
+        const wordPattern = /([^\s]+)(\s*)/g;
+        let match;
+
+        while ((match = wordPattern.exec(paragraph)) !== null) {
+          const wordText = match[1]
+            .replace(/[.,!?;:'"()[\]{}]|…/g, "")
+            .trim()
+            .toLowerCase();
+          if (wordText) {
+            words.push({
+              text: wordText,
+              start: match.index!,
+              end: match.index! + match[1].length,
+              originalText: match[1],
+            });
+          }
+        }
+
+        // Match each timestamp with a word in the paragraph
+        if (article.audio?.timestamps) {
+          article.audio.timestamps.forEach((timestamp, timestampIndex) => {
+            const timestampWord = timestamp.word.trim().toLowerCase();
+
+            // Try to find an exact match
+            for (let i = 0; i < words.length; i++) {
+              if (words[i].text === timestampWord) {
+                mappings[paragraphIndex][i] = timestampIndex;
+                break;
+              }
+            }
+          });
+        }
+      });
+
+      // Save the mappings
+    }
+  }, [article]);
 
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
   if (error) return <ErrorContainer>Error: {error}</ErrorContainer>;
@@ -1547,7 +1893,7 @@ const Article = () => {
   const hasPrevKeywords = currentKeywordIndex > 0;
 
   return (
-    <ArticlePageWrapper>
+    <ArticlePageWrapper isAudioMode={isAudioMode}>
       <GNB />
       <ArticleContainer>
         <Title
@@ -1571,13 +1917,24 @@ const Article = () => {
           <QuickReadingToggle
             onClick={() => setIsQuickReading(!isQuickReading)}
             className={isQuickReading ? "active" : ""}
+            disabled={isAudioMode}
           >
             {isQuickReading ? "✕ 속독 모드 해제" : "⚡ 속독 모드"}
           </QuickReadingToggle>
+          {article.audio?.url && (
+            <AudioModeToggle
+              onClick={toggleAudioMode}
+              className={isAudioMode ? "active" : ""}
+              disabled={isQuickReading}
+            >
+              {isAudioMode ? "✕ 오디오 모드 해제" : "🎧 오디오 모드"}
+            </AudioModeToggle>
+          )}
         </InfoContainer>
         <CalloutBox>
-          단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을
-          클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다.
+          {isAudioMode
+            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오 모드에서는 단어 뜻풀이 기능이 비활성화됩니다."
+            : "단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을 클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다."}
         </CalloutBox>
 
         {content.english?.length > 0 && (
@@ -1587,7 +1944,7 @@ const Article = () => {
                 <Paragraph
                   className="article-text"
                   data-original-text={paragraph}
-                  onClick={handleWordClick}
+                  onClick={isAudioMode ? undefined : handleWordClick}
                 >
                   {paragraph}
                 </Paragraph>
@@ -1877,9 +2234,9 @@ const Article = () => {
           </ModalContent>
         </ModalOverlay>
 
-        {/* Word definition modal */}
+        {/* Word definition modal (disabled in audio mode) */}
         <DefinitionModalOverlay
-          isOpen={wordDefinitionModal.isOpen}
+          isOpen={wordDefinitionModal.isOpen && !isAudioMode}
           onClick={closeDefinitionModal}
         >
           <DefinitionModalContent
@@ -1891,7 +2248,7 @@ const Article = () => {
             </WordDefinitionTitle>
             {wordDefinitionModal.isLoading ? (
               <LoadingDefinitionContent>
-                정의를 가져오는 중...
+                뜻풀이 생각 중...
               </LoadingDefinitionContent>
             ) : (
               <WordDefinitionContent>
@@ -1900,6 +2257,48 @@ const Article = () => {
             )}
           </DefinitionModalContent>
         </DefinitionModalOverlay>
+
+        {/* Audio Player */}
+        <AudioPlayerContainer isVisible={isAudioMode}>
+          <AudioControls>
+            <AudioButton onClick={togglePlayPause}>
+              {isPlaying ? <PauseIcon /> : <PlayIcon />}
+            </AudioButton>
+            <AudioTime>{formatTime(currentTime)}</AudioTime>
+          </AudioControls>
+
+          <AudioProgress onClick={seekAudio}>
+            <AudioProgressFill progress={audioProgress} />
+          </AudioProgress>
+
+          <AudioControls>
+            <AudioTime>{formatTime(duration)}</AudioTime>
+            <SpeedButton
+              onClick={() => changePlaybackSpeed(0.75)}
+              active={playbackSpeed === 0.75}
+            >
+              0.75x
+            </SpeedButton>
+            <SpeedButton
+              onClick={() => changePlaybackSpeed(1)}
+              active={playbackSpeed === 1}
+            >
+              1x
+            </SpeedButton>
+            <SpeedButton
+              onClick={() => changePlaybackSpeed(1.25)}
+              active={playbackSpeed === 1.25}
+            >
+              1.25x
+            </SpeedButton>
+            <SpeedButton
+              onClick={() => changePlaybackSpeed(1.5)}
+              active={playbackSpeed === 1.5}
+            >
+              1.5x
+            </SpeedButton>
+          </AudioControls>
+        </AudioPlayerContainer>
       </ArticleContainer>
     </ArticlePageWrapper>
   );
