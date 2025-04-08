@@ -3,6 +3,8 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 import React from "react";
 import GNB from "../components/gnb";
+// Import the hero image
+import heroImage from "../assets/homepage/one-cup-eng-hero.png";
 
 // Define colors object since it's not exported from layout.tsx
 const colors = {
@@ -19,18 +21,22 @@ const colors = {
   },
 };
 
+// Content container to limit the width to 850px
+const ContentContainer = styled.div`
+  max-width: 850px;
+  margin: 0 auto;
+  width: 100%;
+`;
+
 // Hero Section
-const HeroSection = styled.section`
-  background: linear-gradient(
-    135deg,
-    #990033,
-    #ff4500
-  ); /* Hermes orange gradient */
+const HeroSection = styled.section<{ backgroundImage: string }>`
+  background: url(${(props) => props.backgroundImage}) no-repeat center center;
+  background-size: cover;
   color: white;
   padding: 6rem 2rem;
-  text-align: center;
   position: relative;
   overflow: hidden;
+  text-align: left;
 `;
 
 // Background bubbles effect
@@ -230,6 +236,7 @@ const HeroContent = styled.div`
   z-index: 1;
   max-width: 800px;
   margin: 0 auto;
+  text-align: left;
 
   /* Add text shadow for better contrast */
   & h1,
@@ -239,12 +246,13 @@ const HeroContent = styled.div`
 `;
 
 const HeroTitle = styled.h1`
-  font-size: 5rem;
+  font-size: 4rem;
   font-weight: 800;
   margin-bottom: 1.5rem;
   color: white;
   position: relative;
   z-index: 1;
+  text-align: left;
 
   @media (max-width: 768px) {
     font-size: 3rem;
@@ -257,6 +265,7 @@ const HeroSubtitle = styled.p`
   margin-bottom: 2.5rem;
   color: white;
   font-weight: 700;
+  text-align: left;
 
   @media (max-width: 768px) {
     font-size: 1.6rem;
@@ -270,6 +279,7 @@ const CoffeeButton = styled.div`
   margin-top: 1.5rem;
   cursor: pointer;
   z-index: 10;
+  text-align: left;
 `;
 
 const CupShape = styled(Link)`
@@ -801,6 +811,44 @@ const PageWrapper = styled.div`
   padding-top: 70px; /* Add padding to account for fixed navbar */
 `;
 
+// Footer components from layout.tsx
+const Footer = styled.footer`
+  background-color: ${colors.primaryBg};
+  padding: 2rem 1.5rem;
+  border-top: 1px solid ${colors.primaryPale};
+  font-size: 0.8rem;
+  color: ${colors.text.medium};
+  text-align: center;
+
+  @media (max-width: 768px) {
+    padding: 1.5rem 1rem;
+    font-size: 0.8rem;
+  }
+`;
+
+const FooterContent = styled.div`
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const FooterLink = styled.a`
+  color: ${colors.text.medium};
+  text-decoration: none;
+
+  &:hover {
+    color: ${colors.primary};
+    text-decoration: underline;
+  }
+`;
+
+const FooterDivider = styled.span`
+  color: ${colors.text.light};
+  margin: 0 0.5rem;
+`;
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"IT" | "Business">("IT");
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
@@ -951,7 +999,7 @@ export default function Home() {
     <PageWrapper>
       <GNB />
       {/* Hero Section */}
-      <HeroSection>
+      <HeroSection backgroundImage={heroImage}>
         <BubbleBackground>
           <Bubble size={200} top={20} left={20} delay={0} opacity={0.25} />
           <Bubble size={150} top={60} left={70} delay={2} opacity={0.22} />
@@ -960,174 +1008,202 @@ export default function Home() {
           <Bubble size={250} top={10} left={80} delay={2} opacity={0.2} />
           <Bubble size={140} top={80} left={50} delay={2.5} opacity={0.26} />
         </BubbleBackground>
-        <HeroContent>
-          <HeroTitle>1 CUP ENGLISH</HeroTitle>
-          <HeroSubtitle>
-            아메리카노 한잔 값으로 배우는 비즈니스 영어
-          </HeroSubtitle>
-          <CoffeeButton>
-            <Steam>
-              <span></span>
-            </Steam>
-            <CupShape to="/auth">Start Now</CupShape>
-          </CoffeeButton>
-        </HeroContent>
+        <ContentContainer>
+          <HeroContent>
+            <HeroTitle>영어 한잔</HeroTitle>
+            <HeroSubtitle>
+              아메리카노 한잔 값으로 배우는 비즈니스 영어
+            </HeroSubtitle>
+            <CoffeeButton>
+              <Steam>
+                <span></span>
+              </Steam>
+              <CupShape to="/auth">Start Now</CupShape>
+            </CoffeeButton>
+          </HeroContent>
+        </ContentContainer>
       </HeroSection>
 
       {/* Problem Section */}
       <ProblemSection>
-        <SectionTitle>
-          영미권 엘리트의 관심사, 궁금하지 않으신가요?
-        </SectionTitle>
-        <SolutionStatement>
-          저희도 그랬습니다. 그래서 '영어 한잔'을 만들었습니다.
-        </SolutionStatement>
+        <ContentContainer>
+          <SectionTitle>
+            영미권 엘리트의 관심사, 궁금하지 않으신가요?
+          </SectionTitle>
+          <SolutionStatement>
+            저희도 그랬습니다. 그래서 '영어 한잔'을 만들었습니다.
+          </SolutionStatement>
 
-        {/* Replace ProblemList with NewsCardDeck */}
-        <NewsCardDeck>
-          {newsCards.map((card, index) => {
-            // Calculate if this card should be active based on current activeCardIndex
-            const cardPosition =
-              (index - activeCardIndex + newsCards.length) % newsCards.length;
-            const isActive = cardPosition === 0;
-            // Only animate the card that was previously active
-            const isAnimating =
-              previousCardIndex !== null && index === previousCardIndex;
+          {/* Replace ProblemList with NewsCardDeck */}
+          <NewsCardDeck>
+            {newsCards.map((card, index) => {
+              // Calculate if this card should be active based on current activeCardIndex
+              const cardPosition =
+                (index - activeCardIndex + newsCards.length) % newsCards.length;
+              const isActive = cardPosition === 0;
+              // Only animate the card that was previously active
+              const isAnimating =
+                previousCardIndex !== null && index === previousCardIndex;
 
-            return (
-              <NewsCard
-                key={index}
-                index={cardPosition}
-                isActive={isActive}
-                isDragging={isAnimating}
-                totalCards={newsCards.length}
-                zIndex={newsCards.length - cardPosition}
-                onClick={isActive ? handleCardClick : undefined}
-              >
-                <CardWrapper>
-                  <CardSource>{card.source}</CardSource>
-                  <CardTitle>{card.title}</CardTitle>
-                  <CardMain>
-                    <CardImage imageUrl={card.image} />
-                    <CardText>{card.content}</CardText>
-                  </CardMain>
-                  <CardDate>{card.date}</CardDate>
-                </CardWrapper>
-              </NewsCard>
-            );
-          })}
-        </NewsCardDeck>
+              return (
+                <NewsCard
+                  key={index}
+                  index={cardPosition}
+                  isActive={isActive}
+                  isDragging={isAnimating}
+                  totalCards={newsCards.length}
+                  zIndex={newsCards.length - cardPosition}
+                  onClick={isActive ? handleCardClick : undefined}
+                >
+                  <CardWrapper>
+                    <CardSource>{card.source}</CardSource>
+                    <CardTitle>{card.title}</CardTitle>
+                    <CardMain>
+                      <CardImage imageUrl={card.image} />
+                      <CardText>{card.content}</CardText>
+                    </CardMain>
+                    <CardDate>{card.date}</CardDate>
+                  </CardWrapper>
+                </NewsCard>
+              );
+            })}
+          </NewsCardDeck>
+        </ContentContainer>
       </ProblemSection>
 
       {/* Features Section */}
       <FeaturesSection>
-        <SectionTitle>하루 5분, 내 영어 실력을 바꾸는 시간</SectionTitle>
-        <FeatureSlider>
-          <FeatureCard>
-            <FeatureTitle>최신 영어 토픽</FeatureTitle>
-            <FeatureDescription>
-              Fortune 500 기업 임원들이 가장 즐겨 읽는 Wall Street Journal,
-              Financial Times에서 이 순간 가장 핫한 영어 토픽을 기반으로
-              콘텐츠를 제작합니다.
-            </FeatureDescription>
-          </FeatureCard>
-          <FeatureCard>
-            <FeatureTitle>속독 모드</FeatureTitle>
-            <FeatureDescription>
-              본문을 쉽게 읽을 수 있도록 도와주는 속독 모드로 빠르게 내용을
-              파악할 수 있습니다.
-            </FeatureDescription>
-          </FeatureCard>
-          <FeatureCard>
-            <FeatureTitle>한글 번역 및 단어 정리</FeatureTitle>
-            <FeatureDescription>
-              한글 번역 및 주요 단어 정리까지 제공하여 더욱 효과적인 학습이
-              가능합니다.
-            </FeatureDescription>
-          </FeatureCard>
-        </FeatureSlider>
-        <FeatureCTA>
-          하루 5분으로 영어 실력과 글로벌 감각을 동시에 키워보세요!
-        </FeatureCTA>
+        <ContentContainer>
+          <SectionTitle>하루 5분, 내 영어 실력을 바꾸는 시간</SectionTitle>
+          <FeatureSlider>
+            <FeatureCard>
+              <FeatureTitle>최신 영어 토픽</FeatureTitle>
+              <FeatureDescription>
+                Fortune 500 기업 임원들이 가장 즐겨 읽는 Wall Street Journal,
+                Financial Times에서 이 순간 가장 핫한 영어 토픽을 기반으로
+                콘텐츠를 제작합니다.
+              </FeatureDescription>
+            </FeatureCard>
+            <FeatureCard>
+              <FeatureTitle>속독 모드</FeatureTitle>
+              <FeatureDescription>
+                본문을 쉽게 읽을 수 있도록 도와주는 속독 모드로 빠르게 내용을
+                파악할 수 있습니다.
+              </FeatureDescription>
+            </FeatureCard>
+            <FeatureCard>
+              <FeatureTitle>한글 번역 및 단어 정리</FeatureTitle>
+              <FeatureDescription>
+                한글 번역 및 주요 단어 정리까지 제공하여 더욱 효과적인 학습이
+                가능합니다.
+              </FeatureDescription>
+            </FeatureCard>
+          </FeatureSlider>
+          <FeatureCTA>
+            하루 5분으로 영어 실력과 글로벌 감각을 동시에 키워보세요!
+          </FeatureCTA>
+        </ContentContainer>
       </FeaturesSection>
 
       {/* Testimonials Section */}
       <TestimonialsSection>
-        <SectionTitle>이용 후기</SectionTitle>
-        <TestimonialTabs>
-          <TabButton
-            active={activeTab === "IT"}
-            onClick={() => setActiveTab("IT")}
-          >
-            IT
-          </TabButton>
-          <TabButton
-            active={activeTab === "Business"}
-            onClick={() => setActiveTab("Business")}
-          >
-            Business
-          </TabButton>
-        </TestimonialTabs>
-        <PricingTable>
-          <PricingCard>
-            <PricingTitle>30일</PricingTitle>
-            <PricingPrice>4,500원</PricingPrice>
-            <PricingPeriod>월</PricingPeriod>
-            <PricingFeatures>
-              <PricingFeature>하루 5분 영어 학습</PricingFeature>
-              <PricingFeature>최신 영어 토픽 제공</PricingFeature>
-              <PricingFeature>속독 모드</PricingFeature>
-              <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
-            </PricingFeatures>
-            <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
-          </PricingCard>
-          <PricingCard>
-            <PricingTitle>90일</PricingTitle>
-            <PricingPrice>12,500원</PricingPrice>
-            <PricingPeriod>3개월</PricingPeriod>
-            <PricingFeatures>
-              <PricingFeature>하루 5분 영어 학습</PricingFeature>
-              <PricingFeature>최신 영어 토픽 제공</PricingFeature>
-              <PricingFeature>속독 모드</PricingFeature>
-              <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
-              <PricingFeature>학습 진도 추적</PricingFeature>
-            </PricingFeatures>
-            <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
-          </PricingCard>
-          <PricingCard>
-            <PricingTitle>180일</PricingTitle>
-            <PricingPrice>24,000원</PricingPrice>
-            <PricingPeriod>6개월</PricingPeriod>
-            <PricingFeatures>
-              <PricingFeature>하루 5분 영어 학습</PricingFeature>
-              <PricingFeature>최신 영어 토픽 제공</PricingFeature>
-              <PricingFeature>속독 모드</PricingFeature>
-              <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
-              <PricingFeature>학습 진도 추적</PricingFeature>
-              <PricingFeature>맞춤형 학습 추천</PricingFeature>
-            </PricingFeatures>
-            <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
-          </PricingCard>
-        </PricingTable>
+        <ContentContainer>
+          <SectionTitle>이용 후기</SectionTitle>
+          <TestimonialTabs>
+            <TabButton
+              active={activeTab === "IT"}
+              onClick={() => setActiveTab("IT")}
+            >
+              IT
+            </TabButton>
+            <TabButton
+              active={activeTab === "Business"}
+              onClick={() => setActiveTab("Business")}
+            >
+              Business
+            </TabButton>
+          </TestimonialTabs>
+          <PricingTable>
+            <PricingCard>
+              <PricingTitle>30일</PricingTitle>
+              <PricingPrice>4,500원</PricingPrice>
+              <PricingPeriod>월</PricingPeriod>
+              <PricingFeatures>
+                <PricingFeature>하루 5분 영어 학습</PricingFeature>
+                <PricingFeature>최신 영어 토픽 제공</PricingFeature>
+                <PricingFeature>속독 모드</PricingFeature>
+                <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
+              </PricingFeatures>
+              <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
+            </PricingCard>
+            <PricingCard>
+              <PricingTitle>90일</PricingTitle>
+              <PricingPrice>12,500원</PricingPrice>
+              <PricingPeriod>3개월</PricingPeriod>
+              <PricingFeatures>
+                <PricingFeature>하루 5분 영어 학습</PricingFeature>
+                <PricingFeature>최신 영어 토픽 제공</PricingFeature>
+                <PricingFeature>속독 모드</PricingFeature>
+                <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
+                <PricingFeature>학습 진도 추적</PricingFeature>
+              </PricingFeatures>
+              <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
+            </PricingCard>
+            <PricingCard>
+              <PricingTitle>180일</PricingTitle>
+              <PricingPrice>24,000원</PricingPrice>
+              <PricingPeriod>6개월</PricingPeriod>
+              <PricingFeatures>
+                <PricingFeature>하루 5분 영어 학습</PricingFeature>
+                <PricingFeature>최신 영어 토픽 제공</PricingFeature>
+                <PricingFeature>속독 모드</PricingFeature>
+                <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
+                <PricingFeature>학습 진도 추적</PricingFeature>
+                <PricingFeature>맞춤형 학습 추천</PricingFeature>
+              </PricingFeatures>
+              <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
+            </PricingCard>
+          </PricingTable>
+        </ContentContainer>
       </TestimonialsSection>
 
       {/* FAQ Section */}
       <FAQSection>
-        <SectionTitle>자주 묻는 질문</SectionTitle>
-        <FAQContainer>
-          {faqs.map((faq, index) => (
-            <FAQItem key={index}>
-              <FAQQuestion
-                onClick={() => toggleFAQ(index)}
-                isOpen={openFAQ === index}
-              >
-                {faq.question}
-              </FAQQuestion>
-              <FAQAnswer isOpen={openFAQ === index}>{faq.answer}</FAQAnswer>
-            </FAQItem>
-          ))}
-        </FAQContainer>
+        <ContentContainer>
+          <SectionTitle>자주 묻는 질문</SectionTitle>
+          <FAQContainer>
+            {faqs.map((faq, index) => (
+              <FAQItem key={index}>
+                <FAQQuestion
+                  onClick={() => toggleFAQ(index)}
+                  isOpen={openFAQ === index}
+                >
+                  {faq.question}
+                </FAQQuestion>
+                <FAQAnswer isOpen={openFAQ === index}>{faq.answer}</FAQAnswer>
+              </FAQItem>
+            ))}
+          </FAQContainer>
+        </ContentContainer>
       </FAQSection>
+
+      {/* Footer added from layout.tsx */}
+      <Footer>
+        <FooterContent>
+          <div>
+            <FooterLink href="/policy/privacy">개인정보 취급방침</FooterLink>
+            <FooterDivider>|</FooterDivider>
+            <FooterLink href="/policy/terms">이용약관</FooterLink>
+          </div>
+          <div>
+            영어 한잔 | 549-04-02156 | 대표자 김수겸 | 이메일 hello@nativept.kr
+          </div>
+          <div>통신판매업 신고번호 제2022-서울종로-1744호</div>
+          <div>서울특별시 성북구 안암로9가길 9-8, 303호</div>
+          <div>'영어한잔'은 '네이티브피티'의 영어교육 서비스 브랜드입니다.</div>
+          <div>ⓒ2025 All Rights Reserved.</div>
+        </FooterContent>
+      </Footer>
     </PageWrapper>
   );
 }

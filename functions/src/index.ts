@@ -861,6 +861,408 @@ export const testSendLinksToUsers = onCall(
   }
 );
 
+// New function to send links to specific category users
+export const sendLinksToCategory = onCall(
+  {
+    enforceAppCheck: false, // Set to true in production
+  },
+  async (request) => {
+    try {
+      const { category, testMode = true } = request.data;
+
+      if (!category || (category !== "tech" && category !== "business")) {
+        throw new Error("Invalid category. Must be 'tech' or 'business'.");
+      }
+
+      logger.info(
+        `Manual sending to category: ${category}, test mode: ${testMode}`
+      );
+
+      // Use the core processing function but with category filter
+      const result = await processCategoryLinks(category, testMode);
+
+      return {
+        success: true,
+        message: `Links sent successfully to ${category} category subscribers${
+          testMode ? " (test mode)" : ""
+        }`,
+        stats: result,
+      };
+    } catch (error: any) {
+      logger.error("Error in category send function:", error);
+      return {
+        success: false,
+        error: error.message || "Unknown error occurred",
+      };
+    }
+  }
+);
+
+// Function to process and send links to a specific category
+async function processCategoryLinks(
+  category: "tech" | "business",
+  testMode: boolean = true
+): Promise<{
+  recipientCount: number;
+}> {
+  try {
+    const db = admin.firestore();
+
+    // Test mode configuration
+    const TEST_MODE_ENABLED = testMode;
+    const TEST_PHONE_NUMBERS = ["01068584123", "01045430406"];
+
+    if (TEST_MODE_ENABLED) {
+      logger.info(
+        `Running in TEST MODE for specific recipients: ${TEST_PHONE_NUMBERS.join(
+          ", "
+        )}`
+      );
+    } else {
+      logger.info("Running in PRODUCTION MODE for all eligible users");
+    }
+
+    logger.debug(
+      `Starting to process and send links to ${category} category subscribers`
+    );
+
+    // Get the current date
+    // const now = new Date();
+
+    // 1. Load URL for the specified category
+    logger.debug(`Fetching ${category} link document from Firestore...`);
+    const linkDoc = await db.doc(`links/${category}`).get();
+
+    if (!linkDoc.exists) {
+      logger.error(`${category} link document does not exist in Firestore`);
+      throw new Error(`${category} link document does not exist`);
+    }
+
+    const data = linkDoc.data();
+    logger.debug(`${category} link data: ${JSON.stringify(data)}`);
+
+    // Check if we have a valid URL
+    if (!data?.url) {
+      logger.error(`${category} link document has no URL field`);
+      throw new Error(`No URL found for ${category} category`);
+    }
+
+    // Extract article ID from URL
+    const urlParts = data.url.split("/");
+    const articleId = urlParts[urlParts.length - 1];
+    logger.debug(`Extracted articleId for ${category}: ${articleId}`);
+
+    // Get Korean title for this article
+    logger.debug(
+      `Fetching Korean title for ${category} article: ${articleId}...`
+    );
+    const articleTitleDoc = await db.doc(`articles/${articleId}`).get();
+    logger.debug(`Article title document exists: ${articleTitleDoc.exists}`);
+    const koreanTitle = articleTitleDoc.exists
+      ? articleTitleDoc.data()?.title?.korean
+      : `${category === "tech" ? "기술" : "비즈니스"} 기사`;
+    logger.debug(`Korean title for ${category} article: ${koreanTitle}`);
+
+    // Initialize usersSnapshot as an empty object with the expected properties
+    let usersSnapshot: {
+      docs: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>[];
+      size: number;
+      empty: boolean;
+      forEach: (
+        callback: (
+          doc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
+        ) => void
+      ) => void;
+    } = {
+      docs: [],
+      size: 0,
+      empty: true,
+      forEach: () => {},
+    };
+
+    if (TEST_MODE_ENABLED) {
+      // In test mode, only get test users who subscribe to this category
+      logger.debug(
+        `Test mode: Fetching users with test phone numbers who subscribe to ${category}...`
+      );
+
+      // First approach: direct ID match - without left_count filter for test mode
+      const usersByIdSnapshot = await db
+        .collection("users")
+        .where(admin.firestore.FieldPath.documentId(), "in", TEST_PHONE_NUMBERS)
+        .where(category === "tech" ? "cat_tech" : "cat_business", "==", true)
+        .get();
+
+      logger.debug(
+        `Found ${usersByIdSnapshot.docs.length} test users who subscribe to ${category} by direct ID match`
+      );
+
+      // Second approach: Get all users who subscribe to this category - without left_count filter for test mode
+      const allUsersSnapshot = await db
+        .collection("users")
+        .where(category === "tech" ? "cat_tech" : "cat_business", "==", true)
+        .get();
+
+      // Filter users by formatting their phone field and checking if it matches test numbers
+      const usersByPhoneField = allUsersSnapshot.docs.filter((doc) => {
+        const userData = doc.data();
+        if (!userData.phone) return false;
+
+        // Format the phone number from user data to match our test format
+        const formattedPhone = userData.phone
+          .replace(/^\+82/, "0")
+          .replace(/\D/g, "");
+        return TEST_PHONE_NUMBERS.includes(formattedPhone);
+      });
+
+      logger.debug(
+        `Found ${usersByPhoneField.length} additional test users who subscribe to ${category} by phone field match`
+      );
+
+      // Combine all the users we found, ensuring no duplicates
+      const combinedDocs = [...usersByIdSnapshot.docs, ...usersByPhoneField];
+
+      // Remove duplicates by user ID
+      const uniqueDocsMap = new Map();
+      for (const doc of combinedDocs) {
+        if (!uniqueDocsMap.has(doc.id)) {
+          uniqueDocsMap.set(doc.id, doc);
+        }
+      }
+
+      // Create a custom snapshot-like object with the filtered docs
+      usersSnapshot = {
+        docs: Array.from(uniqueDocsMap.values()),
+        size: uniqueDocsMap.size,
+        empty: uniqueDocsMap.size === 0,
+        forEach: (
+          callback: (
+            doc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
+          ) => void
+        ) => {
+          Array.from(uniqueDocsMap.values()).forEach(callback);
+        },
+      };
+
+      logger.debug(
+        `Found a total of ${usersSnapshot.docs.length} unique test users who subscribe to ${category}`
+      );
+    } else {
+      // In production mode, get all users who subscribe to this category
+      logger.debug(
+        `Production mode: Fetching all users who subscribe to ${category}...`
+      );
+
+      // Try a different approach - first get all users who subscribe to this category
+      const usersWithCategorySnapshot = await db
+        .collection("users")
+        .where(category === "tech" ? "cat_tech" : "cat_business", "==", true)
+        .get();
+
+      logger.debug(
+        `Found ${usersWithCategorySnapshot.docs.length} ${category} subscribers`
+      );
+
+      // Then filter locally by left_count
+      const filteredDocs = usersWithCategorySnapshot.docs.filter((doc) => {
+        const userData = doc.data();
+        return userData.left_count !== undefined && userData.left_count > 0;
+      });
+
+      logger.debug(
+        `After filtering, found ${filteredDocs.length} ${category} subscribers with left_count > 0`
+      );
+
+      // Create a custom snapshot-like object with the filtered docs
+      usersSnapshot = {
+        docs: filteredDocs,
+        size: filteredDocs.length,
+        empty: filteredDocs.length === 0,
+        forEach: (
+          callback: (
+            doc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
+          ) => void
+        ) => {
+          filteredDocs.forEach(callback);
+        },
+      };
+    }
+
+    if (usersSnapshot.empty) {
+      logger.warn(`No eligible ${category} subscribers found`);
+      return { recipientCount: 0 };
+    }
+
+    const recipients: any[] = [];
+
+    // Process each user
+    for (const userDoc of usersSnapshot.docs) {
+      const userData = userDoc.data() as UserData;
+      logger.debug(
+        `Processing user ${userDoc.id}: left_count=${userData.left_count}`
+      );
+
+      // Skip users with zero left_count in production mode (in test mode, we process regardless of left_count)
+      if (
+        !TEST_MODE_ENABLED &&
+        (userData.left_count === undefined || userData.left_count <= 0)
+      ) {
+        logger.debug(
+          `Skipping user ${userDoc.id} because left_count is ${userData.left_count}`
+        );
+        continue;
+      }
+
+      // Get customer name from Firebase Auth first, then fallback to Firestore
+      let customerName = "고객님"; // Default fallback
+      try {
+        logger.debug(`Fetching customer name from Auth for user ${userDoc.id}`);
+        const authUser = await admin.auth().getUser(userDoc.id);
+
+        if (authUser.displayName && authUser.displayName.trim() !== "") {
+          customerName = authUser.displayName;
+          logger.debug(
+            `Using displayName from Auth as customer name: ${customerName}`
+          );
+        } else if (userData.name && userData.name.trim() !== "") {
+          customerName = userData.name;
+          logger.debug(
+            `Using name from Firestore as fallback: ${customerName}`
+          );
+        }
+      } catch (authError) {
+        logger.error(
+          `Error fetching user from Auth for ${userDoc.id}:`,
+          authError
+        );
+        if (userData.name && userData.name.trim() !== "") {
+          customerName = userData.name;
+          logger.debug(
+            `Using name from Firestore after Auth error: ${customerName}`
+          );
+        }
+      }
+
+      // Create template parameter for the message
+      const templateParameter = {
+        "korean-title": koreanTitle,
+        "customer-name": customerName,
+        "article-link": data.url,
+      };
+
+      // Get phone number only from Firebase Auth
+      let recipientNo = "";
+      try {
+        logger.debug(`Fetching phone number from Auth for user ${userDoc.id}`);
+        const authUser = await admin.auth().getUser(userDoc.id);
+
+        if (authUser.phoneNumber) {
+          // Format phone number from auth (remove country code and any non-digits)
+          recipientNo = authUser.phoneNumber
+            .replace(/^\+82/, "0")
+            .replace(/\D/g, "");
+          logger.debug(
+            `Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`
+          );
+        } else {
+          logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
+          // Fallback to phone field in Firestore as last resort
+          if (userData.phone) {
+            recipientNo = userData.phone
+              .replace(/^\+82/, "0")
+              .replace(/\D/g, "");
+            logger.debug(
+              `Using phone field from Firestore as fallback: ${recipientNo}`
+            );
+          }
+        }
+      } catch (authError) {
+        logger.error(
+          `Error fetching user from Auth for ${userDoc.id}:`,
+          authError
+        );
+        // Fallback to phone field in Firestore as last resort
+        if (userData.phone) {
+          recipientNo = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+          logger.debug(
+            `Using phone field from Firestore as fallback after Auth error: ${recipientNo}`
+          );
+        }
+      }
+
+      // Skip if we couldn't find a valid phone number
+      if (
+        !recipientNo ||
+        !recipientNo.startsWith("010") ||
+        recipientNo.length < 10
+      ) {
+        logger.warn(
+          `Could not find valid phone number for user ${userDoc.id}, skipping`
+        );
+        continue;
+      }
+
+      // Add the articleId to the user's received_articles array and update left_count
+      // Only in production mode we actually decrement the left_count
+      try {
+        logger.debug(
+          `Adding article ${articleId} to received_articles for user ${userDoc.id}`
+        );
+
+        const updates: any = {
+          received_articles: admin.firestore.FieldValue.arrayUnion(articleId),
+          last_received: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        // Only decrement left_count in production mode
+        if (!TEST_MODE_ENABLED) {
+          updates.left_count = admin.firestore.FieldValue.increment(-1);
+          logger.debug(`Decrementing left_count for user ${userDoc.id}`);
+        } else {
+          logger.debug(
+            `Test mode: Not decrementing left_count for user ${userDoc.id}`
+          );
+        }
+
+        await userDoc.ref.update(updates);
+        logger.debug(`Successfully updated user ${userDoc.id}`);
+      } catch (updateError) {
+        logger.error(`Failed to update user ${userDoc.id}:`, updateError);
+      }
+
+      recipients.push({
+        recipientNo: recipientNo,
+        templateParameter: templateParameter,
+      });
+    }
+
+    logger.debug(`Processing complete. Recipients count: ${recipients.length}`);
+
+    // 3. Send Kakao messages
+    if (recipients.length > 0) {
+      logger.debug(
+        `Sending Kakao messages to ${recipients.length} recipients...`
+      );
+      try {
+        const result = await sendKakaoMessages(recipients, "send-article");
+        logger.debug(`Kakao result: ${JSON.stringify(result)}`);
+      } catch (kakaoError) {
+        logger.error(`Error sending ${category} Kakao messages:`, kakaoError);
+        throw kakaoError;
+      }
+    } else {
+      logger.debug(`No ${category} recipients to send messages to`);
+    }
+
+    logger.info(`Sent messages to: ${recipients.length} ${category} users`);
+
+    return { recipientCount: recipients.length };
+  } catch (error) {
+    logger.error(`Error in processCategoryLinks:`, error);
+    throw error;
+  }
+}
+
 async function sendKakaoMessages(recipientList: any[], templateCode: string) {
   logger.debug(
     `Preparing to send Kakao messages with template: ${templateCode}`

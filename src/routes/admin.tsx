@@ -1,8 +1,14 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { auth, db } from '../firebase';
-import { collection, getDocs, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import {
+  collection,
+  getDocs,
+  Timestamp,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { Navigate, useNavigate } from "react-router-dom";
 
 const Wrapper = styled.div`
@@ -29,11 +35,11 @@ const Button = styled.button`
   cursor: pointer;
   font-size: 16px;
   margin-top: 20px;
-  
+
   &:hover {
     background-color: #45a049;
   }
-  
+
   &:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
@@ -57,12 +63,18 @@ const StatusBox = styled.div<{ status: "success" | "error" | "idle" }>`
   padding: 10px;
   margin-top: 15px;
   border-radius: 4px;
-  background-color: ${(props) => 
-    props.status === "success" ? "#dff0d8" : 
-    props.status === "error" ? "#f2dede" : "#f5f5f5"};
-  color: ${(props) => 
-    props.status === "success" ? "#3c763d" : 
-    props.status === "error" ? "#a94442" : "#333"};
+  background-color: ${(props) =>
+    props.status === "success"
+      ? "#dff0d8"
+      : props.status === "error"
+      ? "#f2dede"
+      : "#f5f5f5"};
+  color: ${(props) =>
+    props.status === "success"
+      ? "#3c763d"
+      : props.status === "error"
+      ? "#a94442"
+      : "#333"};
 `;
 
 const TabContainer = styled.div`
@@ -72,17 +84,37 @@ const TabContainer = styled.div`
 
 const Tab = styled.button<{ active: boolean }>`
   padding: 10px 20px;
-  background-color: ${props => props.active ? "#4caf50" : "#f1f1f1"};
-  color: ${props => props.active ? "white" : "black"};
+  background-color: ${(props) => (props.active ? "#4caf50" : "#f1f1f1")};
+  color: ${(props) => (props.active ? "white" : "black")};
   border: none;
   border-radius: 4px;
   margin-right: 10px;
   cursor: pointer;
   font-size: 16px;
-  
+
   &:hover {
-    background-color: ${props => props.active ? "#45a049" : "#e1e1e1"};
+    background-color: ${(props) => (props.active ? "#45a049" : "#e1e1e1")};
   }
+`;
+
+const Section = styled.div`
+  margin-bottom: 30px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 20px;
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 20px;
+  margin-bottom: 15px;
+  color: #333;
+`;
+
+const SelectCategory = styled.select`
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  margin-right: 15px;
 `;
 
 const CardContainer = styled.div`
@@ -106,7 +138,7 @@ const Card = styled.div`
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 15px;
   transition: all 0.3s ease;
-  
+
   &:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     transform: translateY(-2px);
@@ -130,7 +162,7 @@ const CardContent = styled.div`
 `;
 
 const EditButton = styled.button`
-  background-color: #2196F3;
+  background-color: #2196f3;
   color: white;
   padding: 6px 12px;
   border: none;
@@ -138,7 +170,7 @@ const EditButton = styled.button`
   cursor: pointer;
   font-size: 14px;
   margin-top: 10px;
-  
+
   &:hover {
     background-color: #0b7dda;
   }
@@ -177,7 +209,7 @@ const Checkbox = styled.div`
   display: flex;
   align-items: center;
   margin: 5px 0;
-  
+
   input {
     margin-right: 8px;
   }
@@ -232,14 +264,19 @@ interface EditingUser {
 
 export default function Admin() {
   const user = auth.currentUser;
-  if (user?.phoneNumber !== "+821068584123" && user?.phoneNumber !== "+821045340406") {
+  if (
+    user?.phoneNumber !== "+821068584123" &&
+    user?.phoneNumber !== "+821045340406"
+  ) {
     return <Navigate to="/profile" />;
   }
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [status, setStatus] = useState<"success" | "error" | "idle">("idle");
-  const [activeTab, setActiveTab] = useState<'links' | 'articles' | 'users'>('links');
+  const [activeTab, setActiveTab] = useState<"links" | "articles" | "users">(
+    "links"
+  );
   const [articles, setArticles] = useState<ArticleData[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   const [fetchingArticles, setFetchingArticles] = useState(false);
@@ -249,12 +286,15 @@ export default function Admin() {
   const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
   const [savingUser, setSavingUser] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("tech");
+  const [sendingToCategory, setSendingToCategory] = useState(false);
+  const [testModeEnabled, setTestModeEnabled] = useState(true);
 
   useEffect(() => {
-    if (activeTab === 'articles' && articles.length === 0) {
+    if (activeTab === "articles" && articles.length === 0) {
       fetchArticles();
     }
-    if (activeTab === 'users' && users.length === 0) {
+    if (activeTab === "users" && users.length === 0) {
       fetchUsers();
     }
   }, [activeTab]);
@@ -262,20 +302,24 @@ export default function Admin() {
   const fetchArticles = async () => {
     setFetchingArticles(true);
     try {
-      const articlesCollection = collection(db, 'articles');
+      const articlesCollection = collection(db, "articles");
       const articlesSnapshot = await getDocs(articlesCollection);
-      const articlesList = articlesSnapshot.docs.map(doc => ({
+      const articlesList = articlesSnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       })) as ArticleData[];
-      
+
       // Sort articles by timestamp (most recent first)
       const sortedArticles = articlesList.sort((a, b) => {
-        const dateA = a.timestamp?.toDate?.() ? a.timestamp.toDate() : new Date(0);
-        const dateB = b.timestamp?.toDate?.() ? b.timestamp.toDate() : new Date(0);
+        const dateA = a.timestamp?.toDate?.()
+          ? a.timestamp.toDate()
+          : new Date(0);
+        const dateB = b.timestamp?.toDate?.()
+          ? b.timestamp.toDate()
+          : new Date(0);
         return dateB.getTime() - dateA.getTime();
       });
-      
+
       setArticles(sortedArticles);
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -287,35 +331,38 @@ export default function Admin() {
   const fetchUsers = async () => {
     setFetchingUsers(true);
     try {
-      const usersCollection = collection(db, 'users');
+      const usersCollection = collection(db, "users");
       const usersSnapshot = await getDocs(usersCollection);
-      const usersList = usersSnapshot.docs.map(doc => ({
+      const usersList = usersSnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       })) as UserData[];
-      
+
       setUsers(usersList);
-      
+
       // After fetching users, get their display names from Firebase Auth
-      await fetchDisplayNames(usersList.map(user => user.id));
+      await fetchDisplayNames(usersList.map((user) => user.id));
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
       setFetchingUsers(false);
     }
   };
-  
+
   const fetchDisplayNames = async (userIds: string[]) => {
     try {
       const functions = getFunctions();
-      const getUserDisplayNames = httpsCallable(functions, 'getUserDisplayNames');
-      
+      const getUserDisplayNames = httpsCallable(
+        functions,
+        "getUserDisplayNames"
+      );
+
       const response = await getUserDisplayNames({ userIds });
-      const result = response.data as { 
-        displayNames: Record<string, string>,
-        phoneNumbers: Record<string, string>
+      const result = response.data as {
+        displayNames: Record<string, string>;
+        phoneNumbers: Record<string, string>;
       };
-      
+
       setDisplayNames(result.displayNames);
       setPhoneNumbers(result.phoneNumbers);
     } catch (error) {
@@ -326,11 +373,11 @@ export default function Admin() {
   const handleSendLinks = async () => {
     setIsLoading(true);
     setStatus("idle");
-    
+
     try {
       const functions = getFunctions();
-      const testSendLinks = httpsCallable(functions, 'testSendLinksToUsers');
-      
+      const testSendLinks = httpsCallable(functions, "testSendLinksToUsers");
+
       const response = await testSendLinks();
       setResult(response.data);
       setStatus("success");
@@ -344,13 +391,71 @@ export default function Admin() {
     }
   };
 
+  const handleSendLinksToCategory = async () => {
+    setSendingToCategory(true);
+    setStatus("idle");
+
+    try {
+      const functions = getFunctions();
+      const sendLinksToCategory = httpsCallable(
+        functions,
+        "sendLinksToCategory"
+      );
+
+      const response = await sendLinksToCategory({
+        category: selectedCategory,
+        testMode: testModeEnabled,
+      });
+      setResult(response.data);
+      setStatus("success");
+      console.log("Function result:", response.data);
+    } catch (error) {
+      console.error("Error calling function:", error);
+      setResult(error);
+      setStatus("error");
+    } finally {
+      setSendingToCategory(false);
+    }
+  };
+
+  const displayResultStats = (result: any) => {
+    if (!result || !result.stats) return null;
+
+    // Handle standard test mode results
+    if ("techCount" in result.stats || "businessCount" in result.stats) {
+      return (
+        <div>
+          <p>Tech recipients: {result.stats.techCount || 0}</p>
+          <p>Business recipients: {result.stats.businessCount || 0}</p>
+          <p>Expiry notifications: {result.stats.expiryCount || 0}</p>
+        </div>
+      );
+    }
+
+    // Handle category-specific results
+    if ("recipientCount" in result.stats) {
+      return (
+        <div>
+          <p>
+            {selectedCategory.charAt(0).toUpperCase() +
+              selectedCategory.slice(1)}{" "}
+            recipients: {result.stats.recipientCount}
+          </p>
+        </div>
+      );
+    }
+
+    // Fallback for unknown format
+    return <pre>{JSON.stringify(result.stats, null, 2)}</pre>;
+  };
+
   const handleEditUser = (user: UserData) => {
     setEditingUser({
       id: user.id,
-      name: user.name || '',
+      name: user.name || "",
       left_count: user.left_count || 0,
       cat_tech: user.cat_tech || false,
-      cat_business: user.cat_business || false
+      cat_business: user.cat_business || false,
     });
     setEditError(null);
   };
@@ -362,27 +467,27 @@ export default function Admin() {
 
   const handleSaveUser = async () => {
     if (!editingUser) return;
-    
+
     setSavingUser(true);
     setEditError(null);
-    
+
     try {
-      const userRef = doc(db, 'users', editingUser.id);
-      
+      const userRef = doc(db, "users", editingUser.id);
+
       await updateDoc(userRef, {
         name: editingUser.name,
         left_count: editingUser.left_count,
         cat_tech: editingUser.cat_tech,
-        cat_business: editingUser.cat_business
+        cat_business: editingUser.cat_business,
       });
-      
+
       // Update the user in state
-      setUsers(users.map(user => 
-        user.id === editingUser.id 
-          ? { ...user, ...editingUser } 
-          : user
-      ));
-      
+      setUsers(
+        users.map((user) =>
+          user.id === editingUser.id ? { ...user, ...editingUser } : user
+        )
+      );
+
       setEditingUser(null);
     } catch (error) {
       console.error("Error updating user:", error);
@@ -394,26 +499,26 @@ export default function Admin() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!editingUser) return;
-    
+
     const { name, value, type, checked } = e.target;
-    
-    setEditingUser(prev => {
+
+    setEditingUser((prev) => {
       if (!prev) return prev;
-      
-      if (type === 'checkbox') {
+
+      if (type === "checkbox") {
         return {
           ...prev,
-          [name]: checked
+          [name]: checked,
         };
-      } else if (type === 'number') {
+      } else if (type === "number") {
         return {
           ...prev,
-          [name]: parseInt(value, 10)
+          [name]: parseInt(value, 10),
         };
       } else {
         return {
           ...prev,
-          [name]: value
+          [name]: value,
         };
       }
     });
@@ -426,43 +531,88 @@ export default function Admin() {
 
     return (
       <ArticleCard key={article.id} onClick={handleArticleClick}>
-        <CardTitle>{article.title?.english || 'Untitled'}</CardTitle>
+        <CardTitle>{article.title?.english || "Untitled"}</CardTitle>
         <CardContent>
-          <p><strong>ID:</strong> {article.id}</p>
-          <p><strong>Korean Title:</strong> {article.title?.korean || 'No Korean title'}</p>
-          <p><strong>Date:</strong> {article.timestamp?.toDate?.() ? article.timestamp.toDate().toLocaleDateString() : 'No date'}</p>
+          <p>
+            <strong>ID:</strong> {article.id}
+          </p>
+          <p>
+            <strong>Korean Title:</strong>{" "}
+            {article.title?.korean || "No Korean title"}
+          </p>
+          <p>
+            <strong>Date:</strong>{" "}
+            {article.timestamp?.toDate?.()
+              ? article.timestamp.toDate().toLocaleDateString()
+              : "No date"}
+          </p>
         </CardContent>
       </ArticleCard>
     );
   };
 
   const renderUserCard = (user: UserData) => {
-    const authDisplayName = displayNames[user.id] || '';
-    const phoneNumber = phoneNumbers[user.id] || '';
+    const authDisplayName = displayNames[user.id] || "";
+    const phoneNumber = phoneNumbers[user.id] || "";
     const isEditing = editingUser?.id === user.id;
-    
+
     return (
       <Card key={user.id}>
-        <CardTitle>{authDisplayName || user.display_name || 'Unnamed User'}</CardTitle>
+        <CardTitle>
+          {authDisplayName || user.display_name || "Unnamed User"}
+        </CardTitle>
         <CardContent>
-          <p><strong>ID:</strong> {user.id}</p>
-          {phoneNumber && <p><strong>Phone:</strong> {phoneNumber}</p>}
-          {user.phone && <p><strong>Firestore Phone:</strong> {user.phone}</p>}
-          {user.email && <p><strong>Email:</strong> {user.email}</p>}
-          
+          <p>
+            <strong>ID:</strong> {user.id}
+          </p>
+          {phoneNumber && (
+            <p>
+              <strong>Phone:</strong> {phoneNumber}
+            </p>
+          )}
+          {user.phone && (
+            <p>
+              <strong>Firestore Phone:</strong> {user.phone}
+            </p>
+          )}
+          {user.email && (
+            <p>
+              <strong>Email:</strong> {user.email}
+            </p>
+          )}
+
           {!isEditing ? (
             <>
-              <p><strong>Name:</strong> {user.name || 'N/A'}</p>
-              <p><strong>Left Count:</strong> {user.left_count !== undefined ? user.left_count : 'N/A'}</p>
-              {user.cat_tech && <p><strong>Category:</strong> Tech</p>}
-              {user.cat_business && <p><strong>Category:</strong> Business</p>}
+              <p>
+                <strong>Name:</strong> {user.name || "N/A"}
+              </p>
+              <p>
+                <strong>Left Count:</strong>{" "}
+                {user.left_count !== undefined ? user.left_count : "N/A"}
+              </p>
+              {user.cat_tech && (
+                <p>
+                  <strong>Category:</strong> Tech
+                </p>
+              )}
+              {user.cat_business && (
+                <p>
+                  <strong>Category:</strong> Business
+                </p>
+              )}
               {user.last_received && (
-                <p><strong>Last Received:</strong> {user.last_received.toDate().toLocaleString()}</p>
+                <p>
+                  <strong>Last Received:</strong>{" "}
+                  {user.last_received.toDate().toLocaleString()}
+                </p>
               )}
               {user.received_articles && user.received_articles.length > 0 && (
-                <p><strong>Received Articles:</strong> {user.received_articles.length}</p>
+                <p>
+                  <strong>Received Articles:</strong>{" "}
+                  {user.received_articles.length}
+                </p>
               )}
-              
+
               <EditButton onClick={() => handleEditUser(user)}>
                 Edit User
               </EditButton>
@@ -471,17 +621,17 @@ export default function Admin() {
             <EditForm>
               <div>
                 <label>Name:</label>
-                <Input 
+                <Input
                   type="text"
                   name="name"
                   value={editingUser.name}
                   onChange={handleInputChange}
                 />
               </div>
-              
+
               <div>
                 <label>Left Count:</label>
-                <Input 
+                <Input
                   type="number"
                   name="left_count"
                   value={editingUser.left_count}
@@ -489,9 +639,9 @@ export default function Admin() {
                   min="0"
                 />
               </div>
-              
+
               <Checkbox>
-                <input 
+                <input
                   type="checkbox"
                   name="cat_tech"
                   checked={editingUser.cat_tech}
@@ -500,9 +650,9 @@ export default function Admin() {
                 />
                 <label htmlFor="cat_tech">Tech Category</label>
               </Checkbox>
-              
+
               <Checkbox>
-                <input 
+                <input
                   type="checkbox"
                   name="cat_business"
                   checked={editingUser.cat_business}
@@ -511,21 +661,15 @@ export default function Admin() {
                 />
                 <label htmlFor="cat_business">Business Category</label>
               </Checkbox>
-              
-              {editError && <p style={{ color: 'red' }}>{editError}</p>}
-              
+
+              {editError && <p style={{ color: "red" }}>{editError}</p>}
+
               <CardActions>
-                <SaveButton 
-                  onClick={handleSaveUser}
-                  disabled={savingUser}
-                >
-                  {savingUser ? 'Saving...' : 'Save'}
+                <SaveButton onClick={handleSaveUser} disabled={savingUser}>
+                  {savingUser ? "Saving..." : "Save"}
                 </SaveButton>
-                
-                <CancelButton 
-                  onClick={handleCancelEdit}
-                  disabled={savingUser}
-                >
+
+                <CancelButton onClick={handleCancelEdit} disabled={savingUser}>
                   Cancel
                 </CancelButton>
               </CardActions>
@@ -539,103 +683,148 @@ export default function Admin() {
   return (
     <Wrapper>
       <Title>Admin Panel</Title>
-      
+
       <TabContainer>
-        <Tab 
-          active={activeTab === 'links'} 
-          onClick={() => setActiveTab('links')}
+        <Tab
+          active={activeTab === "links"}
+          onClick={() => setActiveTab("links")}
         >
           Send Links
         </Tab>
-        <Tab 
-          active={activeTab === 'articles'} 
-          onClick={() => setActiveTab('articles')}
+        <Tab
+          active={activeTab === "articles"}
+          onClick={() => setActiveTab("articles")}
         >
           Articles
         </Tab>
-        <Tab 
-          active={activeTab === 'users'} 
-          onClick={() => setActiveTab('users')}
+        <Tab
+          active={activeTab === "users"}
+          onClick={() => setActiveTab("users")}
         >
           Users
         </Tab>
       </TabContainer>
-      
+
       {/* Each tab content should have consistent width */}
-      <div style={{ width: '100%' }}>
+      <div style={{ width: "100%" }}>
         {/* Links Tab Content */}
-        {activeTab === 'links' && (
+        {activeTab === "links" && (
           <>
-            <Button 
-              onClick={handleSendLinks} 
-              disabled={isLoading}
-            >
-              {isLoading ? "Sending..." : "Test Send Links to Users"}
-            </Button>
-            
+            <Section>
+              <SectionTitle>Test Send to All Users</SectionTitle>
+              <Button onClick={handleSendLinks} disabled={isLoading}>
+                {isLoading ? "Sending..." : "Test Send Links to Users"}
+              </Button>
+            </Section>
+
+            <Section>
+              <SectionTitle>Send to Specific Category</SectionTitle>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: "15px",
+                }}
+              >
+                <SelectCategory
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  <option value="tech">Tech</option>
+                  <option value="business">Business</option>
+                </SelectCategory>
+
+                <Checkbox style={{ margin: "0 15px" }}>
+                  <input
+                    type="checkbox"
+                    checked={testModeEnabled}
+                    onChange={(e) => setTestModeEnabled(e.target.checked)}
+                    id="testModeCheckbox"
+                  />
+                  <label
+                    htmlFor="testModeCheckbox"
+                    style={{ marginLeft: "8px" }}
+                  >
+                    Test Mode (only test users)
+                  </label>
+                </Checkbox>
+
+                <Button
+                  onClick={handleSendLinksToCategory}
+                  disabled={sendingToCategory}
+                >
+                  {sendingToCategory
+                    ? "Sending..."
+                    : `Send to ${selectedCategory} subscribers`}
+                </Button>
+              </div>
+            </Section>
+
             {result && (
               <ResultContainer>
                 <ResultTitle>Function Result:</ResultTitle>
-                <pre>{JSON.stringify(result, null, 2)}</pre>
-                
+                <p>
+                  <strong>Status:</strong>{" "}
+                  {result.success ? "Success" : "Failed"}
+                </p>
+                <p>
+                  <strong>Message:</strong> {result.message}
+                </p>
+
                 <StatusBox status={status}>
-                  {status === "success" ? "Successfully sent messages!" : 
-                   status === "error" ? "Error sending messages" : ""}
+                  {status === "success"
+                    ? "Successfully sent messages!"
+                    : status === "error"
+                    ? "Error sending messages"
+                    : ""}
                 </StatusBox>
-                
-                {status === "success" && result.stats && (
-                  <div>
-                    <p>Tech recipients: {result.stats.techCount}</p>
-                    <p>Business recipients: {result.stats.businessCount}</p>
-                    <p>Expiry notifications: {result.stats.expiryCount}</p>
-                  </div>
-                )}
+
+                {displayResultStats(result)}
+
+                <div style={{ marginTop: "15px" }}>
+                  <details>
+                    <summary>Response Details</summary>
+                    <pre style={{ maxHeight: "250px", overflow: "auto" }}>
+                      {JSON.stringify(result, null, 2)}
+                    </pre>
+                  </details>
+                </div>
               </ResultContainer>
             )}
           </>
         )}
-        
+
         {/* Articles Tab Content */}
-        {activeTab === 'articles' && (
+        {activeTab === "articles" && (
           <>
-            <Button 
-              onClick={fetchArticles} 
-              disabled={fetchingArticles}
-            >
+            <Button onClick={fetchArticles} disabled={fetchingArticles}>
               {fetchingArticles ? "Loading..." : "Refresh Articles"}
             </Button>
-            
+
             {fetchingArticles ? (
               <p>Loading articles...</p>
             ) : (
               <>
                 <ResultTitle>Articles ({articles.length})</ResultTitle>
-                <ArticleList>
-                  {articles.map(renderArticleCard)}
-                </ArticleList>
+                <ArticleList>{articles.map(renderArticleCard)}</ArticleList>
               </>
             )}
           </>
         )}
-        
+
         {/* Users Tab Content */}
-        {activeTab === 'users' && (
+        {activeTab === "users" && (
           <>
-            <Button 
-              onClick={fetchUsers} 
-              disabled={fetchingUsers}
-            >
+            <Button onClick={fetchUsers} disabled={fetchingUsers}>
               {fetchingUsers ? "Loading..." : "Refresh Users"}
             </Button>
-            
+
             {fetchingUsers ? (
               <p>Loading users...</p>
             ) : (
               <>
                 <ResultTitle>Users ({users.length})</ResultTitle>
-                <CardContainer>
-                  {users.map(renderUserCard)}
-                </CardContainer>
+                <CardContainer>{users.map(renderUserCard)}</CardContainer>
               </>
             )}
           </>
@@ -643,4 +832,4 @@ export default function Admin() {
       </div>
     </Wrapper>
   );
-} 
+}
