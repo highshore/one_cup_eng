@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import styled from "styled-components";
 import GNB from "./gnb";
+import Footer from "./footer";
 
 const colors = {
   primary: "#2C1810",
@@ -40,44 +41,9 @@ const ContentContainer = styled.div`
   position: relative;
   display: flex;
   flex-direction: column;
-  margin-top: 70px; /* Add space for the fixed navbar */
-`;
-
-const Footer = styled.footer`
-  background-color: ${colors.primaryBg};
-  padding: 2rem 1.5rem;
-  border-top: 1px solid ${colors.primaryPale};
-  font-size: 0.8rem;
-  color: ${colors.text.medium};
-  text-align: center;
-
-  @media (max-width: 768px) {
-    padding: 1.5rem 1rem;
-    font-size: 0.8rem;
-  }
-`;
-
-const FooterContent = styled.div`
-  max-width: 800px;
+  margin-top: 60px; /* Add space for the fixed navbar */
+  max-width: 850px;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const FooterLink = styled.a`
-  color: ${colors.text.medium};
-  text-decoration: none;
-
-  &:hover {
-    color: ${colors.primary};
-    text-decoration: underline;
-  }
-`;
-
-const FooterDivider = styled.span`
-  color: ${colors.text.light};
-  margin: 0 0.5rem;
 `;
 
 export default function Layout() {
@@ -87,22 +53,7 @@ export default function Layout() {
       <ContentContainer>
         <Outlet />
       </ContentContainer>
-      <Footer>
-        <FooterContent>
-          <div>
-            <FooterLink href="/policy/privacy">개인정보 취급방침</FooterLink>
-            <FooterDivider>|</FooterDivider>
-            <FooterLink href="/policy/terms">이용약관</FooterLink>
-          </div>
-          <div>
-            영어 한잔 | 549-04-02156 | 대표자 김수겸 | 이메일 hello@nativept.kr
-          </div>
-          <div>통신판매업 신고번호 제2022-서울종로-1744호</div>
-          <div>서울특별시 성북구 안암로9가길 9-8, 303호</div>
-          <div>'영어한잔'은 '네이티브피티'의 영어교육 서비스 브랜드입니다.</div>
-          <div>ⓒ2025 All Rights Reserved.</div>
-        </FooterContent>
-      </Footer>
+      <Footer />
     </LayoutContainer>
   );
 }

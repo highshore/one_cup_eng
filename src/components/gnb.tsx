@@ -25,7 +25,7 @@ const colors = {
 
 const NavbarContainer = styled.nav`
   background-color: white;
-  height: 70px;
+  height: 60px;
   display: flex;
   justify-content: center;
   position: fixed;
@@ -36,7 +36,7 @@ const NavbarContainer = styled.nav`
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 
   @media (max-width: 768px) {
-    height: 60px;
+    height: 50px;
   }
 `;
 

@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { Link as RouterLink } from "react-router-dom";
 import { ReactNode } from "react";
 import logoImage from "../assets/1cup_logo_circular.png";
+import Footer from "./footer";
 
 // Define colors to match with layout.tsx
 const colors = {
@@ -53,27 +54,6 @@ export const ServiceName = styled.h1`
   font-size: 24px;
   font-weight: 600;
   color: ${colors.text.dark};
-`;
-
-export const Footer = styled.footer`
-  position: fixed;
-  bottom: 15px;
-  left: 0;
-  width: 100%;
-  padding: 15px 0;
-  text-align: center;
-  font-size: 14px;
-  color: ${colors.text.medium};
-`;
-
-export const FooterLink = styled.a`
-  color: ${colors.text.medium};
-  text-decoration: none;
-  margin: 0 5px;
-
-  &:hover {
-    text-decoration: underline;
-  }
 `;
 
 // Form Components
@@ -269,6 +249,18 @@ export const Divider = styled.div`
   }
 `;
 
+// Add a styled wrapper for the Footer component to position it at the bottom
+export const FooterWrapper = styled.div`
+  position: fixed;
+  bottom: 0px;
+  left: 0;
+  width: 100%;
+  padding: 15px 0;
+  text-align: center;
+  font-size: 14px;
+  color: ${colors.text.medium};
+`;
+
 // Layout Component
 interface AuthLayoutProps {
   children: ReactNode;
@@ -292,10 +284,9 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           </Link>
         </Header>
         {children}
-        <Footer>
-          <FooterLink href="/policy/terms">이용약관</FooterLink>|
-          <FooterLink href="/policy/privacy">개인정보처리방침</FooterLink>
-        </Footer>
+        <FooterWrapper>
+          <Footer />
+        </FooterWrapper>
       </ContentContainer>
     </PageWrapper>
   );

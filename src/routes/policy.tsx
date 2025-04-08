@@ -17,7 +17,7 @@ const colors = {
 
 const PolicyContainer = styled.div`
   max-width: 800px;
-  margin: 0 auto;
+  margin-top: 60px;
   padding: 2rem 1.5rem;
   min-height: 100vh;
   font-family: "Avenir", "Avenir Next", -apple-system, BlinkMacSystemFont,

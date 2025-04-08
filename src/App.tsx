@@ -21,8 +21,20 @@ import Payment from "./routes/payment.tsx";
 // Create the router with the AppContent component
 const router = createBrowserRouter([
   {
-    path: "/",
+    path: "",
     element: <Home />,
+  },
+  {
+    path: "/",
+    element: (
+      <Layout />
+    ),
+    children: [
+      {
+        path: "policy/:type",
+        element: <Policy />,
+      },
+    ],
   },
   {
     path: "/",
@@ -43,10 +55,6 @@ const router = createBrowserRouter([
       {
         path: "admin",
         element: <Admin />,
-      },
-      {
-        path: "policy/:type",
-        element: <Policy />,
       },
     ],
   },

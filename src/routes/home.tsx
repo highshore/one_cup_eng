@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 import React from "react";
 import GNB from "../components/gnb";
+import Footer from "../components/footer";
 // Import the hero image
 import heroImage from "../assets/homepage/one-cup-eng-hero.png";
 
@@ -20,13 +21,6 @@ const colors = {
     light: "#8B6B4F",
   },
 };
-
-// Content container to limit the width to 850px
-const ContentContainer = styled.div`
-  max-width: 850px;
-  margin: 0 auto;
-  width: 100%;
-`;
 
 // Hero Section
 const HeroSection = styled.section<{ backgroundImage: string }>`
@@ -808,45 +802,7 @@ const SubscribeButton = styled(Link)`
 
 // Define styled component for page wrapper
 const PageWrapper = styled.div`
-  padding-top: 70px; /* Add padding to account for fixed navbar */
-`;
-
-// Footer components from layout.tsx
-const Footer = styled.footer`
-  background-color: ${colors.primaryBg};
-  padding: 2rem 1.5rem;
-  border-top: 1px solid ${colors.primaryPale};
-  font-size: 0.8rem;
-  color: ${colors.text.medium};
-  text-align: center;
-
-  @media (max-width: 768px) {
-    padding: 1.5rem 1rem;
-    font-size: 0.8rem;
-  }
-`;
-
-const FooterContent = styled.div`
-  max-width: 800px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const FooterLink = styled.a`
-  color: ${colors.text.medium};
-  text-decoration: none;
-
-  &:hover {
-    color: ${colors.primary};
-    text-decoration: underline;
-  }
-`;
-
-const FooterDivider = styled.span`
-  color: ${colors.text.light};
-  margin: 0 0.5rem;
+  padding-top: 60px; /* Add padding to account for fixed navbar */
 `;
 
 export default function Home() {
@@ -1008,7 +964,6 @@ export default function Home() {
           <Bubble size={250} top={10} left={80} delay={2} opacity={0.2} />
           <Bubble size={140} top={80} left={50} delay={2.5} opacity={0.26} />
         </BubbleBackground>
-        <ContentContainer>
           <HeroContent>
             <HeroTitle>영어 한잔</HeroTitle>
             <HeroSubtitle>
@@ -1021,12 +976,10 @@ export default function Home() {
               <CupShape to="/auth">Start Now</CupShape>
             </CoffeeButton>
           </HeroContent>
-        </ContentContainer>
       </HeroSection>
 
       {/* Problem Section */}
       <ProblemSection>
-        <ContentContainer>
           <SectionTitle>
             영미권 엘리트의 관심사, 궁금하지 않으신가요?
           </SectionTitle>
@@ -1068,12 +1021,10 @@ export default function Home() {
               );
             })}
           </NewsCardDeck>
-        </ContentContainer>
       </ProblemSection>
 
       {/* Features Section */}
       <FeaturesSection>
-        <ContentContainer>
           <SectionTitle>하루 5분, 내 영어 실력을 바꾸는 시간</SectionTitle>
           <FeatureSlider>
             <FeatureCard>
@@ -1102,12 +1053,10 @@ export default function Home() {
           <FeatureCTA>
             하루 5분으로 영어 실력과 글로벌 감각을 동시에 키워보세요!
           </FeatureCTA>
-        </ContentContainer>
       </FeaturesSection>
 
       {/* Testimonials Section */}
       <TestimonialsSection>
-        <ContentContainer>
           <SectionTitle>이용 후기</SectionTitle>
           <TestimonialTabs>
             <TabButton
@@ -1164,12 +1113,10 @@ export default function Home() {
               <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
             </PricingCard>
           </PricingTable>
-        </ContentContainer>
       </TestimonialsSection>
 
       {/* FAQ Section */}
       <FAQSection>
-        <ContentContainer>
           <SectionTitle>자주 묻는 질문</SectionTitle>
           <FAQContainer>
             {faqs.map((faq, index) => (
@@ -1184,26 +1131,10 @@ export default function Home() {
               </FAQItem>
             ))}
           </FAQContainer>
-        </ContentContainer>
       </FAQSection>
 
-      {/* Footer added from layout.tsx */}
-      <Footer>
-        <FooterContent>
-          <div>
-            <FooterLink href="/policy/privacy">개인정보 취급방침</FooterLink>
-            <FooterDivider>|</FooterDivider>
-            <FooterLink href="/policy/terms">이용약관</FooterLink>
-          </div>
-          <div>
-            영어 한잔 | 549-04-02156 | 대표자 김수겸 | 이메일 hello@nativept.kr
-          </div>
-          <div>통신판매업 신고번호 제2022-서울종로-1744호</div>
-          <div>서울특별시 성북구 안암로9가길 9-8, 303호</div>
-          <div>'영어한잔'은 '네이티브피티'의 영어교육 서비스 브랜드입니다.</div>
-          <div>ⓒ2025 All Rights Reserved.</div>
-        </FooterContent>
-      </Footer>
+      {/* Using the imported Footer component */}
+      <Footer />
     </PageWrapper>
   );
 }
