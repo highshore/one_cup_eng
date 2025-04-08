@@ -44,6 +44,11 @@ const ContentContainer = styled.div`
   margin-top: 60px; /* Add space for the fixed navbar */
   max-width: 850px;
   margin: 0 auto;
+  
+  @media (max-width: 768px) {
+    /* Force proper sizing on mobile */
+    margin-top: 50px;
+  }
 `;
 
 export default function Layout() {

@@ -34,6 +34,7 @@ const router = createBrowserRouter([
         path: "policy/:type",
         element: <Policy />,
       },
+      
     ],
   },
   {
@@ -56,6 +57,10 @@ const router = createBrowserRouter([
         path: "admin",
         element: <Admin />,
       },
+      {
+        path: "payment",
+        element: <Payment />,
+      },
     ],
   },
   {
@@ -66,16 +71,7 @@ const router = createBrowserRouter([
       </AuthLayout>
     ),
   },
-  {
-    path: "/payment",
-    element: <Layout />,
-    children: [
-      {
-        path: "",
-        element: <Payment />,
-      },
-    ],
-  },
+  
 ]);
 
 const GlobalStyles = createGlobalStyle`
