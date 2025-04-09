@@ -15,7 +15,7 @@ const colors = {
 };
 
 const FooterContainer = styled.footer`
-  background-color: ${colors.primaryBg};
+  background-color: transparent;
   padding: 2rem 1.5rem;
   border-top: 1px solid ${colors.primaryPale};
   font-size: 0.8rem;
@@ -61,7 +61,8 @@ export default function Footer() {
           <FooterLink href="/policy/terms">이용약관</FooterLink>
         </div>
         <div>
-          영어 한잔 | 549-04-02156 | 대표자 김수겸 | 이메일 hello@nativept.kr
+          영어 한잔 | 549-04-02156 | 대표자 김수겸 | 이메일
+          hello@1cupenglish.com
         </div>
         <div>통신판매업 신고번호 제2022-서울종로-1744호</div>
         <div>서울특별시 성북구 안암로9가길 9-8, 303호</div>
@@ -70,4 +71,4 @@ export default function Footer() {
       </FooterContent>
     </FooterContainer>
   );
-} 
+}
