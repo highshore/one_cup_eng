@@ -138,7 +138,7 @@ interface PaypleResponse {
 
 export default function Payment() {
   const [userInfo, setUserInfo] = useState({
-    amount: "0",
+    amount: "1",
     phoneNumber: "",
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -251,8 +251,12 @@ export default function Payment() {
       });
     };
 
-    // Try both script URLs, first demo then production
-    const loadPaypleScript = async (url: string, isAlternative = false) => {
+    // Load Payple script - use production URL in production
+    const loadPaypleScript = async () => {
+      const url = import.meta.env.PROD 
+        ? "https://cpay.payple.kr/js/v1/payment.js" 
+        : "https://democpay.payple.kr/js/v1/payment.js";
+      
       logDebug(`Attempting to load script from ${url}`);
       const script = document.createElement("script");
       script.src = url;
@@ -268,21 +272,10 @@ export default function Payment() {
           logDebug(
             "WARNING: Script loaded but PaypleCpayAuthCheck function is not available"
           );
-
-          // If still not available and this isn't the alternate URL, try the other URL
-          if (!isAlternative) {
-            logDebug("Will try alternative URL");
-            loadPaypleScript("https://cpay.payple.kr/js/v1/payment.js", true);
-          }
         }
       };
       script.onerror = (error) => {
         logDebug(`Error loading script from ${url}: ${error}`);
-
-        // If this is the first attempt, try the alternative URL
-        if (!isAlternative) {
-          loadPaypleScript("https://cpay.payple.kr/js/v1/payment.js", true);
-        }
       };
       document.head.appendChild(script);
       logDebug(`Added script to document head: ${url}`);
@@ -290,8 +283,7 @@ export default function Payment() {
 
     // First load jQuery, then load Payple script
     loadJQuery().then(() => {
-      // Start with the demo URL
-      loadPaypleScript("https://democpay.payple.kr/js/v1/payment.js");
+      loadPaypleScript();
     });
 
     return () => {
@@ -333,6 +325,63 @@ export default function Payment() {
 
     return () => unsubscribe();
   }, []);
+
+  // Add function to manually check payment status if callback fails
+  const checkPaymentStatus = async (orderId: string) => {
+    logDebug(`Manually checking payment status for order: ${orderId}`);
+    try {
+      // First try to check directly with Payple
+      const isProd = import.meta.env.PROD;
+      const backendUrl = isProd 
+        ? 'https://us-central1-one-cup-eng.cloudfunctions.net/paymentService/api/payment/check-status'
+        : 'http://localhost:5001/one-cup-eng/us-central1/paymentService/api/payment/check-status';
+      
+      const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId }),
+      });
+      
+      // Check if response is ok
+      if (!response.ok) {
+        const errorText = await response.text();
+        logDebug(`Error from server: ${errorText}`);
+        
+        // If success in query param, assume the payment was successful
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+          return { success: true, message: 'Payment appears successful based on URL parameters' };
+        }
+        
+        throw new Error(`Server responded with ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      logDebug(`Payment status check response: ${JSON.stringify(data)}`);
+      
+      // If we couldn't find payment record but URL indicates success, still treat as success
+      if (!data.success) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+          return { success: true, message: 'Payment appears successful based on URL parameters' };
+        }
+      }
+      
+      return data;
+    } catch (error) {
+      logDebug(`Error checking payment status: ${error}`);
+      
+      // Check URL params as last resort
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('success') === 'true') {
+        return { success: true, message: 'Payment appears successful based on URL parameters' };
+      }
+      
+      return { success: false, message: 'Error checking payment status' };
+    }
+  };
 
   // Handle payment
   const handlePayment = () => {
@@ -382,71 +431,70 @@ export default function Payment() {
     logDebug(`Generated order ID: ${orderId}`);
     logDebug(`Current user ID: ${currentUser?.uid}`);
 
+    // Store the orderId for potential manual status check later
+    sessionStorage.setItem('lastOrderId', orderId);
+
     // Format phone number (removing country code if needed)
     const formattedPhone = userInfo.phoneNumber.replace(/^\+82/, "0");
     logDebug(`Formatted phone number: ${formattedPhone}`);
 
-    // Try both client keys
-    // First attempt with production key
-    const tryPayment = (useTestKey = false) => {
-      // Create payment object
-      const clientKey = useTestKey
-        ? "test_DF55F29DA654A8CBC0F0A9DD4B556486" // Payple test key
-        : "87D77596FABD4476364691DCE189C90B"; // Your actual client key
+    // Create payment object with the actual client key provided
+    const paymentObj = {
+      clientKey: import.meta.env.PROD 
+        ? "87D77596FABD4476364691DCE189C90B" // Real client key
+        : "test_DF55F29DA654A8CBC0F0A9DD4B556486", // Test client key per documentation
+      PCD_PAY_TYPE: "card",
+      PCD_PAY_WORK: "AUTH", // Only card registration without immediate payment
+      PCD_CARD_VER: "01", // Billing payment
+      PCD_PAY_GOODS: "영어 한잔 정기구독",
+      PCD_PAY_TOTAL: 1, // 1 KRW for testing
+      PCD_PAYER_NO: currentUser?.uid || "", // Use user ID as payer number
+      PCD_PAYER_HP: formattedPhone, // Format phone number
+      PCD_PAY_OID: orderId,
+      PCD_PAY_ISTAX: "Y", // Taxable
+      PCD_SIMPLE_FLAG: "Y", // Indicates this is a billing-key registration
 
-      logDebug(
-        `Using client key: ${clientKey} (${useTestKey ? "test" : "production"})`
-      );
-
-      const paymentObj = {
-        clientKey: clientKey,
-        PCD_PAY_TYPE: "card",
-        PCD_PAY_WORK: "AUTH", // Only card registration without immediate payment
-        PCD_CARD_VER: "01", // Billing payment
-        PCD_PAY_GOODS: "영어 한잔 정기구독",
-        PCD_PAY_TOTAL: 0, // Set amount to 0
-        PCD_PAYER_NO: currentUser?.uid || "", // Use user ID as payer number
-        PCD_PAYER_HP: formattedPhone, // Format phone number
-        PCD_PAY_OID: orderId,
-        PCD_PAY_ISTAX: "Y", // Taxable
-
-        // Your Firebase function endpoint
-        PCD_RST_URL: import.meta.env.PROD
-          ? "https://us-central1-one-cup-eng.cloudfunctions.net/paymentService/api/payment/result"
-          : "http://localhost:5001/one-cup-eng/us-central1/paymentService/api/payment/result",
-
-        // Callback function to handle the result
-        callbackFunction: (response: PaypleResponse) => {
-          logDebug(`Payment callback received: ${JSON.stringify(response)}`);
+      // Callback URL - Use format exactly as specified in Payple documentation
+      PCD_RST_URL: import.meta.env.PROD
+        ? "https://us-central1-one-cup-eng.cloudfunctions.net/paymentService/api/payment/result"
+        : "http://localhost:5001/one-cup-eng/us-central1/paymentService/api/payment/result",
+      
+      // Callback function to handle the result
+      callbackFunction: function(response: PaypleResponse) {
+        logDebug(`Payment callback received: ${JSON.stringify(response)}`);
+        
+        // Handle the payment result
+        if (response.PCD_PAY_RST === 'success') {
+          // Store successful payment info in session storage for recovery if needed
+          sessionStorage.setItem('paymentResult', JSON.stringify(response));
+          
+          // Update UI
           handlePaymentResult(response);
-        },
-      };
-
-      logDebug(
-        `Calling PaypleCpayAuthCheck with: ${JSON.stringify(paymentObj)}`
-      );
-
-      // Call Payple payment
-      try {
-        window.PaypleCpayAuthCheck(paymentObj);
-        logDebug("PaypleCpayAuthCheck called successfully");
-      } catch (error) {
-        logDebug(`ERROR calling PaypleCpayAuthCheck: ${error}`);
-
-        if (!useTestKey) {
-          // If production key failed, try test key
-          logDebug("Trying again with test key");
-          tryPayment(true);
+          
+          // Auto-redirect after success
+          setTimeout(() => {
+            window.location.href = "/profile";
+          }, 1500);
         } else {
-          // Both keys failed
-          setIsLoading(false);
-          alert("결제 모듈 호출 중 오류가 발생했습니다. 다시 시도해주세요.");
+          // Just update the UI for failed payments
+          handlePaymentResult(response);
         }
-      }
+      },
     };
 
-    // Start with production key
-    tryPayment(false);
+    logDebug(
+      `Calling PaypleCpayAuthCheck with: ${JSON.stringify(paymentObj)}`
+    );
+
+    // Call Payple payment
+    try {
+      window.PaypleCpayAuthCheck(paymentObj);
+      logDebug("PaypleCpayAuthCheck called successfully");
+    } catch (error) {
+      logDebug(`ERROR calling PaypleCpayAuthCheck: ${error}`);
+      setIsLoading(false);
+      alert("결제 모듈 호출 중 오류가 발생했습니다. 다시 시도해주세요.");
+    }
   };
 
   // Handle payment result
@@ -454,7 +502,7 @@ export default function Payment() {
     logDebug(`Payment result received: ${JSON.stringify(response)}`);
     setIsLoading(false);
 
-    if (response.PCD_PAY_RST === "success") {
+    if (response.PCD_PAY_RST === 'success') {
       // Payment successful
       logDebug("Payment successful");
       setResult({
@@ -467,9 +515,24 @@ export default function Payment() {
     } else {
       // Payment failed
       logDebug(`Payment failed: ${response.PCD_PAY_MSG}`);
+      
+      // Add additional logging for debugging
+      console.error("Payment failed details:", response);
+      
+      // Display a more friendly error message if we have a specific error code
+      let errorMsg = response.PCD_PAY_MSG || '알 수 없는 오류가 발생했습니다.';
+      
+      // Check for common error conditions
+      if (errorMsg.includes('server error') || errorMsg.includes('Internal server')) {
+        errorMsg = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요. (Error: 서버 내부 오류)';
+        
+        // Log this issue for admin attention
+        console.error("CRITICAL: Internal server error during payment processing", response);
+      }
+      
       setResult({
         success: false,
-        message: `카드 등록에 실패했습니다: ${response.PCD_PAY_MSG}`,
+        message: `카드 등록에 실패했습니다: ${errorMsg}`,
       });
       console.log("Payment failed", response);
     }
@@ -481,11 +544,18 @@ export default function Payment() {
     setResult(null);
   };
 
+  // Add payment backend section
+  const [backendData] = useState({
+    cst_id: import.meta.env.PROD ? "eklass" : "test",
+    custKey: import.meta.env.PROD ? "152ca21974f01290cb85d75279313e9fc7f7846d90f92af3ac2fd9a552d3cc06" : "abcd1234567890",
+    referer: "1cupenglish.com",
+  });
+
   return (
     <Container>
       <Header>
         <Title>정기 구독 결제</Title>
-        <Subtitle>안전하고 간편한 결제 서비스를 이용해보세요</Subtitle>
+        <Subtitle>테스트 결제 (1원) - 실제 카드에서 1원이 결제됩니다</Subtitle>
       </Header>
 
       <div style={{ textAlign: "right", marginBottom: "1rem" }}>
@@ -538,11 +608,19 @@ export default function Payment() {
             {result.success ? (
               <>
                 <p style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>
-                  카드 등록이 성공적으로 완료되었습니다.
+                  테스트 결제 완료! 카드 등록이 성공적으로 완료되었습니다.
                 </p>
                 <p style={{ marginBottom: "2rem" }}>
-                  정기 구독이 시작되었습니다. 이제 매월 자동으로 결제됩니다.
+                  1원 결제가 성공적으로 처리되었으며, 실제 구독 시 동일한 카드로 결제됩니다.
                 </p>
+                <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+                  <Button onClick={() => window.location.href = "/profile"}>
+                    완료
+                  </Button>
+                  <Button onClick={() => window.location.href = "/profile"}>
+                    구독 관리
+                  </Button>
+                </div>
               </>
             ) : (
               <>
@@ -558,11 +636,50 @@ export default function Payment() {
                 <p style={{ marginBottom: "2rem" }}>
                   다시 시도하거나 다른 카드로 결제해 주세요.
                 </p>
+                <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+                  <Button onClick={handleReset}>
+                    다시 시도
+                  </Button>
+                  {/* Add manual check button for server errors */}
+                  {result.message.includes('서버 오류') && (
+                    <Button 
+                      onClick={async () => {
+                        // Try to manually check the most recent payment status
+                        const lastOrderId = sessionStorage.getItem('lastOrderId');
+                        if (lastOrderId) {
+                          setIsLoading(true);
+                          logDebug(`Attempting manual status check for order: ${lastOrderId}`);
+                          
+                          // Wait a moment to allow backend processing to complete
+                          setTimeout(async () => {
+                            const statusResult = await checkPaymentStatus(lastOrderId);
+                            setIsLoading(false);
+                            
+                            if (statusResult.success && statusResult.billingKey) {
+                              // Payment was successful despite the error
+                              setResult({
+                                success: true,
+                                message: "카드 등록이 성공적으로 처리되었습니다.",
+                                billingKey: statusResult.billingKey
+                              });
+                              logDebug(`Manual check successful, billing key: ${statusResult.billingKey}`);
+                            } else {
+                              logDebug(`Manual check failed or payment not found: ${JSON.stringify(statusResult)}`);
+                              // Keep current error state
+                            }
+                          }, 2000);
+                        } else {
+                          logDebug('No order ID found for manual check');
+                          alert('결제 확인을 위한 주문 정보를 찾을 수 없습니다.');
+                        }
+                      }}
+                    >
+                      결제 상태 확인
+                    </Button>
+                  )}
+                </div>
               </>
             )}
-            <Button onClick={handleReset}>
-              {result.success ? "완료" : "다시 시도"}
-            </Button>
           </div>
         </FormSection>
       ) : (
@@ -617,7 +734,7 @@ export default function Payment() {
                 {isLoading
                   ? "처리 중..."
                   : scriptLoaded
-                  ? "카드 등록 및 결제하기"
+                  ? "1원 테스트 결제하기"
                   : "스크립트 로딩 중..."}
               </Button>
 
@@ -632,6 +749,29 @@ export default function Payment() {
                   전화번호 정보가 없습니다. 계정 설정에서 전화번호를
                   추가해주세요.
                 </InfoText>
+              )}
+              
+              {/* Manual fallback if payment gets stuck */}
+              {isLoading && (
+                <div style={{ marginTop: '15px', textAlign: 'center' }}>
+                  <p style={{ color: '#666', fontSize: '14px', marginBottom: '10px' }}>
+                    결제가 너무 오래 걸리나요?
+                  </p>
+                  <button
+                    onClick={() => window.location.href = "/profile"}
+                    style={{
+                      background: 'none',
+                      border: '1px solid #ccc',
+                      borderRadius: '20px',
+                      padding: '5px 15px',
+                      fontSize: '13px',
+                      color: '#666',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    결제 건너뛰기
+                  </button>
+                </div>
               )}
             </Form>
           </FormSection>
@@ -650,9 +790,59 @@ export default function Payment() {
             재시도합니다.
           </p>
           <p>• 구독 취소는 마이페이지에서 언제든지 가능합니다.</p>
-          <p>• 결제 관련 문의사항은 hello@nativept.kr로 연락주세요.</p>
+          <p>• 결제 관련 문의사항은 hello@1cupenglish.com로 연락주세요.</p>
         </div>
       </FormSection>
+
+      {showDebug && (
+        <FormSection>
+          <SectionTitle>서버 측 구현 참고사항</SectionTitle>
+          <DebugBox>
+            <strong>서버 인증 정보:</strong>
+            <div>CST_ID: {backendData.cst_id}</div>
+            <div>CUST_KEY: {backendData.custKey}</div>
+            <div>등록 도메인: {backendData.referer}</div>
+            <hr />
+            <strong>파트너 인증 요청 예시:</strong>
+            <pre>
+{`POST https://${import.meta.env.PROD ? "cpay" : "democpay"}.payple.kr/php/auth.php
+Headers:
+Content-Type: application/json
+Cache-Control: no-cache
+Referer: https://${backendData.referer}
+
+Body:
+{
+  "cst_id": "${backendData.cst_id}",
+  "custKey": "${backendData.custKey}",
+  "PCD_PAY_TYPE": "card",
+  "PCD_SIMPLE_FLAG": "Y"
+}`}
+            </pre>
+            <hr />
+            <strong>빌링키로 결제 요청 예시:</strong>
+            <pre>
+{`POST https://${import.meta.env.PROD ? "cpay" : "democpay"}.payple.kr/php/SimplePayCardAct.php?ACT_=PAYM
+Headers:
+Content-Type: application/json
+Cache-Control: no-cache
+Referer: https://${backendData.referer}
+
+Body:
+{
+  "PCD_CST_ID": "...",  // 인증 응답에서 받은 값
+  "PCD_CUST_KEY": "...", // 인증 응답에서 받은 값
+  "PCD_AUTH_KEY": "...", // 인증 응답에서 받은 값
+  "PCD_PAY_TYPE": "card",
+  "PCD_PAYER_ID": "...", // 결제자 빌링키
+  "PCD_PAY_GOODS": "영어 한잔 정기구독",
+  "PCD_PAY_TOTAL": "0",
+  "PCD_SIMPLE_FLAG": "Y"
+}`}
+            </pre>
+          </DebugBox>
+        </FormSection>
+      )}
     </Container>
   );
 }

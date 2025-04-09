@@ -71,11 +71,11 @@ const LogoLink = styled(Link)`
 `;
 
 const Logo = styled.img`
-  height: 38px;
+  height: 32px;
   margin-right: 8px;
 
   @media (max-width: 768px) {
-    height: 32px;
+    height: 28px;
     margin-right: 6px;
   }
 `;

@@ -61,6 +61,11 @@ const router = createBrowserRouter([
         path: "payment",
         element: <Payment />,
       },
+      // Redirect old subscription path to profile
+      {
+        path: "subscription",
+        element: <Profile />,
+      },
     ],
   },
   {

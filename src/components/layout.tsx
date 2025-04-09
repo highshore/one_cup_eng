@@ -41,13 +41,14 @@ const ContentContainer = styled.div`
   position: relative;
   display: flex;
   flex-direction: column;
-  margin-top: 60px; /* Add space for the fixed navbar */
+  padding-top: 60px; /* Add space for the fixed navbar using padding instead of margin */
   max-width: 850px;
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
   
   @media (max-width: 768px) {
     /* Force proper sizing on mobile */
-    margin-top: 50px;
+    padding-top: 50px;
   }
 `;
 

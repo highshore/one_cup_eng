@@ -7,6 +7,9 @@ import cors from "cors";
 import express from "express";
 import axios from "axios";
 
+// Export payment service directly from the payment module
+export * from './payment';
+
 admin.initializeApp();
 
 interface LinkData {

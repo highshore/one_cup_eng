@@ -803,6 +803,9 @@ const SubscribeButton = styled(Link)`
 // Define styled component for page wrapper
 const PageWrapper = styled.div`
   padding-top: 60px; /* Add padding to account for fixed navbar */
+  @media (max-width: 768px) {
+    padding-top: 50px;
+  }
 `;
 
 export default function Home() {
