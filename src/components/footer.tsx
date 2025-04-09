@@ -61,12 +61,12 @@ export default function Footer() {
           <FooterLink href="/policy/terms">이용약관</FooterLink>
         </div>
         <div>
-          영어 한잔 | 549-04-02156 | 대표자 김수겸 | 이메일
+          네이티브피티 | 549-04-02156 | 대표자 김수겸 | 이메일
           hello@1cupenglish.com
         </div>
         <div>통신판매업 신고번호 제2022-서울종로-1744호</div>
         <div>서울특별시 성북구 안암로9가길 9-8, 303호</div>
-        <div>'영어한잔'은 '네이티브피티'의 영어교육 서비스 브랜드입니다.</div>
+        <div>'영어 한잔'은 '네이티브피티'의 영어교육 서비스 브랜드입니다.</div>
         <div>ⓒ2025 All Rights Reserved.</div>
       </FooterContent>
     </FooterContainer>

@@ -22,9 +22,9 @@ const colors = {
 // Layout Components
 export const PageWrapper = styled.div`
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
   width: 100%;
   background-color: ${colors.primaryBg};
 `;
@@ -32,6 +32,10 @@ export const PageWrapper = styled.div`
 export const ContentContainer = styled.div`
   width: 420px;
   padding: 50px 0px;
+  min-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 `;
 
 export const Header = styled.header`
@@ -249,16 +253,15 @@ export const Divider = styled.div`
   }
 `;
 
-// Add a styled wrapper for the Footer component to position it at the bottom
+// Add a styled wrapper for the Footer component to position it below the content
 export const FooterWrapper = styled.div`
-  position: fixed;
-  bottom: 0px;
-  left: 0;
   width: 100%;
   padding: 15px 0;
   text-align: center;
   font-size: 14px;
   color: ${colors.text.medium};
+  background-color: ${colors.primaryBg};
+  margin-top: 50px;
 `;
 
 // Layout Component
@@ -284,10 +287,10 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           </Link>
         </Header>
         {children}
-        <FooterWrapper>
-          <Footer />
-        </FooterWrapper>
       </ContentContainer>
+      <FooterWrapper>
+        <Footer />
+      </FooterWrapper>
     </PageWrapper>
   );
 }
