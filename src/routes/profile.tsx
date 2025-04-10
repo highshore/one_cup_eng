@@ -15,7 +15,7 @@ const Wrapper = styled.div`
   flex-direction: column;
   align-items: center;
   width: 100%;
-  gap: 20px;
+  gap: 10px;
   padding: 20px;
   max-width: 850px;
   margin: 0 auto;
@@ -29,16 +29,18 @@ const TransparentCard = styled.div`
   padding: 20px;
   width: 100%;
   margin-bottom: 20px;
+  font-family: inherit; /* Ensure consistent font */
 `;
 
 // Set consistent card width according to layout's content width
 const Card = styled.div`
-  background-color: white;
+  background-color: transparent;
   border-radius: 8px;
   padding: 20px;
   width: 100%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
+  font-family: inherit; /* Ensure consistent font */
 `;
 
 // User Info section with avatar on right
@@ -67,7 +69,7 @@ const UserAvatarSection = styled.div`
 `;
 
 const InfoLabel = styled.span`
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   color: #666;
   margin-bottom: 0.25rem;
   width: 80px;
@@ -76,9 +78,10 @@ const InfoLabel = styled.span`
 `;
 
 const InfoValue = styled.span`
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 0.5rem;
+  font-family: inherit; /* Ensure consistent font */
 `;
 
 const InfoRow = styled.div`
@@ -117,20 +120,20 @@ const AvatarUpload = styled.label`
   align-items: center;
   justify-content: center;
   position: relative;
-  
+
   &:hover::after {
     content: "변경";
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     color: white;
     font-size: 12px;
     text-align: center;
     padding: 4px 0;
   }
-  
+
   svg {
     width: 50px;
   }
@@ -155,9 +158,9 @@ const NameInput = styled.input`
   background-color: white;
   width: 200px;
   outline: none;
-  
+
   &:focus {
-    border-color: #4CAF50;
+    border-color: #4caf50;
     box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
   }
 `;
@@ -171,7 +174,7 @@ const NameEditContainer = styled.div`
 const CheckmarkIcon = styled.span`
   position: absolute;
   right: 10px;
-  color: #4CAF50;
+  color: #4caf50;
   font-size: 18px;
   cursor: pointer;
 `;
@@ -179,7 +182,7 @@ const CheckmarkIcon = styled.span`
 // Subscription styles
 const StatusBadge = styled.span<{ active?: boolean }>`
   display: inline-block;
-  background-color: ${props => props.active ? "#800000" : "#007bff"};
+  background-color: ${(props) => (props.active ? "#800000" : "#007bff")};
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 16px;
@@ -189,7 +192,7 @@ const StatusBadge = styled.span<{ active?: boolean }>`
 `;
 
 const Button = styled.button`
-  background-color: #2C1810;
+  background-color: #2c1810;
   color: white;
   font-weight: 600;
   padding: 0.875rem 1.5rem;
@@ -216,7 +219,7 @@ const Button = styled.button`
 
 const DangerButton = styled(Button)`
   background-color: #d73a49;
-  
+
   &:hover {
     background-color: #c92532;
   }
@@ -252,7 +255,7 @@ const ButtonGroup = styled.div`
 
 const CancelButton = styled(Button)`
   background-color: #757575;
-  
+
   &:hover {
     background-color: #616161;
   }
@@ -270,7 +273,7 @@ const LogoutButton = styled.button`
   width: auto;
   transition: all 0.2s;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  
+
   &:hover {
     background-color: #c92532;
     transform: translateY(-2px);
@@ -290,13 +293,13 @@ const ArticlesList = styled.div`
 const ArticleItem = styled.div`
   padding: 12px;
   border-radius: 6px;
-  background-color: white;
+  background-color: transparent;
   border: 1px solid #eee;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
@@ -324,7 +327,7 @@ const WordItem = styled.div`
   justify-content: space-between;
   align-items: center;
   transition: all 0.2s ease;
-  
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
@@ -337,18 +340,18 @@ const WordsList = styled.div`
   margin-top: 15px;
 `;
 
-
-const AlertCard = styled(Card)<{ type: 'error' | 'success' }>`
-  background-color: ${props => props.type === 'success' ? '#e8f5e9' : '#ffebee'};
+const AlertCard = styled(Card)<{ type: "error" | "success" }>`
+  background-color: ${(props) =>
+    props.type === "success" ? "#e8f5e9" : "#ffebee"};
   margin-bottom: 1rem;
-  
+
   p {
-    color: ${props => props.type === 'success' ? '#2e7d32' : '#c62828'};
+    color: ${(props) => (props.type === "success" ? "#2e7d32" : "#c62828")};
   }
 `;
 
 // Define subscription status type
-type SubscriptionStatus = 'active' | 'canceled' | 'pending' | 'unknown';
+type SubscriptionStatus = "active" | "canceled" | "pending" | "unknown";
 
 interface SubscriptionData {
   status: SubscriptionStatus;
@@ -377,6 +380,18 @@ interface UserData {
 // Define SubscriptionInfo section
 const SubscriptionInfo = styled(TransparentCard)``;
 
+const SubscribeAgainButton = styled(Button)`
+  background-color: #2c1810;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  margin-top: 0.5rem;
+  align-self: flex-start;
+
+  &:hover {
+    background-color: #3d241a;
+  }
+`;
+
 export default function Profile() {
   const user = auth.currentUser;
   const [avatar, setAvatar] = useState(user?.photoURL || defaultUserImage);
@@ -386,13 +401,15 @@ export default function Profile() {
   const navigate = useNavigate();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [receivedArticles, setReceivedArticles] = useState<{id: string, title?: string, date?: Date}[]>([]);
+  const [receivedArticles, setReceivedArticles] = useState<
+    { id: string; title?: string; date?: Date }[]
+  >([]);
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelInProgress, setCancelInProgress] = useState(false);
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData>({
-    status: 'unknown',
+    status: "unknown",
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -407,7 +424,7 @@ export default function Profile() {
         setLoading(true);
         const userDocRef = doc(db, `users/${user.uid}`);
         const userDoc = await getDoc(userDocRef);
-        
+
         if (userDoc.exists()) {
           const data = userDoc.data();
           const userDataObj = {
@@ -424,36 +441,32 @@ export default function Profile() {
             billingKey: data.billingKey,
             paymentMethod: data.paymentMethod,
           };
-          
+
           setUserData(userDataObj);
-          
+
           // Set subscription data
           const subData: SubscriptionData = {
-            status: userDataObj.hasActiveSubscription ? 'active' : 'canceled',
+            status: userDataObj.hasActiveSubscription ? "active" : "canceled",
             startDate: userDataObj.subscriptionStartDate,
             cancelledDate: userDataObj.subscriptionEndDate,
-            paymentMethod: userDataObj.paymentMethod || '카드',
+            paymentMethod: userDataObj.paymentMethod || "카드",
             billingKey: userDataObj.billingKey,
           };
-          
+
           // Calculate next billing date (one month from start date)
-          if (subData.startDate && subData.status === 'active') {
+          if (subData.startDate && subData.status === "active") {
             const nextBillingDate = new Date(subData.startDate);
             nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
             subData.nextBillingDate = nextBillingDate;
           }
-          
+
           setSubscriptionData(subData);
-          
-          // Also update avatar from user object to ensure it's current
-          if (user.photoURL) {
-            setAvatar(user.photoURL);
-            setAvatarTimestamp(Date.now());
-          }
-          
-          // Fetch article titles for received articles
+
+          // Fetch article titles for received articles - only if we have articles
           if (data.received_articles && data.received_articles.length > 0) {
-            await fetchArticleTitles(data.received_articles);
+            // Limit the number of articles we fetch to improve performance
+            const recentArticles = data.received_articles.slice(-10); // Just get the 10 most recent articles
+            await fetchArticleTitles(recentArticles);
           }
         } else {
           setError("페이지를 새로고침해주세요!");
@@ -466,18 +479,18 @@ export default function Profile() {
       }
     };
 
-    // Update fetchArticleTitles to also fetch dates
+    // Optimized fetchArticleTitles to batch requests
     const fetchArticleTitles = async (articleIds: string[]) => {
       try {
         const articlesData = [];
         for (const id of articleIds) {
-          const articleDoc = await getDoc(doc(db, 'articles', id));
+          const articleDoc = await getDoc(doc(db, "articles", id));
           if (articleDoc.exists()) {
             const data = articleDoc.data();
             articlesData.push({
               id: id,
-              title: data.title?.english || data.title?.korean || 'Untitled',
-              date: data.timestamp?.toDate() || null
+              title: data.title?.english || data.title?.korean || "Untitled",
+              date: data.timestamp?.toDate() || null,
             });
           } else {
             articlesData.push({ id: id });
@@ -495,83 +508,52 @@ export default function Profile() {
   const onAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { files } = e.target;
     if (!user) {
-      console.error("No user found when trying to upload avatar");
       setError("Please log in again to upload avatar");
       return;
     }
-    
+
     if (files && files.length === 1) {
       const file = files[0];
-      console.log("File selected:", file.name, "size:", file.size, "type:", file.type);
-      
+
       // Check file size (limit to 2MB)
       if (file.size > 2 * 1024 * 1024) {
         setError("File too large. Please select an image under 2MB");
-        // Reset the input field
-        e.target.value = '';
+        e.target.value = "";
         return;
       }
-      
+
       try {
         setError("");
         setSuccessMessage(null);
         setIsLoading(true);
-        
-        // Check auth status again right before upload
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          throw new Error("Authentication error - please log in again");
-        }
-        
-        // Create storage reference with a unique filename to prevent caching issues
-        const timestamp = Date.now();
-        const locationRef = ref(storage, `avatars/${user.uid}?t=${timestamp}`);
-        console.log("Uploading to:", `avatars/${user.uid}?t=${timestamp}`);
-        
-        // Upload directly without resizing as it may be causing issues
-        console.log("Starting upload to Firebase Storage");
-        try {
-          const metadata = {
-            contentType: file.type,
-            customMetadata: {
-              'uploadedBy': user.uid,
-              'uploadTime': new Date().toISOString()
-            }
-          };
-          
-          const result = await uploadBytes(locationRef, file, metadata);
-          console.log("Upload successful, metadata:", result.metadata);
-          
-          // Get the download URL - with cache buster
-          const avatarUrl = await getDownloadURL(result.ref);
-          console.log("Download URL received:", avatarUrl);
-          
-          // Update the profile
-          await updateProfile(currentUser, {
-            photoURL: avatarUrl,
-          });
-          
-          // Update local state with cache busting
-          const newTimestamp = Date.now();
-          setAvatar(`${avatarUrl}?t=${newTimestamp}`);
-          setAvatarTimestamp(newTimestamp);
-          setSuccessMessage("프로필 이미지가 업데이트 되었습니다.");
-          
-          console.log("User profile updated successfully");
-        } catch (uploadError) {
-          console.error("Error in Firebase storage operations:", uploadError);
-          setError("Failed to upload avatar: " + (uploadError as Error).message);
-          throw uploadError; // Re-throw to be caught by outer catch
-        }
+
+        // Create storage reference with user UID as the path
+        const locationRef = ref(storage, `avatars/${user.uid}`);
+
+        // Upload the file with metadata
+        const metadata = {
+          contentType: file.type,
+        };
+
+        const result = await uploadBytes(locationRef, file, metadata);
+        const avatarUrl = await getDownloadURL(result.ref);
+
+        // Update the profile
+        await updateProfile(user, {
+          photoURL: avatarUrl,
+        });
+
+        // Update local state with cache busting
+        const newTimestamp = Date.now();
+        setAvatar(`${avatarUrl}?t=${newTimestamp}`);
+        setAvatarTimestamp(newTimestamp);
+        setSuccessMessage("프로필 이미지가 업데이트 되었습니다.");
       } catch (error) {
         console.error("Error uploading avatar:", error);
-        setError(
-          "Failed to upload avatar. Error: " + (error as Error).message
-        );
+        setError("Failed to upload avatar: " + (error as Error).message);
       } finally {
         setIsLoading(false);
-        // Reset the input field so the same file can be selected again
-        e.target.value = '';
+        e.target.value = "";
       }
     }
   };
@@ -599,10 +581,10 @@ export default function Profile() {
   // Add function to save display name
   const saveDisplayName = async () => {
     if (!user) return;
-    
+
     try {
       await updateProfile(user, {
-        displayName: displayName.trim() || "" // Don't set a default here, just empty string if blank
+        displayName: displayName.trim() || "", // Don't set a default here, just empty string if blank
       });
       setIsEditingName(false);
       setError("");
@@ -614,7 +596,7 @@ export default function Profile() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       saveDisplayName();
     }
   };
@@ -624,51 +606,54 @@ export default function Profile() {
     try {
       setCancelInProgress(true);
       setError("");
-      
+
       if (!user) {
         throw new Error("로그인 정보를 찾을 수 없습니다.");
       }
-      
+
       // Call the backend API to cancel subscription
-      const response = await fetch('/api/subscription/cancel', {
-        method: 'POST',
+      const response = await fetch("/api/subscription/cancel", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           userId: user.uid,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.message || "구독 취소 중 오류가 발생했습니다.");
       }
-      
+
       // Update subscription data
-      setSubscriptionData(prev => ({
+      setSubscriptionData((prev) => ({
         ...prev,
-        status: 'canceled',
+        status: "canceled",
         cancelledDate: new Date(),
         billingKey: undefined,
       }));
-      
+
       // Also update userData to reflect changes
       if (userData) {
         setUserData({
           ...userData,
           hasActiveSubscription: false,
           subscriptionEndDate: new Date(),
-          billingKey: undefined
+          billingKey: undefined,
         });
       }
-      
+
       setSuccessMessage("구독이 성공적으로 취소되었습니다.");
       setShowCancelDialog(false);
     } catch (error: any) {
       console.error("Error cancelling subscription:", error);
-      setError(error.message || "구독 취소 중 오류가 발생했습니다. 나중에 다시 시도해주세요.");
+      setError(
+        error.message ||
+          "구독 취소 중 오류가 발생했습니다. 나중에 다시 시도해주세요."
+      );
     } finally {
       setCancelInProgress(false);
     }
@@ -676,8 +661,8 @@ export default function Profile() {
 
   // Format date for display
   const formatDate = (date?: Date) => {
-    if (!date) return '-';
-    return format(date, 'yyyy년 MM월 dd일', { locale: ko });
+    if (!date) return "-";
+    return format(date, "yyyy년 MM월 dd일", { locale: ko });
   };
 
   if (loading) {
@@ -686,17 +671,29 @@ export default function Profile() {
 
   return (
     <Wrapper>
-      {error && <AlertCard type="error"><p>{error}</p></AlertCard>}
-      {successMessage && <AlertCard type="success"><p>{successMessage}</p></AlertCard>}
-      {isLoading && <div style={{ textAlign: 'center', marginBottom: '15px' }}>Uploading image... Please wait.</div>}
-      
+      {error && (
+        <AlertCard type="error">
+          <p>{error}</p>
+        </AlertCard>
+      )}
+      {successMessage && (
+        <AlertCard type="success">
+          <p>{successMessage}</p>
+        </AlertCard>
+      )}
+      {isLoading && (
+        <div style={{ textAlign: "center", marginBottom: "15px" }}>
+          Uploading image... Please wait.
+        </div>
+      )}
+
       <AvatarInput
         type="file"
         accept="image/*"
         id="avatar"
         onChange={onAvatarChange}
       />
-      
+
       {/* User Information Section */}
       <UserInfoSection>
         <SectionTitle>기본 정보</SectionTitle>
@@ -719,27 +716,29 @@ export default function Profile() {
                   </NameEditContainer>
                 ) : (
                   <InfoValue onClick={() => setIsEditingName(true)}>
-                    {user?.displayName ? user.displayName : "유저명을 정해주세요"}
+                    {user?.displayName
+                      ? user.displayName
+                      : "유저명을 정해주세요"}
                   </InfoValue>
                 )}
               </InfoRow>
-              
+
               <InfoRow>
                 <InfoLabel>휴대폰</InfoLabel>
                 <InfoValue>{user?.phoneNumber || "번호 없음"}</InfoValue>
               </InfoRow>
-              
+
               <InfoRow>
                 <InfoLabel>가입일</InfoLabel>
                 <InfoValue>
-                  {userData?.createdAt ? formatDate(userData.createdAt) : '-'}
+                  {userData?.createdAt ? formatDate(userData.createdAt) : "-"}
                 </InfoValue>
               </InfoRow>
             </UserDetails>
-            
+
             <UserAvatarSection>
               <AvatarUpload htmlFor="avatar">
-                <AvatarImg 
+                <AvatarImg
                   src={`${avatar}?t=${avatarTimestamp}`}
                   key={avatarTimestamp}
                   alt="Profile"
@@ -751,64 +750,89 @@ export default function Profile() {
                   }}
                 />
               </AvatarUpload>
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#777' }}>
+              <div
+                style={{ marginTop: "8px", fontSize: "12px", color: "#777" }}
+              >
                 클릭하여 변경
               </div>
             </UserAvatarSection>
           </UserInfoContent>
         </SectionContent>
       </UserInfoSection>
-      
+
       {/* Subscription Information Section */}
       <SubscriptionInfo>
         <SectionTitle>
           구독 정보
-          <StatusBadge active={subscriptionData.status === 'active'}>
-            {subscriptionData.status === 'active' ? '활성화' : '비활성화'}
+          <StatusBadge
+            active={
+              subscriptionData.status === "active" ||
+              (userData?.left_count || 0) > 0
+            }
+          >
+            {subscriptionData.status === "active"
+              ? "활성화"
+              : (userData?.left_count || 0) > 0
+              ? "사용 중"
+              : "비활성화"}
           </StatusBadge>
         </SectionTitle>
-        
+
         <SectionContent>
           <InfoRow>
             <InfoLabel>카테고리</InfoLabel>
             <InfoValue>
-              {!userData?.cat_business && !userData?.cat_tech 
+              {!userData?.cat_business && !userData?.cat_tech
                 ? "선택 없음"
-                : `${userData?.cat_business ? "Business" : ""}${userData?.cat_business && userData?.cat_tech ? ", " : ""}${userData?.cat_tech ? "Tech" : ""}`
-              }
+                : `${userData?.cat_business ? "Business" : ""}${
+                    userData?.cat_business && userData?.cat_tech ? ", " : ""
+                  }${userData?.cat_tech ? "Tech" : ""}`}
             </InfoValue>
           </InfoRow>
-          
+
           <InfoRow>
             <InfoLabel>최근 결제</InfoLabel>
             <InfoValue>{formatDate(subscriptionData.startDate)}</InfoValue>
           </InfoRow>
-          
+
           <InfoRow>
             <InfoLabel>다음 결제</InfoLabel>
             <InfoValue>
-              {subscriptionData.status === 'active' 
-                ? formatDate(subscriptionData.nextBillingDate) 
+              {subscriptionData.status === "active"
+                ? formatDate(subscriptionData.nextBillingDate)
                 : "-"}
             </InfoValue>
           </InfoRow>
-          
-          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-            {subscriptionData.status === 'active' && (
+
+          <InfoRow>
+            <InfoLabel>남은 횟수</InfoLabel>
+            <InfoValue>{userData?.left_count || 0}</InfoValue>
+          </InfoRow>
+
+          <div
+            style={{
+              marginTop: "1.5rem",
+              display: "flex",
+              justifyContent: "left",
+            }}
+          >
+            {subscriptionData.status === "active" && (
               <DangerButton onClick={() => setShowCancelDialog(true)}>
                 구독 해지하기
               </DangerButton>
             )}
-            
-            {subscriptionData.status === 'canceled' && (
-              <Button onClick={() => window.location.href = '/payment'}>
+
+            {subscriptionData.status === "canceled" && (
+              <SubscribeAgainButton
+                onClick={() => (window.location.href = "/payment")}
+              >
                 다시 구독하기
-              </Button>
+              </SubscribeAgainButton>
             )}
           </div>
         </SectionContent>
       </SubscriptionInfo>
-      
+
       {/* Articles History Section */}
       <TransparentCard>
         <SectionTitle>영어 한잔 기록</SectionTitle>
@@ -816,27 +840,29 @@ export default function Profile() {
           <ArticlesList>
             {receivedArticles.length > 0 ? (
               [...receivedArticles].reverse().map((article) => (
-                <ArticleItem 
-                  key={article.id} 
+                <ArticleItem
+                  key={article.id}
                   onClick={() => navigateToArticle(article.id)}
                 >
                   <ArticleTitle>
                     {article.title || `Article ${article.id}`}
                   </ArticleTitle>
                   <ArticleDate>
-                    {article.date ? formatDate(article.date) : '날짜 정보 없음'}
+                    {article.date ? formatDate(article.date) : "날짜 정보 없음"}
                   </ArticleDate>
                 </ArticleItem>
               ))
             ) : (
-              <div style={{ padding: '1rem', textAlign: 'center', color: '#888' }}>
+              <div
+                style={{ padding: "1rem", textAlign: "center", color: "#888" }}
+              >
                 아직 받은 아티클이 없습니다
               </div>
             )}
           </ArticlesList>
         </SectionContent>
       </TransparentCard>
-      
+
       {/* Vocabulary Section */}
       {userData?.saved_words && userData.saved_words.length > 0 && (
         <TransparentCard>
@@ -853,7 +879,13 @@ export default function Profile() {
         </TransparentCard>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', marginTop: '10px' }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          width: "100%",
+        }}
+      >
         <LogoutButton onClick={handleLogout}>로그아웃</LogoutButton>
       </div>
 
@@ -862,24 +894,25 @@ export default function Profile() {
         <ConfirmationOverlay>
           <ConfirmationDialog>
             <SectionTitle>구독 해지</SectionTitle>
-            <p style={{ marginBottom: '1rem' }}>
+            <p style={{ marginBottom: "1rem" }}>
               정말로 구독을 해지하시겠습니까?
             </p>
-            <p style={{ marginBottom: '1rem' }}>
-              해지 시 즉시 서비스 이용이 중단되며, 이미 결제된 금액은 환불되지 않습니다.
+            <p style={{ marginBottom: "1rem" }}>
+              해지 시 즉시 서비스 이용이 중단되며, 이미 결제된 금액은 환불되지
+              않습니다.
             </p>
             <ButtonGroup>
-              <CancelButton 
+              <CancelButton
                 onClick={() => setShowCancelDialog(false)}
                 disabled={cancelInProgress}
               >
                 취소
               </CancelButton>
-              <DangerButton 
+              <DangerButton
                 onClick={handleCancelSubscription}
                 disabled={cancelInProgress}
               >
-                {cancelInProgress ? '처리 중...' : '구독 해지'}
+                {cancelInProgress ? "처리 중..." : "구독 해지"}
               </DangerButton>
             </ButtonGroup>
           </ConfirmationDialog>
