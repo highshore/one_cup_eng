@@ -250,50 +250,72 @@ export default function GNB({}: GNBProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { currentUser } = useAuth();
   const [profileImageUrl, setProfileImageUrl] = useState(defaultUser);
-  const [forceUpdate, setForceUpdate] = useState(0);
 
-  // Listen for avatar changes in localStorage
+  // Update profile image only when user logs in or when avatar is explicitly changed
   useEffect(() => {
-    const checkForAvatarChanges = () => {
-      const timestamp = localStorage.getItem("avatar_update_timestamp");
-      if (timestamp) {
-        // Force component update when avatar timestamp changes
-        setForceUpdate((prev) => prev + 1);
+    // Get the current user
+    const user = auth.currentUser;
+
+    // Load profile image only when user object changes or avatar update is detected
+    if (user?.photoURL) {
+      console.log("GNB - Loading photoURL:", user.photoURL);
+      
+      try {
+        // Store in localStorage to persist across page navigation
+        const storedAvatarUrl = localStorage.getItem('user_avatar_url');
+        const currentAvatarTimestamp = localStorage.getItem('avatar_update_timestamp');
+        
+        // Only update if avatar URL changed or if timestamp indicates an update
+        if (!storedAvatarUrl || storedAvatarUrl !== user.photoURL || currentAvatarTimestamp) {
+          const url = new URL(user.photoURL);
+          // Add cache-busting only when avatar is updated
+          if (currentAvatarTimestamp) {
+            url.searchParams.set("t", currentAvatarTimestamp);
+            // Clear the timestamp after using it
+            localStorage.removeItem('avatar_update_timestamp');
+          }
+          
+          const newAvatarUrl = url.toString();
+          setProfileImageUrl(newAvatarUrl);
+          localStorage.setItem('user_avatar_url', user.photoURL);
+        } else {
+          // Use the already processed URL with any existing cache busting
+          setProfileImageUrl(storedAvatarUrl);
+        }
+      } catch (error) {
+        console.log("GNB - Invalid URL format:", user.photoURL, error);
+        // If URL is not a valid URL format, just use it as-is
+        setProfileImageUrl(user.photoURL);
+        localStorage.setItem('user_avatar_url', user.photoURL);
       }
-    };
+    } else {
+      console.log("GNB - No photoURL found for user");
+      setProfileImageUrl(defaultUser);
+      localStorage.removeItem('user_avatar_url');
+    }
+  }, [currentUser]);
 
-    // Check for changes at mount and set up interval
-    checkForAvatarChanges();
-
-    // Add storage event listener for cross-tab synchronization
+  // Listen for avatar updates via storage events (works across tabs)
+  useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "avatar_update_timestamp") {
-        checkForAvatarChanges();
+      if (e.key === "avatar_update_timestamp" && auth.currentUser?.photoURL) {
+        try {
+          const url = new URL(auth.currentUser.photoURL);
+          url.searchParams.set("t", Date.now().toString());
+          setProfileImageUrl(url.toString());
+          localStorage.setItem('user_avatar_url', auth.currentUser.photoURL);
+          localStorage.removeItem('avatar_update_timestamp');
+        } catch (error) {
+          console.log("GNB - Error updating avatar from storage event:", error);
+        }
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
-
-    // Clean up
     return () => {
       window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
-
-  // Update profile image when user changes or when force update is triggered
-  useEffect(() => {
-    // Get the most current user - don't rely only on the context
-    const user = auth.currentUser;
-
-    if (user?.photoURL) {
-      // Add cache busting parameter to prevent browser caching
-      const url = new URL(user.photoURL);
-      url.searchParams.set("t", Date.now().toString());
-      setProfileImageUrl(url.toString());
-    } else {
-      setProfileImageUrl(defaultUser);
-    }
-  }, [currentUser, forceUpdate]);
 
   // Handle clicking outside the menu to close it
   React.useEffect(() => {

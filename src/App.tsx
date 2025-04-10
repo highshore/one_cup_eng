@@ -17,6 +17,7 @@ import Policy from "./routes/policy";
 import ProtectedRoute from "./components/protected_route.tsx";
 import AuthProvider from "./contexts/AuthContext";
 import Payment from "./routes/payment.tsx";
+import PaymentResult from "./routes/payment-result.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -34,7 +35,11 @@ const router = createBrowserRouter([
         path: "policy/:type",
         element: <Policy />,
       },
-      
+      // Add the payment result page to the public routes
+      {
+        path: "payment-result",
+        element: <PaymentResult />,
+      },
     ],
   },
   {

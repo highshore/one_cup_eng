@@ -1086,7 +1086,7 @@ export default function Home() {
                 <PricingFeature>속독 모드</PricingFeature>
                 <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
               </PricingFeatures>
-              <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
+              <SubscribeButton to="/profile">지금 구독하기</SubscribeButton>
             </PricingCard>
             <PricingCard>
               <PricingTitle>90일</PricingTitle>
@@ -1099,7 +1099,7 @@ export default function Home() {
                 <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
                 <PricingFeature>학습 진도 추적</PricingFeature>
               </PricingFeatures>
-              <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
+              <SubscribeButton to="/profile">지금 구독하기</SubscribeButton>
             </PricingCard>
             <PricingCard>
               <PricingTitle>180일</PricingTitle>
@@ -1113,7 +1113,7 @@ export default function Home() {
                 <PricingFeature>학습 진도 추적</PricingFeature>
                 <PricingFeature>맞춤형 학습 추천</PricingFeature>
               </PricingFeatures>
-              <SubscribeButton to="/payment">지금 구독하기</SubscribeButton>
+              <SubscribeButton to="/profile">지금 구독하기</SubscribeButton>
             </PricingCard>
           </PricingTable>
       </TestimonialsSection>

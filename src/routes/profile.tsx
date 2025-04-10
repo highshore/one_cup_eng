@@ -1,7 +1,7 @@
 import { styled } from "styled-components";
 import { auth, storage, db } from "../firebase";
 import { useState, useEffect } from "react";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 import { updateProfile, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
@@ -167,6 +167,7 @@ const AvatarInput = styled.input`
   display: none;
 `;
 
+
 const NameInput = styled.input`
   font-size: 16px;
   font-weight: 500;
@@ -301,11 +302,27 @@ const LogoutButton = styled.button`
 
 // Enhanced article list styles
 const ArticlesList = styled.div`
-  max-height: 250px;
+  margin: -10px 0;
+  max-height: 300px;
   overflow-y: auto;
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(44, 24, 16, 0.5) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(44, 24, 16, 0.3);
+    border-radius: 6px;
+  }
 `;
 
 const ArticleItem = styled.div`
@@ -362,6 +379,7 @@ const AlertCard = styled(Card)<{ type: "error" | "success" }>`
   background-color: ${(props) =>
     props.type === "success" ? "#e8f5e9" : "#ffebee"};
   margin-bottom: 1rem;
+  border-radius: 20px;
 
   p {
     color: ${(props) => (props.type === "success" ? "#2e7d32" : "#c62828")};
@@ -439,6 +457,26 @@ export default function Profile() {
 
       try {
         setLoading(true);
+        
+        // Set avatar here instead of waiting for user data
+        if (user.photoURL) {
+          console.log("Profile - Found photoURL:", user.photoURL);
+          
+          try {
+            // Just add a cache-busting parameter and use the URL directly
+            const url = new URL(user.photoURL);
+            url.searchParams.set("t", Date.now().toString());
+            setAvatar(url.toString());
+          } catch (error) {
+            console.log("Profile - Invalid URL format:", user.photoURL, error);
+            // Even if URL format is invalid, still use the photoURL as-is
+            setAvatar(user.photoURL);
+          }
+        } else {
+          console.log("Profile - No photoURL found for user");
+          setAvatar("");
+        }
+        
         const userDocRef = doc(db, `users/${user.uid}`);
         const userDoc = await getDoc(userDocRef);
 
@@ -550,14 +588,23 @@ export default function Profile() {
         // Upload the file
         const result = await uploadBytes(locationRef, file);
         const avatarUrl = await getDownloadURL(result.ref);
+        
+        console.log("Profile - Uploaded new avatar:", avatarUrl);
 
         // Update the profile
         await updateProfile(user, {
           photoURL: avatarUrl,
         });
 
-        // Update local state
-        setAvatar(avatarUrl);
+        // Update local state with cache busting to prevent stale images
+        try {
+          const url = new URL(avatarUrl);
+          url.searchParams.set("t", Date.now().toString());
+          setAvatar(url.toString());
+        } catch (e) {
+          console.log("Profile - Error creating URL with cache busting:", e);
+          setAvatar(avatarUrl);
+        }
 
         // Force a reload of the current user to update in other components like GNB
         await auth.currentUser?.reload();
@@ -587,29 +634,39 @@ export default function Profile() {
       setSuccessMessage(null);
       setIsLoading(true);
 
-      // 1. Update the profile with null photoURL
+      // 1. Delete the image from Firebase Storage
+      const locationRef = ref(storage, `avatars/user_${user.uid}`);
+      try {
+        await deleteObject(locationRef);
+      } catch (storageError) {
+        console.log("Storage object might not exist, continuing:", storageError);
+        // Continue even if storage deletion fails (maybe image doesn't exist)
+      }
+
+      // 2. Update the profile with null photoURL
       await updateProfile(user, {
         photoURL: null,
       });
 
-      // 2. Update local state
+      // 3. Update local state immediately
       setAvatar("");
 
-      // 3. Force a reload of the current user to update in other components like GNB
-      // This triggers the useEffect in the GNB component that listens for currentUser changes
-      await auth.currentUser?.reload();
+      // 4. Force a reload of the current user
+      const updatedUser = auth.currentUser;
+      if (updatedUser) {
+        await updatedUser.reload();
+        // Double-check that the photoURL is actually null after reload
+        if (updatedUser.photoURL) {
+          console.log("PhotoURL still exists after reload, forcing to null");
+          await updateProfile(updatedUser, { photoURL: null });
+        }
+      }
 
-      // 4. Notify about success
+      // 5. Notify about success
       setSuccessMessage("프로필 이미지가 삭제되었습니다.");
 
-      // 5. Optional: set a timestamp to force UI refresh
-      const timestamp = Date.now();
-      localStorage.setItem("avatar_update_timestamp", timestamp.toString());
-
-      // Note: We don't actually delete the image from Firebase Storage
-      // as it might be referenced elsewhere and requires admin privileges
-      // to properly clean up. Firebase Storage has lifecycle rules that
-      // can automatically clean up orphaned files.
+      // 6. Set a timestamp to force UI refresh in GNB
+      localStorage.setItem("avatar_update_timestamp", Date.now().toString());
     } catch (error) {
       console.error("Error deleting avatar:", error);
       setError("Failed to delete avatar: " + (error as Error).message);
@@ -792,7 +849,18 @@ export default function Profile() {
             <UserAvatarSection>
               <AvatarUpload htmlFor="avatar">
                 {avatar ? (
-                  <AvatarImg src={avatar} alt="Profile" />
+                  <AvatarImg 
+                    src={avatar} 
+                    alt="Profile" 
+                    onError={(e) => {
+                      // If image fails to load, fall back to default
+                      const target = e.target as HTMLImageElement;
+                      target.onerror = null; // Prevent infinite error loop
+                      target.src = defaultUserImage;
+                      console.log("Profile - Image failed to load, using default");
+                      // Don't update avatar state - keep the URL even if it doesn't load
+                    }}
+                  />
                 ) : (
                   <img
                     src={defaultUserImage}
