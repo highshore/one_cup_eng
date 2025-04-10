@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { auth } from "../firebase";
 
 // Import logo
 import logo from "../assets/1cup_logo_circular.png";
@@ -166,7 +167,7 @@ const ProfileButton = styled(Link)`
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid ${colors.primary};
+  border: 2px solid ${colors.accent};
   transition: all 0.2s ease;
 
   &:hover {
@@ -248,6 +249,51 @@ interface GNBProps {
 export default function GNB({}: GNBProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { currentUser } = useAuth();
+  const [profileImageUrl, setProfileImageUrl] = useState(defaultUser);
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  // Listen for avatar changes in localStorage
+  useEffect(() => {
+    const checkForAvatarChanges = () => {
+      const timestamp = localStorage.getItem("avatar_update_timestamp");
+      if (timestamp) {
+        // Force component update when avatar timestamp changes
+        setForceUpdate((prev) => prev + 1);
+      }
+    };
+
+    // Check for changes at mount and set up interval
+    checkForAvatarChanges();
+
+    // Add storage event listener for cross-tab synchronization
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "avatar_update_timestamp") {
+        checkForAvatarChanges();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // Clean up
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Update profile image when user changes or when force update is triggered
+  useEffect(() => {
+    // Get the most current user - don't rely only on the context
+    const user = auth.currentUser;
+
+    if (user?.photoURL) {
+      // Add cache busting parameter to prevent browser caching
+      const url = new URL(user.photoURL);
+      url.searchParams.set("t", Date.now().toString());
+      setProfileImageUrl(url.toString());
+    } else {
+      setProfileImageUrl(defaultUser);
+    }
+  }, [currentUser, forceUpdate]);
 
   // Handle clicking outside the menu to close it
   React.useEffect(() => {
@@ -330,7 +376,16 @@ export default function GNB({}: GNBProps) {
 
         {currentUser ? (
           <ProfileButton to="/profile">
-            <ProfileImage src={defaultUser} alt="사용자 프로필" />
+            <ProfileImage
+              src={profileImageUrl}
+              alt="사용자 프로필"
+              onError={(e) => {
+                // If image fails to load, fall back to default
+                const target = e.target as HTMLImageElement;
+                target.onerror = null; // Prevent infinite error loop
+                target.src = defaultUser;
+              }}
+            />
           </ProfileButton>
         ) : (
           <AuthButton to="/auth">시작하기</AuthButton>
@@ -351,7 +406,15 @@ export default function GNB({}: GNBProps) {
           </MobileMenuItem>
           {currentUser ? (
             <ProfileButton to="/profile">
-              <ProfileImage src={defaultUser} alt="사용자 프로필" />
+              <ProfileImage
+                src={profileImageUrl}
+                alt="사용자 프로필"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = defaultUser;
+                }}
+              />
             </ProfileButton>
           ) : (
             <MobileAuthButton to="/auth" onClick={() => setIsMenuOpen(false)}>

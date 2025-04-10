@@ -68,6 +68,24 @@ const UserAvatarSection = styled.div`
   padding-left: 20px;
 `;
 
+const AvatarActions = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+`;
+
+const AvatarActionButton = styled.div`
+  font-size: 12px;
+  color: #777;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #2c1810;
+    text-decoration: underline;
+  }
+`;
+
 const InfoLabel = styled.span`
   font-size: 0.9rem;
   color: #666;
@@ -394,8 +412,7 @@ const SubscribeAgainButton = styled(Button)`
 
 export default function Profile() {
   const user = auth.currentUser;
-  const [avatar, setAvatar] = useState(user?.photoURL || defaultUserImage);
-  const [avatarTimestamp, setAvatarTimestamp] = useState(Date.now());
+  const [avatar, setAvatar] = useState(user?.photoURL || "");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -527,15 +544,11 @@ export default function Profile() {
         setSuccessMessage(null);
         setIsLoading(true);
 
-        // Create storage reference with user UID as the path
-        const locationRef = ref(storage, `avatars/${user.uid}`);
+        // Create storage reference
+        const locationRef = ref(storage, `avatars/user_${user.uid}`);
 
-        // Upload the file with metadata
-        const metadata = {
-          contentType: file.type,
-        };
-
-        const result = await uploadBytes(locationRef, file, metadata);
+        // Upload the file
+        const result = await uploadBytes(locationRef, file);
         const avatarUrl = await getDownloadURL(result.ref);
 
         // Update the profile
@@ -543,10 +556,15 @@ export default function Profile() {
           photoURL: avatarUrl,
         });
 
-        // Update local state with cache busting
-        const newTimestamp = Date.now();
-        setAvatar(`${avatarUrl}?t=${newTimestamp}`);
-        setAvatarTimestamp(newTimestamp);
+        // Update local state
+        setAvatar(avatarUrl);
+
+        // Force a reload of the current user to update in other components like GNB
+        await auth.currentUser?.reload();
+
+        // Set a timestamp to force UI refresh in other components
+        localStorage.setItem("avatar_update_timestamp", Date.now().toString());
+
         setSuccessMessage("프로필 이미지가 업데이트 되었습니다.");
       } catch (error) {
         console.error("Error uploading avatar:", error);
@@ -555,6 +573,48 @@ export default function Profile() {
         setIsLoading(false);
         e.target.value = "";
       }
+    }
+  };
+
+  const deleteAvatar = async () => {
+    if (!user) {
+      setError("Please log in again to delete avatar");
+      return;
+    }
+
+    try {
+      setError("");
+      setSuccessMessage(null);
+      setIsLoading(true);
+
+      // 1. Update the profile with null photoURL
+      await updateProfile(user, {
+        photoURL: null,
+      });
+
+      // 2. Update local state
+      setAvatar("");
+
+      // 3. Force a reload of the current user to update in other components like GNB
+      // This triggers the useEffect in the GNB component that listens for currentUser changes
+      await auth.currentUser?.reload();
+
+      // 4. Notify about success
+      setSuccessMessage("프로필 이미지가 삭제되었습니다.");
+
+      // 5. Optional: set a timestamp to force UI refresh
+      const timestamp = Date.now();
+      localStorage.setItem("avatar_update_timestamp", timestamp.toString());
+
+      // Note: We don't actually delete the image from Firebase Storage
+      // as it might be referenced elsewhere and requires admin privileges
+      // to properly clean up. Firebase Storage has lifecycle rules that
+      // can automatically clean up orphaned files.
+    } catch (error) {
+      console.error("Error deleting avatar:", error);
+      setError("Failed to delete avatar: " + (error as Error).message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -687,13 +747,6 @@ export default function Profile() {
         </div>
       )}
 
-      <AvatarInput
-        type="file"
-        accept="image/*"
-        id="avatar"
-        onChange={onAvatarChange}
-      />
-
       {/* User Information Section */}
       <UserInfoSection>
         <SectionTitle>기본 정보</SectionTitle>
@@ -738,23 +791,38 @@ export default function Profile() {
 
             <UserAvatarSection>
               <AvatarUpload htmlFor="avatar">
-                <AvatarImg
-                  src={`${avatar}?t=${avatarTimestamp}`}
-                  key={avatarTimestamp}
-                  alt="Profile"
-                  onError={(e) => {
-                    console.error("Failed to load avatar image");
-                    const target = e.target as HTMLImageElement;
-                    target.onerror = null;
-                    target.src = defaultUserImage;
-                  }}
-                />
+                {avatar ? (
+                  <AvatarImg src={avatar} alt="Profile" />
+                ) : (
+                  <img
+                    src={defaultUserImage}
+                    alt="Default Profile"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                )}
               </AvatarUpload>
-              <div
-                style={{ marginTop: "8px", fontSize: "12px", color: "#777" }}
-              >
-                클릭하여 변경
-              </div>
+              <AvatarActions>
+                <AvatarActionButton
+                  onClick={() => document.getElementById("avatar")?.click()}
+                >
+                  변경
+                </AvatarActionButton>
+                {avatar && (
+                  <AvatarActionButton onClick={deleteAvatar}>
+                    삭제
+                  </AvatarActionButton>
+                )}
+              </AvatarActions>
+              <AvatarInput
+                onChange={onAvatarChange}
+                id="avatar"
+                type="file"
+                accept="image/*"
+              />
             </UserAvatarSection>
           </UserInfoContent>
         </SectionContent>
