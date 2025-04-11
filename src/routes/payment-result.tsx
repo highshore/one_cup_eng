@@ -1,513 +1,655 @@
-import React, { useState, MouseEvent } from "react";
-import { useLocation, Navigate } from "react-router-dom";
-import styled from "styled-components";
-import axios from "axios";
-
-// Define color variables to match brand
-const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
-  text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
-  },
-};
+import { useState, useEffect } from "react";
+import { styled } from "styled-components";
+import { useNavigate, useLocation } from "react-router-dom";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../firebase";
 
 // Styled components
-const ResultContainer = styled.div`
-  max-width: 800px;
+const Wrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 850px;
   margin: 0 auto;
-  padding: 2rem;
-  background-color: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  padding: 20px;
 `;
 
-const SectionTitle = styled.h2`
-  font-size: 1.5rem;
+const Card = styled.div`
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  width: 100%;
+  margin-bottom: 20px;
+`;
+
+const Title = styled.h1`
+  font-size: 24px;
   font-weight: 600;
-  color: ${colors.primary};
-  margin-bottom: 1.5rem;
+  margin-bottom: 20px;
+  color: #333;
   text-align: center;
 `;
 
-const PaymentDetailsCard = styled.div`
-  border: 1px solid ${colors.primaryPale};
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  background-color: ${colors.primaryBg};
+const Subtitle = styled.h2`
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: #555;
+  text-align: center;
 `;
 
-const DetailRow = styled.div`
+const ResultInfo = styled.div`
+  margin-top: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+`;
+
+const InfoRow = styled.div`
   display: flex;
-  margin-bottom: 0.5rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+
   &:last-child {
     border-bottom: none;
   }
 `;
 
-const DetailLabel = styled.div`
-  flex: 0 0 40%;
+const InfoLabel = styled.div`
+  flex: 1;
   font-weight: 500;
-  color: ${colors.text.medium};
+  color: #555;
 `;
 
-const DetailValue = styled.div`
-  flex: 0 0 60%;
-  color: ${colors.text.dark};
+const InfoValue = styled.div`
+  flex: 2;
+  color: #333;
 `;
 
-const ActionButton = styled.button`
-  padding: 0.8rem 1.5rem;
-  background-color: ${colors.primary};
+const Button = styled.button`
+  background-color: #2c1810;
   color: white;
   border: none;
-  border-radius: 50px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-  margin-right: 1rem;
-  margin-bottom: 1rem;
-
-  &:hover {
-    background-color: ${colors.primaryLight};
-    transform: translateY(-2px);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-`;
-
-const CancelButton = styled(ActionButton)`
-  background-color: #D73A49;
-  
-  &:hover {
-    background-color: #C92532;
-  }
-`;
-
-const ResultOutput = styled.div`
-  margin-top: 2rem;
-  padding: 1.5rem;
   border-radius: 8px;
-  background-color: ${colors.primaryBg};
-  border: 1px solid ${colors.primaryPale};
-  
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    
-    td {
-      padding: 0.5rem;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      
-      &:first-child {
-        font-weight: 500;
-        color: ${colors.text.medium};
-        width: 40%;
-      }
-    }
-    
-    tr:last-child td {
-      border-bottom: none;
-    }
-    
-    p {
-      margin-bottom: 1rem;
-      font-size: 1.1rem;
-      color: ${colors.primary};
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+
+  &:hover {
+    background-color: #3a2218;
+  }
+`;
+
+const ErrorText = styled.p`
+  color: #e53935;
+  font-size: 14px;
+  margin: 20px 0;
+  text-align: center;
+`;
+
+const SuccessIcon = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #4caf50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+
+  &::after {
+    content: "✓";
+    color: white;
+    font-size: 40px;
+  }
+`;
+
+const ErrorIcon = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #e53935;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+
+  &::after {
+    content: "×";
+    color: white;
+    font-size: 40px;
+  }
+`;
+
+const LoadingSpinner = styled.div`
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-left-color: #2c1810;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  animation: spin 1s linear infinite;
+  margin: 30px auto;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 `;
 
-// Define interface for payment result
 interface PaymentResult {
-  PCD_PAY_RST: string;
-  PCD_PAY_MSG: string;
-  PCD_PAY_OID: string;
-  PCD_PAY_TYPE: string;
-  PCD_PAY_WORK: string;
-  PCD_PAYER_ID: string;
-  PCD_PAYER_NO: string;
-  PCD_PAYER_NAME: string;
-  PCD_PAYER_EMAIL: string;
-  PCD_REGULER_FLAG: string;
-  PCD_PAY_YEAR: string;
-  PCD_PAY_MONTH: string;
-  PCD_PAY_GOODS: string;
-  PCD_PAY_TOTAL: string;
-  PCD_PAY_TAXTOTAL: string;
-  PCD_PAY_ISTAX: string;
-  PCD_PAY_CARDNAME?: string;
-  PCD_PAY_CARDNUM?: string;
-  PCD_PAY_CARDTRADENUM?: string;
-  PCD_PAY_CARDAUTHNO?: string;
-  PCD_PAY_CARDRECEIPT?: string;
-  PCD_PAY_BANK?: string;
-  PCD_PAY_BANKNAME?: string;
-  PCD_PAY_BANKNUM?: string;
-  PCD_PAY_BANKACCTYPE?: string;
-  PCD_PAY_TIME: string;
-  PCD_TAXSAVE_RST: string;
-  PCD_AUTH_KEY: string;
-  PCD_PAY_REQKEY: string;
-  PCD_PAY_COFURL: string;
-  PCD_REFUND_TOTAL: string;
-  [key: string]: any;
+  success: boolean;
+  message: string;
+  errorCode?: string;
+  data?: {
+    PCD_PAY_RST: string;
+    PCD_PAY_MSG: string;
+    PCD_PAY_OID: string;
+    PCD_PAY_TYPE: string;
+    PCD_PAYER_ID: string;
+    PCD_PAYER_NO: string;
+    PCD_REGULER_FLAG: string;
+    PCD_PAYER_EMAIL: string;
+    PCD_PAY_YEAR: string;
+    PCD_PAY_MONTH: string;
+    [key: string]: string;
+  };
 }
 
-// Helper function to safely extract date part from payment time
-const extractDateFromPayTime = (timeString: string): string => {
-  if (!timeString || typeof timeString !== 'string' || timeString.length < 8) {
-    return '';
-  }
-  return timeString.substring(0, 8);
-};
-
-const PaymentResult: React.FC = () => {
+export default function PaymentResult() {
+  const navigate = useNavigate();
   const location = useLocation();
-  const [resultVisible, setResultVisible] = useState<boolean>(false);
-  
-  // Parse payment result from location
-  const payResult: PaymentResult | null = location.search 
-    ? JSON.parse(decodeURIComponent(location.search.substring(1))) 
-    : location.state && location.state.payResult 
-      ? location.state.payResult 
-      : null;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(
+    null
+  );
 
-  // Redirect to home if no payment result is available
-  if (!payResult) {
-    return <Navigate to="/" />;
-  }
+  // Add immediate logging of the URL and search parameters when component mounts
+  useEffect(() => {
+    console.log("Payment result page loaded");
+    console.log("Full URL:", window.location.href);
+    console.log("Search params:", location.search);
+    console.log("Hash:", location.hash);
 
-  // Handle payment confirmation
-  const handlePayConfirm = (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    
-    if (window.confirm('결제 승인하겠습니까?')) {
-      // Get form data
-      const form = document.getElementById('payConfirm') as HTMLFormElement;
-      const formData = new FormData(form);
-      let reqData: Record<string, any> = {};
-      
-      // Convert form data to object
-      formData.forEach((value, key) => {
-        reqData[key] = value;
-      });
-      
-      console.log('결제 요청 데이터', reqData);
-      
-      // Set token parameters
-      const payConfirmURL = payResult.PCD_PAY_COFURL;
-      const params = {
-        PCD_CST_ID: process.env.REACT_APP_CST_ID,
-        PCD_CUST_KEY: process.env.REACT_APP_CUST_KEY,
-        PCD_AUTH_KEY: payResult.PCD_AUTH_KEY,
-        PCD_PAY_TYPE: payResult.PCD_PAY_TYPE,
-        PCD_PAYER_ID: payResult.PCD_PAYER_ID,
-        PCD_PAY_REQKEY: payResult.PCD_PAY_REQKEY
+    // Log session storage for debugging
+    console.log(
+      "Session storage paymentSessionInfo exists:",
+      !!sessionStorage.getItem("paymentSessionInfo")
+    );
+    if (sessionStorage.getItem("paymentSessionInfo")) {
+      try {
+        const sessionInfo = JSON.parse(
+          sessionStorage.getItem("paymentSessionInfo") || "{}"
+        );
+        console.log("Session info userId:", sessionInfo.userId);
+        console.log("Session info timestamp:", sessionInfo.timestamp);
+      } catch (e) {
+        console.error("Error parsing session info:", e);
+      }
+    }
+
+    // Check if we need to go into test mode with mocked data
+    if (location.search.includes("test=true") || !location.search) {
+      console.log(
+        "No search parameters or test mode activated - creating test payment data"
+      );
+
+      // Create a test user session if none exists
+      if (!sessionStorage.getItem("paymentSessionInfo")) {
+        const testUserId = "test_user_" + Math.floor(Math.random() * 1000);
+        sessionStorage.setItem(
+          "paymentSessionInfo",
+          JSON.stringify({
+            userId: testUserId,
+            timestamp: Date.now(),
+          })
+        );
+        console.log("Created test payment session with userId:", testUserId);
+      }
+
+      // Create test payment callback data
+      const testPaymentData = {
+        PCD_PAY_RST: "success",
+        PCD_PAY_MSG: "success",
+        PCD_PAY_OID: "TEST" + Date.now().toString(),
+        PCD_PAY_TYPE: "card",
+        PCD_PAYER_ID: "TEST_BILLING_KEY_" + Math.floor(Math.random() * 1000000),
+        PCD_PAYER_NO:
+          JSON.parse(sessionStorage.getItem("paymentSessionInfo") || "{}")
+            .userId || "test_user",
+        PCD_PAYER_NAME: "Test User",
+        PCD_PAYER_EMAIL: "test@example.com",
+        PCD_PAY_YEAR: new Date().getFullYear().toString(),
+        PCD_PAY_MONTH: (new Date().getMonth() + 1).toString().padStart(2, "0"),
+        PCD_PAY_GOODS: "One Cup English 프리미엄 멤버십 (테스트)",
+        PCD_PAY_TOTAL: "9900",
+        PCD_PAY_WORK: "AUTH",
+        PCD_REGULER_FLAG: "Y",
+        PCD_CARD_VER: "01",
       };
-      
-      // Send payment confirmation request
-      axios.post(payConfirmURL, JSON.stringify(params), {
-        headers: {
-          'content-type': 'application/json',
-          'referer': process.env.REACT_APP_HOSTNAME
+
+      // Store in sessionStorage for test
+      sessionStorage.setItem(
+        "paypleCallbackResponse",
+        JSON.stringify(testPaymentData)
+      );
+      console.log("Created test payment data:", testPaymentData);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    const processPaymentResult = async () => {
+      try {
+        // Get URL search params
+        const searchParams = new URLSearchParams(location.search);
+        const paymentParams: Record<string, string> = {};
+
+        // Extract all parameters
+        for (const [key, value] of searchParams.entries()) {
+          paymentParams[key] = value;
         }
-      })
-      .then(res => {
-        if (res.data.PCD_PAY_MSG) {
-          setResultVisible(true);
-          
-          // Create result table
-          const resultDiv = document.getElementById('payConfirmResult');
-          if (resultDiv) {
-            const table = document.createElement('table');
-            let tableContent = "<p><strong>결제 요청 메시지</strong></p>";
-            
-            // Add data to table
-            Object.entries(res.data).forEach(([key, value]) => {
-              tableContent += `<tr><td>${key}</td><td>: ${value}</td></tr>`;
-            });
-            
-            table.innerHTML = tableContent;
-            
-            // Clear previous results and append new table
-            resultDiv.innerHTML = '';
-            resultDiv.appendChild(table);
-            
-            // Handle success
-            if (res.data.PCD_PAY_RST === 'success') {
-              const confirmBtn = document.getElementById('payConfirmAction');
-              const cancelBtn = document.getElementById('payConfirmCancel');
-              
-              if (confirmBtn) confirmBtn.style.display = 'none';
-              if (cancelBtn) cancelBtn.style.display = 'inline-block';
+
+        console.log("Payment result params from URL:", paymentParams);
+        console.log(
+          "Payment params count from URL:",
+          Object.keys(paymentParams).length
+        );
+
+        // If no parameters in the URL, check for form POST data, hash fragment or sessionStorage
+        if (Object.keys(paymentParams).length === 0) {
+          console.log(
+            "No URL parameters found, checking alternative sources..."
+          );
+
+          // Try to parse hash fragment (some payment gateways use this)
+          if (location.hash && location.hash.length > 1) {
+            const hashParams = new URLSearchParams(location.hash.substring(1));
+            for (const [key, value] of hashParams.entries()) {
+              paymentParams[key] = value;
+            }
+            console.log("Found parameters in hash fragment:", paymentParams);
+          }
+
+          // If still no parameters, check sessionStorage for callback response
+          if (Object.keys(paymentParams).length === 0) {
+            console.log(
+              "Checking sessionStorage for paypleCallbackResponse..."
+            );
+            const callbackResponse = sessionStorage.getItem(
+              "paypleCallbackResponse"
+            );
+
+            if (callbackResponse) {
+              try {
+                const callbackData = JSON.parse(callbackResponse);
+                console.log(
+                  "Found callback data in sessionStorage:",
+                  callbackData
+                );
+
+                // Convert callback data to paymentParams format
+                for (const key in callbackData) {
+                  if (Object.prototype.hasOwnProperty.call(callbackData, key)) {
+                    paymentParams[key] = String(callbackData[key]);
+                  }
+                }
+
+                console.log(
+                  "Converted sessionStorage data to payment params:",
+                  paymentParams
+                );
+
+                // Remove the stored callback response to prevent reuse
+                sessionStorage.removeItem("paypleCallbackResponse");
+              } catch (e) {
+                console.error("Error parsing callback response:", e);
+              }
             } else {
-              window.alert(res.data.PCD_PAY_MSG);
+              console.warn(
+                "No payment parameters found in URL, hash fragment, or sessionStorage"
+              );
             }
           }
-        } else {
-          window.alert('결제요청실패');
         }
-      })
-      .catch(err => {
-        console.error(err);
-        window.alert(err);
+
+        // If still no parameters, and test=true is in the URL, create test data
+        if (
+          Object.keys(paymentParams).length === 0 &&
+          location.search.includes("test=true")
+        ) {
+          const testData = {
+            PCD_PAY_RST: "success",
+            PCD_PAY_MSG: "테스트 결제 성공",
+            PCD_PAY_OID: "TEST" + Date.now(),
+            PCD_PAYER_ID:
+              "TEST_ID_" + Math.random().toString(36).substring(2, 8),
+            PCD_PAY_TYPE: "card",
+          };
+
+          for (const [key, value] of Object.entries(testData)) {
+            paymentParams[key] = value;
+          }
+
+          console.log("Created test payment parameters:", paymentParams);
+        }
+
+        // Final check for necessary payment data
+        if (!paymentParams.PCD_PAY_RST) {
+          console.error("Missing payment result status (PCD_PAY_RST)");
+          console.log("Available params:", Object.keys(paymentParams));
+
+          // If there are no parameters at all, we might be in a strange state
+          if (Object.keys(paymentParams).length === 0) {
+            // Try refreshing the page once to see if it helps
+            if (!sessionStorage.getItem("payment_result_refreshed")) {
+              console.log("No parameters found, attempting one refresh");
+              sessionStorage.setItem("payment_result_refreshed", "true");
+              window.location.reload();
+              return; // Exit early since we're refreshing
+            }
+
+            setError(
+              "결제 응답 데이터가 없습니다. 결제가 정상적으로 진행되지 않았거나 페이플에서 리디렉션이 제대로 이루어지지 않았습니다."
+            );
+            setLoading(false);
+            return;
+          }
+
+          throw new Error("결제 결과 정보가 없습니다. 다시 시도해주세요.");
+        }
+
+        // Clean up refresh indicator
+        sessionStorage.removeItem("payment_result_refreshed");
+
+        // If payment failed, display the error immediately
+        if (paymentParams.PCD_PAY_RST !== "success") {
+          setPaymentResult({
+            success: false,
+            message: paymentParams.PCD_PAY_MSG || "결제 승인이 실패했습니다.",
+            errorCode: paymentParams.PCD_PAY_CODE || "unknown",
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Get the payment session info from sessionStorage
+        const sessionInfo = sessionStorage.getItem("paymentSessionInfo");
+        if (!sessionInfo) {
+          console.error(
+            "Payment session information not found in sessionStorage"
+          );
+
+          // Create a fallback using the PCD_PAYER_NO if available (this might be the user ID)
+          if (paymentParams.PCD_PAYER_NO) {
+            console.log(
+              "Attempting to use PCD_PAYER_NO as userId fallback:",
+              paymentParams.PCD_PAYER_NO
+            );
+
+            // Verify payment result with Firebase function using the parameter from Payple
+            const verifyPayment = httpsCallable(
+              functions,
+              "verifyPaymentResult"
+            );
+            const result = await verifyPayment({
+              userId: paymentParams.PCD_PAYER_NO,
+              paymentParams,
+              timestamp: Date.now(),
+            });
+
+            const resultData = result.data as PaymentResult;
+            setPaymentResult(resultData);
+            setLoading(false);
+            return;
+          }
+
+          throw new Error(
+            "결제 세션 정보를 찾을 수 없습니다. 다시 시도해주세요."
+          );
+        }
+
+        const { userId, timestamp } = JSON.parse(sessionInfo);
+        console.log("Using userId from session:", userId);
+
+        // Add some additional info to the payment params
+        if (paymentParams.PCD_PAY_WORK === "AUTH") {
+          console.log("This is a billing key authorization (AUTH) response");
+        } else {
+          console.log("This is a payment confirmation response");
+        }
+
+        // Verify payment result with Firebase function
+        console.log("Calling verifyPaymentResult with:", {
+          userId,
+          paymentParamsCount: Object.keys(paymentParams).length,
+        });
+        const verifyPayment = httpsCallable(functions, "verifyPaymentResult");
+        const result = await verifyPayment({
+          userId,
+          paymentParams,
+          timestamp,
+        });
+
+        console.log("Verification result received:", result.data);
+        const resultData = result.data as PaymentResult;
+
+        // Check if there's an error code in the result
+        if (!resultData.success && resultData.errorCode) {
+          setErrorCode(resultData.errorCode);
+        }
+
+        setPaymentResult(resultData);
+
+        // Clean up session storage
+        sessionStorage.removeItem("paymentSessionInfo");
+      } catch (err: any) {
+        console.error("Error processing payment result:", err);
+        // Display the full error for debugging
+        console.error("Full error object:", JSON.stringify(err, null, 2));
+        setError(err.message || "결제 결과 처리 중 오류가 발생했습니다.");
+        if (err.code) {
+          setErrorCode(err.code);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    processPaymentResult();
+  }, [location.search, location.hash, error]);
+
+  const handleContinue = () => {
+    navigate("/profile");
+  };
+
+  const handleRetry = () => {
+    navigate("/payment");
+  };
+
+  // Debug function to manually test payment verification
+  const handleManualPaymentTest = async () => {
+    try {
+      setLoading(true);
+      console.log("Manually testing payment verification...");
+
+      // Create test payment data
+      const testPaymentData = {
+        PCD_PAY_RST: "success",
+        PCD_PAY_MSG: "테스트 결제 성공",
+        PCD_PAY_OID: "TEST" + Date.now(),
+        PCD_PAYER_ID: "TEST_ID_" + Math.random().toString(36).substring(2, 8),
+        PCD_PAY_TYPE: "card",
+        PCD_PAY_WORK: "AUTH",
+        PCD_REGULER_FLAG: "Y",
+        PCD_CARD_VER: "01",
+      };
+
+      // Get or create a test user ID
+      let userId = sessionStorage.getItem("debugUserId");
+      if (!userId) {
+        userId = "test_user_" + Math.floor(Math.random() * 1000);
+        sessionStorage.setItem("debugUserId", userId);
+      }
+
+      console.log("Testing with userId:", userId);
+
+      // Call the Firebase function directly
+      const verifyPayment = httpsCallable(functions, "verifyPaymentResult");
+      const result = await verifyPayment({
+        userId,
+        paymentParams: testPaymentData,
+        timestamp: Date.now(),
       });
+
+      console.log("Debug test verification result:", result.data);
+      setPaymentResult(result.data as PaymentResult);
+    } catch (err: any) {
+      console.error("Error in manual payment test:", err);
+      setError(err.message || "수동 테스트 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle payment refund
-  const handlePayRefund = (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    
-    if (window.confirm('환불(승인취소)요청을 전송합니다. \n진행하시겠습니까?')) {
-      // Get auth token
-      axios.post('/api/auth', { PCD_PAYCANCEL_FLAG: 'Y' })
-        .then(res => {
-          // Set refund parameters
-          const refundURL = res.data.return_url;
-          const params = {
-            PCD_CST_ID: res.data.cst_id,
-            PCD_CUST_KEY: res.data.custKey,
-            PCD_AUTH_KEY: res.data.AuthKey,
-            PCD_REFUND_KEY: process.env.REACT_APP_PCD_REFUND_KEY,
-            PCD_PAYCANCEL_FLAG: "Y",
-            PCD_PAY_OID: payResult.PCD_PAY_OID,
-            PCD_PAY_DATE: extractDateFromPayTime(payResult.PCD_PAY_TIME),
-            PCD_REFUND_TOTAL: payResult.PCD_REFUND_TOTAL,
-            PCD_REGULER_FLAG: payResult.PCD_REGULER_FLAG,
-            PCD_PAY_YEAR: payResult.PCD_PAY_YEAR,
-            PCD_PAY_MONTH: payResult.PCD_PAY_MONTH,
-          };
-          
-          // Send refund request
-          return axios.post(refundURL, JSON.stringify(params), {
-            headers: {
-              'content-type': 'application/json',
-              'referer': process.env.REACT_APP_HOSTNAME
-            }
-          });
-        })
-        .then(res => {
-          if (res.data.PCD_PAY_MSG) {
-            setResultVisible(true);
-            
-            // Create result table
-            const resultDiv = document.getElementById('payConfirmResult');
-            if (resultDiv) {
-              const table = document.createElement('table');
-              let tableContent = "<p><strong>환불(승인취소) 메시지</strong></p>";
-              
-              // Add data to table
-              Object.entries(res.data).forEach(([key, value]) => {
-                tableContent += `<tr><td>${key}</td><td>: ${value}</td></tr>`;
-              });
-              
-              table.innerHTML = tableContent;
-              
-              // Clear previous results and append new table
-              resultDiv.innerHTML = '';
-              resultDiv.appendChild(table);
-              
-              // Handle success
-              if (res.data.PCD_PAY_RST === 'success') {
-                const cancelBtn = document.getElementById('payConfirmCancel');
-                if (cancelBtn) cancelBtn.style.display = 'none';
-                window.alert('환불(승인취소)요청 성공');
-              } else {
-                window.alert(res.data.PCD_PAY_MSG);
-              }
-            }
-          } else {
-            window.alert('환불(승인취소)요청 실패');
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          window.alert(err);
-        });
-    }
-    
-    // Show cancel button for PAY type
-    if (payResult.PCD_PAY_TYPE === 'PAY') {
-      const cancelBtn = document.getElementById('payConfirmCancel');
-      if (cancelBtn) cancelBtn.style.display = 'inline-block';
-    }
-  };
+  if (loading) {
+    return (
+      <Wrapper>
+        <Card>
+          <Title>결제 결과 처리 중</Title>
+          <LoadingSpinner />
+        </Card>
+      </Wrapper>
+    );
+  }
 
   return (
-    <ResultContainer>
-      <SectionTitle>결제 결과</SectionTitle>
-      
-      <PaymentDetailsCard>
-        <DetailRow>
-          <DetailLabel>결제요청 결과:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_RST}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>결과 메시지:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_MSG}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>주문번호:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_OID}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>결제 방법:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_TYPE}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>업무구분:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_WORK}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>결제자 고유ID:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAYER_ID}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>회원 고유번호:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAYER_NO}</DetailValue>
-        </DetailRow>
-        
-        {payResult.PCD_PAY_TYPE === 'transfer' && (
-          <DetailRow>
-            <DetailLabel>현금영수증 발행대상:</DetailLabel>
-            <DetailValue>{payResult.PCD_PAY_BANKACCTYPE}</DetailValue>
-          </DetailRow>
-        )}
-        
-        <DetailRow>
-          <DetailLabel>결제자 이름:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAYER_NAME}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>결제자 Email:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAYER_EMAIL}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>정기결제:</DetailLabel>
-          <DetailValue>{payResult.PCD_REGULER_FLAG}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>정기결제 구분 년도:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_YEAR}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>정기결제 구분 월:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_MONTH}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>결제 상품:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_GOODS}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>결제 금액:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_TOTAL}</DetailValue>
-        </DetailRow>
-        
-        {payResult.PCD_PAY_TYPE === 'card' && (
+    <Wrapper>
+      <Card>
+        {paymentResult?.success ? (
           <>
-            <DetailRow>
-              <DetailLabel>부가세:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_TAXTOTAL}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>과세여부:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_ISTAX}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>카드사명:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_CARDNAME}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>카드번호:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_CARDNUM}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>카드거래번호:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_CARDTRADENUM}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>카드승인번호:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_CARDAUTHNO}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>카드전표 URL:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_CARDRECEIPT}</DetailValue>
-            </DetailRow>
-          </>
-        )}
-        
-        {payResult.PCD_PAY_TYPE === 'transfer' && (
-          <>
-            <DetailRow>
-              <DetailLabel>은행코드:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_BANK}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>은행명:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_BANKNAME}</DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>계좌번호:</DetailLabel>
-              <DetailValue>{payResult.PCD_PAY_BANKNUM}</DetailValue>
-            </DetailRow>
-          </>
-        )}
-        
-        <DetailRow>
-          <DetailLabel>결제 시간:</DetailLabel>
-          <DetailValue>{payResult.PCD_PAY_TIME}</DetailValue>
-        </DetailRow>
-        <DetailRow>
-          <DetailLabel>현금영수증 발행결과:</DetailLabel>
-          <DetailValue>{payResult.PCD_TAXSAVE_RST}</DetailValue>
-        </DetailRow>
-      </PaymentDetailsCard>
-      
-      <div>
-        {payResult.PCD_PAY_WORK === 'CERT' && (
-          <ActionButton 
-            id="payConfirmAction" 
-            onClick={handlePayConfirm}
-          >
-            결제승인요청
-          </ActionButton>
-        )}
-        
-        <CancelButton 
-          id="payConfirmCancel" 
-          style={{ display: 'none' }}
-          onClick={handlePayRefund}
-        >
-          결제승인취소
-        </CancelButton>
-      </div>
-      
-      <ResultOutput id="payConfirmResult" style={{ display: resultVisible ? 'block' : 'none' }} />
-      
-      <form id="payConfirm">
-        <input type="hidden" name="PCD_PAY_TYPE" id="PCD_PAY_TYPE" value={payResult.PCD_PAY_TYPE} />
-        <input type="hidden" name="PCD_AUTH_KEY" id="PCD_AUTH_KEY" value={payResult.PCD_AUTH_KEY} />
-        <input type="hidden" name="PCD_PAYER_ID" id="PCD_PAYER_ID" value={payResult.PCD_PAYER_ID} />
-        <input type="hidden" name="PCD_PAY_REQKEY" id="PCD_PAY_REQKEY" value={payResult.PCD_PAY_REQKEY} />
-        <input type="hidden" name="PCD_PAY_COFURL" id="PCD_PAY_COFURL" value={payResult.PCD_PAY_COFURL} />
-      </form>
-    </ResultContainer>
-  );
-};
+            <SuccessIcon />
+            <Title>구독 등록 완료</Title>
+            <Subtitle>
+              One Cup English 프리미엄 멤버십에 가입되었습니다
+            </Subtitle>
 
-export default PaymentResult;
+            {paymentResult.data && (
+              <ResultInfo>
+                <InfoRow>
+                  <InfoLabel>구독자 이메일</InfoLabel>
+                  <InfoValue>{paymentResult.data.PCD_PAYER_EMAIL}</InfoValue>
+                </InfoRow>
+                <InfoRow>
+                  <InfoLabel>결제 방식</InfoLabel>
+                  <InfoValue>신용카드 (정기결제)</InfoValue>
+                </InfoRow>
+                <InfoRow>
+                  <InfoLabel>구독 금액</InfoLabel>
+                  <InfoValue>₩9,900/월</InfoValue>
+                </InfoRow>
+                <InfoRow>
+                  <InfoLabel>다음 결제일</InfoLabel>
+                  <InfoValue>
+                    {new Date(
+                      new Date().setMonth(new Date().getMonth() + 1)
+                    ).toLocaleDateString()}
+                  </InfoValue>
+                </InfoRow>
+              </ResultInfo>
+            )}
+
+            <Button onClick={handleContinue}>프로필로 이동</Button>
+          </>
+        ) : (
+          <>
+            <ErrorIcon />
+            <Title>구독 등록 실패</Title>
+            <Subtitle>
+              {paymentResult?.message || "결제 처리 중 오류가 발생했습니다"}
+            </Subtitle>
+            {error && <ErrorText>{error}</ErrorText>}
+            {errorCode && <ErrorText>오류 코드: {errorCode}</ErrorText>}
+
+            <ResultInfo>
+              <InfoRow>
+                <InfoLabel>문제 해결 방법</InfoLabel>
+                <InfoValue>
+                  • 카드 정보를 다시 확인해 주세요
+                  <br />
+                  • 결제 한도를 확인해 주세요
+                  <br />
+                  • 다른 카드로 시도해 보세요
+                  <br />• 문제가 지속되면 고객센터로 문의해 주세요
+                </InfoValue>
+              </InfoRow>
+            </ResultInfo>
+
+            <Button onClick={handleRetry}>다시 시도하기</Button>
+          </>
+        )}
+
+        {/* Debug buttons - only shown in test mode */}
+        {location.search.includes("test=true") && (
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "10px",
+              border: "1px dashed #ccc",
+            }}
+          >
+            <h3>디버그 도구</h3>
+            <button
+              style={{
+                padding: "8px 16px",
+                background: "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                marginRight: "8px",
+              }}
+              onClick={handleManualPaymentTest}
+            >
+              수동 결제 테스트
+            </button>
+            <button
+              style={{
+                padding: "8px 16px",
+                background: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+              }}
+              onClick={() => {
+                // Show the actual data being used in the component
+                console.log("Current payment result state:", paymentResult);
+                console.log("Session storage:", {
+                  paymentSessionInfo:
+                    sessionStorage.getItem("paymentSessionInfo"),
+                  callbackResponse: sessionStorage.getItem(
+                    "paypleCallbackResponse"
+                  ),
+                  debugUserId: sessionStorage.getItem("debugUserId"),
+                });
+                alert("콘솔에서 디버그 정보를 확인하세요");
+              }}
+            >
+              디버그 정보 보기
+            </button>
+          </div>
+        )}
+      </Card>
+    </Wrapper>
+  );
+}

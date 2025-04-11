@@ -3,8 +3,21 @@ import { onCall } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-// Export payment service directly from the payment module
-export { payment } from './payment';
+// Export payment functions directly from the payment module
+import {
+  getPaymentWindow,
+  verifyPaymentResult,
+  cancelSubscription,
+  processRecurringPayments,
+} from "./payment";
+
+// Export the payment functions
+export {
+  getPaymentWindow,
+  verifyPaymentResult,
+  cancelSubscription,
+  processRecurringPayments,
+};
 
 admin.initializeApp();
 
@@ -1364,4 +1377,3 @@ export const getUserDisplayNames = onCall(async (request) => {
     throw new Error(`Failed to retrieve user data: ${error}`);
   }
 });
-

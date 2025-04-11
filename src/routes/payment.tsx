@@ -1,615 +1,457 @@
-import React, { useRef, useEffect, ChangeEvent } from "react";
+import { useState, useEffect } from "react";
+import { styled } from "styled-components";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../firebase";
 
-// Declare global type for PaypleCpayAuthCheck
+// Declare the jQuery global variable
 declare global {
   interface Window {
-    PaypleCpayAuthCheck: (obj: any) => void;
-    MainBodyAction?: (action: string) => void;
+    PaypleCpayAuthCheck: (paymentParams: any) => void;
+    $: any; // jQuery
+    receivePaypleResult: (response: any) => void; // Add Payple callback function
   }
 }
 
-// Define color variables to match brand
-const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
-  text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
-  },
-};
-
 // Styled components
-const PaymentContainer = styled.div`
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 2rem;
-  background-color: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-`;
-
-const FormTitle = styled.h2`
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: ${colors.primary};
-  margin-bottom: 1.5rem;
-  text-align: center;
-`;
-
-const FormGroup = styled.div`
-  margin-bottom: 1.2rem;
+const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
-`;
-
-const Label = styled.label`
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: ${colors.text.medium};
-  margin-bottom: 0.5rem;
-`;
-
-const Input = styled.input`
-  padding: 0.8rem;
-  border: 1px solid ${colors.primaryPale};
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border 0.3s ease;
-  background-color: #FFFFFF;
-
-  &:focus {
-    outline: none;
-    border-color: ${colors.accent};
-  }
-`;
-
-const Select = styled.select`
-  padding: 0.8rem;
-  border: 1px solid ${colors.primaryPale};
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border 0.3s ease;
-  background-color: #FFFFFF;
-
-  &:focus {
-    outline: none;
-    border-color: ${colors.accent};
-  }
-`;
-
-const PayButton = styled.button`
+  align-items: center;
   width: 100%;
-  padding: 1rem;
-  background-color: ${colors.primary};
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 20px;
+`;
+
+const Card = styled.div`
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  width: 100%;
+  margin-bottom: 20px;
+`;
+
+const Title = styled.h1`
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #333;
+`;
+
+const Subtitle = styled.h2`
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: #555;
+`;
+
+const SubscriptionCard = styled.div`
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+`;
+
+const SubscriptionTitle = styled.h3`
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
+`;
+
+const SubscriptionPrice = styled.div`
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 15px;
+  color: #2c1810;
+`;
+
+const SubscriptionDescription = styled.p`
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+  line-height: 1.5;
+`;
+
+const Button = styled.button`
+  background-color: #2c1810;
   color: white;
   border: none;
-  border-radius: 50px;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  font-weight: 700;
-  font-size: 1.1rem;
-  transition: all 0.2s ease;
-  margin-top: 1rem;
+  transition: background-color 0.2s;
+  width: 100%;
 
   &:hover {
-    background-color: ${colors.primaryLight};
-    transform: translateY(-2px);
+    background-color: #3a2218;
   }
 
   &:disabled {
-    background-color: #ccc;
+    background-color: #cccccc;
     cursor: not-allowed;
-    transform: none;
   }
 `;
 
-const SelectGroup = styled.div`
-  display: flex;
-  gap: 1rem;
-  
-  @media (max-width: 480px) {
-    flex-direction: column;
-    gap: 0.5rem;
+const InfoText = styled.p`
+  font-size: 14px;
+  color: #666;
+  margin: 10px 0;
+  line-height: 1.5;
+`;
+
+const ErrorText = styled.p`
+  color: #e53935;
+  font-size: 14px;
+  margin: 10px 0;
+`;
+
+const LoadingSpinner = styled.div`
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-left-color: #2c1810;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 `;
 
-// Define interfaces for payment form data
-interface PaymentFormData {
-  is_direct: string;
-  pay_type: string;
-  work_type: string;
-  card_ver: string;
-  payple_payer_id: string;
-  buyer_no: string;
-  buyer_name: string;
-  buyer_hp: string;
-  buyer_email: string;
-  buy_goods: string;
-  buy_total: string;
-  buy_istax: string;
-  buy_taxtotal: string;
-  order_num: string;
-  pay_year: string;
-  pay_month: string;
-  is_reguler: string;
-  is_taxsave: string;
-  simple_flag: string;
-  auth_type: string;
+interface UserData {
+  hasActiveSubscription?: boolean;
+  subscriptionStartDate?: Date;
+  subscriptionEndDate?: Date;
+  billingKey?: string;
 }
 
-interface PaymentResult {
-  PCD_PAY_RST: string;
-  PCD_PAY_MSG: string;
-  PCD_PAY_OID?: string;
-  PCD_PAY_TYPE?: string;
-  PCD_PAY_WORK?: string;
-  PCD_PAYER_ID?: string;
-  PCD_PAYER_NO?: string;
-  PCD_PAYER_NAME?: string;
-  PCD_PAY_GOODS?: string;
-  PCD_PAY_TOTAL?: string;
-  [key: string]: any;
-}
-
-const Payment: React.FC = () => {
-  // Handle browser back button to close payment window
-  useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      if (e) {
-        (window as any).MainBodyAction?.('close');
-      }
-    };
-    
-    window.onpopstate = handlePopState;
-    
-    return () => {
-      window.onpopstate = null;
-    };
-  }, []);
-
+export default function Payment() {
   const navigate = useNavigate();
-  const formData = useRef<PaymentFormData>({
-    // Default form values
-    is_direct: 'Y',
-    pay_type: 'card',
-    work_type: 'PAY',
-    card_ver: '01',
-    payple_payer_id: '',
-    buyer_no: '2335',
-    buyer_name: '홍길동',
-    buyer_hp: '01012345678',
-    buyer_email: 'test@payple.kr',
-    buy_goods: '휴대폰',
-    buy_total: '1000',
-    buy_istax: 'Y',
-    buy_taxtotal: '',
-    order_num: createOid(),
-    pay_year: '2025',
-    pay_month: '4',
-    is_reguler: 'Y',
-    is_taxsave: 'N',
-    simple_flag: 'Y',
-    auth_type: 'sms'
-  });
+  const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
-  // Initialize form with default values
+  // Check authentication and fetch user data
   useEffect(() => {
-    const handleUIDisplay = () => {
-      // For card payment display settings
-      const cardVerView = document.getElementById('card_ver_view');
-      const taxsaveView = document.getElementById('taxsave_view');
-      const isRegulerView = document.getElementById('is_reguler_view');
-      const payYearView = document.getElementById('pay_year_view');
-      const payMonthView = document.getElementById('pay_month_view');
-      
-      if (cardVerView) cardVerView.style.display = '';
-      if (taxsaveView) taxsaveView.style.display = 'none';
-      if (isRegulerView) isRegulerView.style.display = '';
-      if (payYearView) payYearView.style.display = '';
-      if (payMonthView) payMonthView.style.display = '';
-      
-      // Set default select values
-      const selects = {
-        simple_flag: document.getElementById('simple_flag') as HTMLSelectElement,
-        is_direct: document.getElementById('is_direct') as HTMLSelectElement,
-        pay_type: document.getElementById('pay_type') as HTMLSelectElement,
-        card_ver: document.getElementById('card_ver') as HTMLSelectElement,
-        is_reguler: document.getElementById('is_reguler') as HTMLSelectElement,
-        pay_year: document.getElementById('pay_year') as HTMLSelectElement,
-        pay_month: document.getElementById('pay_month') as HTMLSelectElement,
-        work_type: document.getElementById('work_type') as HTMLSelectElement,
-        auth_type: document.getElementById('auth_type') as HTMLSelectElement
-      };
-      
-      if (selects.simple_flag) selects.simple_flag.value = 'Y';
-      if (selects.is_direct) selects.is_direct.value = 'Y';
-      if (selects.pay_type) selects.pay_type.value = 'card';
-      if (selects.card_ver) selects.card_ver.value = '01';
-      if (selects.is_reguler) selects.is_reguler.value = 'Y';
-      if (selects.pay_year) selects.pay_year.value = '2025';
-      if (selects.pay_month) selects.pay_month.value = '4';
-      if (selects.work_type) selects.work_type.value = 'PAY';
-      if (selects.auth_type) selects.auth_type.value = 'sms';
-    };
-    
-    handleUIDisplay();
-    
-    // Setup event listeners for form elements
-    const payTypeSelect = document.getElementById('pay_type') as HTMLSelectElement;
-    const cardVerSelect = document.getElementById('card_ver') as HTMLSelectElement;
-    
-    const handlePayTypeChange = (e: Event) => {
-      const target = e.target as HTMLSelectElement;
-      const cardVerView = document.getElementById('card_ver_view');
-      const taxsaveView = document.getElementById('taxsave_view');
-      
-      if (target.value === 'card') {
-        if (taxsaveView) taxsaveView.style.display = 'none';
-        if (cardVerView) cardVerView.style.display = '';
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setCurrentUser(user);
+        fetchUserData(user.uid);
       } else {
-        if (taxsaveView) taxsaveView.style.display = '';
-        if (cardVerView) cardVerView.style.display = 'none';
+        setLoading(false);
+        navigate("/auth");
       }
-    };
-    
-    const handleCardVerChange = () => {
-      const isRegulerView = document.getElementById('is_reguler_view');
-      const payYearView = document.getElementById('pay_year_view');
-      const payMonthView = document.getElementById('pay_month_view');
-      const workTypeAuthOption = document.querySelector('#work_type option[value*="AUTH"]') as HTMLOptionElement;
-      
-      if (cardVerSelect.value === '01') {
-        if (isRegulerView) isRegulerView.style.display = '';
-        if (payYearView) payYearView.style.display = '';
-        if (payMonthView) payMonthView.style.display = '';
-        if (workTypeAuthOption) workTypeAuthOption.disabled = false;
-      } else {
-        if (isRegulerView) isRegulerView.style.display = 'none';
-        if (payYearView) payYearView.style.display = 'none';
-        if (payMonthView) payMonthView.style.display = 'none';
-        if (workTypeAuthOption) workTypeAuthOption.disabled = true;
-      }
-    };
-    
-    if (payTypeSelect) {
-      payTypeSelect.addEventListener('change', handlePayTypeChange);
-    }
-    
-    if (cardVerSelect) {
-      cardVerSelect.addEventListener('change', handleCardVerChange);
-    }
-    
-    return () => {
-      if (payTypeSelect) {
-        payTypeSelect.removeEventListener('change', handlePayTypeChange);
-      }
-      if (cardVerSelect) {
-        cardVerSelect.removeEventListener('change', handleCardVerChange);
-      }
-    };
-  }, []);
+    });
 
-  // Load Payple script when component mounts
-  useEffect(() => {
-    // Check if script is already loaded
-    if (!document.getElementById('paypleScript')) {
-      const script = document.createElement('script');
-      script.id = 'paypleScript';
-      script.src = 'https://cpay.payple.kr/js/cpay.payple.1.0.1.js';
-      script.async = true;
-      
-      // Append script to document
-      document.head.appendChild(script);
-      
-      return () => {
-        // Clean up script when component unmounts
-        const scriptElement = document.getElementById('paypleScript');
-        if (scriptElement) {
-          document.head.removeChild(scriptElement);
-        }
-      };
-    }
-  }, []);
+    return () => unsubscribe();
+  }, [navigate]);
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    formData.current[e.target.name as keyof PaymentFormData] = e.target.value;
-  };
-
-  // Handle payment result callback
-  const getResult = (res: PaymentResult) => {
-    if (res.PCD_PAY_RST === 'success') {
-
-      // Navigate to result page with payment data
-      navigate('/payment-result', { 
-        state: { payResult: res }
-      });
-    } else {
-      // Show payment failure message
-      window.alert(res.PCD_PAY_MSG);
-    }
-  };
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Payment parameters:', formData);
-    console.log('PaypleCpayAuthCheck exists:', typeof window.PaypleCpayAuthCheck === 'function');
-    
-    // Generate order ID if not already set
-    if (!formData.current.order_num) {
-      formData.current.order_num = createOid();
-    }
-    
-    const paymentObj: Record<string, any> = {};
-    
-    // Common settings
-    paymentObj.PCD_PAY_TYPE = formData.current.pay_type;
-    paymentObj.PCD_PAY_WORK = formData.current.work_type;
-    
-    if (formData.current.pay_type === 'card') {
-      paymentObj.PCD_CARD_VER = formData.current.card_ver || '01';
-    }
-    
-    paymentObj.PCD_PAYER_AUTHTYPE = formData.current.auth_type;
-    paymentObj.PCD_REGULER_FLAG = formData.current.is_reguler;
-    paymentObj.PCD_PAY_YEAR = formData.current.pay_year;
-    paymentObj.PCD_PAY_MONTH = formData.current.pay_month;
-
-    // Set result URL based on direct payment setting
-    if (formData.current.is_direct === 'Y') {
-      paymentObj.PCD_RST_URL = process.env.REACT_APP_REMOTE_HOSTNAME + '/api';
-    } else {
-      paymentObj.PCD_RST_URL = '/payment-result';
-    }
-    
-    // Set callback function
-    paymentObj.callbackFunction = getResult;
-
-    // For AUTH work type (billing key registration)
-    if (formData.current.work_type === 'AUTH') {
-      paymentObj.PCD_PAYER_NO = formData.current.buyer_no;
-      paymentObj.PCD_PAYER_NAME = formData.current.buyer_name;
-      paymentObj.PCD_PAYER_HP = formData.current.buyer_hp;
-      paymentObj.PCD_PAYER_EMAIL = formData.current.buyer_email;
-      paymentObj.PCD_TAXSAVE_FLAG = formData.current.is_taxsave;
-      paymentObj.PCD_REGULER_FLAG = formData.current.is_reguler;
-      paymentObj.PCD_SIMPLE_FLAG = formData.current.simple_flag;
-    } else {
-      // For standard payment (single or regular)
-      if (formData.current.simple_flag !== 'Y' || formData.current.payple_payer_id === '') {
-        // Regular payment
-        paymentObj.PCD_PAYER_NO = formData.current.buyer_no;
-        paymentObj.PCD_PAYER_NAME = formData.current.buyer_name;
-        paymentObj.PCD_PAYER_HP = formData.current.buyer_hp;
-        paymentObj.PCD_PAYER_EMAIL = formData.current.buyer_email;
-        paymentObj.PCD_PAY_GOODS = formData.current.buy_goods;
-        paymentObj.PCD_PAY_TOTAL = formData.current.buy_total;
-        paymentObj.PCD_PAY_TAXTOTAL = formData.current.buy_taxtotal;
-        paymentObj.PCD_PAY_ISTAX = formData.current.buy_istax;
-        paymentObj.PCD_PAY_OID = formData.current.order_num;
-        paymentObj.PCD_REGULER_FLAG = formData.current.is_reguler;
-        paymentObj.PCD_PAY_YEAR = formData.current.pay_year;
-        paymentObj.PCD_PAY_MONTH = formData.current.pay_month;
-        paymentObj.PCD_TAXSAVE_FLAG = formData.current.is_taxsave;
-      } else if (formData.current.simple_flag === 'Y' && formData.current.payple_payer_id !== '') {
-        // Simple payment with registered billing key
-        paymentObj.PCD_SIMPLE_FLAG = formData.current.simple_flag;
-        paymentObj.PCD_PAYER_ID = formData.current.payple_payer_id;
-        
-        paymentObj.PCD_PAYER_NO = formData.current.buyer_no;
-        paymentObj.PCD_PAY_GOODS = formData.current.buy_goods;
-        paymentObj.PCD_PAY_TOTAL = formData.current.buy_total;
-        paymentObj.PCD_PAY_TAXTOTAL = formData.current.buy_taxtotal;
-        paymentObj.PCD_PAY_ISTAX = formData.current.buy_istax;
-        paymentObj.PCD_PAY_OID = formData.current.order_num;
-        paymentObj.PCD_REGULER_FLAG = formData.current.is_reguler;
-        paymentObj.PCD_PAY_YEAR = formData.current.pay_year;
-        paymentObj.PCD_PAY_MONTH = formData.current.pay_month;
-        paymentObj.PCD_TAXSAVE_FLAG = formData.current.is_taxsave;
-      }
-    }
-
-    // Set client key
-    paymentObj.clientKey = process.env.REACT_APP_CLIENT_KEY;
-    
-    // Debug logs
-    console.log("Payment parameters:", paymentObj);
-    console.log("PaypleCpayAuthCheck function exists:", typeof window.PaypleCpayAuthCheck === 'function');
-    
-    // Call payment gateway
+  const fetchUserData = async (userId: string) => {
     try {
-      window.PaypleCpayAuthCheck(paymentObj);
-    } catch (error) {
-      console.error("Payment gateway error:", error);
-      alert("결제 시스템 초기화 중 오류가 발생했습니다. 페이지를 새로고침 후 다시 시도해주세요.");
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        setUserData(userDoc.data() as UserData);
+      }
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+      setError("사용자 정보를 가져오는 중 오류가 발생했습니다.");
+      setLoading(false);
     }
   };
+
+  const handlePaymentClick = async () => {
+    if (!currentUser) {
+      setError("로그인이 필요합니다.");
+      return;
+    }
+
+    // Debug the current user information
+    console.log("Current user object:", {
+      uid: currentUser.uid,
+      email: currentUser.email,
+      displayName: currentUser.displayName,
+      emailVerified: currentUser.emailVerified,
+      isAnonymous: currentUser.isAnonymous,
+      providerData: currentUser.providerData,
+    });
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Create user info object with default email if missing
+      const userEmail = currentUser.email || "hello@1cupenglish.com";
+
+      // Log what we're sending for debugging
+      const userInfo = {
+        userId: currentUser.uid,
+        userEmail: userEmail,
+        userName: currentUser.displayName || "사용자",
+      };
+      console.log("Sending user info to payment function:", userInfo);
+
+      // Call the Firebase function to get payment window data
+      const getPaymentWindow = httpsCallable(functions, "getPaymentWindow");
+      const result = await getPaymentWindow(userInfo);
+
+      // Cast the result data to the expected type
+      const paymentData = result.data as {
+        success: boolean;
+        authKey: string;
+        paymentParams: any;
+        message?: string;
+      };
+
+      // Check if the response indicates success
+      if (!paymentData || !paymentData.success) {
+        throw new Error(
+          paymentData?.message || "결제 정보를 가져오는데 실패했습니다."
+        );
+      }
+
+      // Log payment parameters for debugging
+      console.log("Payment parameters received:", paymentData.paymentParams);
+
+      // Store the payment session info in sessionStorage for the callback
+      sessionStorage.setItem(
+        "paymentSessionInfo",
+        JSON.stringify({
+          userId: currentUser.uid,
+          timestamp: Date.now(),
+        })
+      );
+
+      // Check if jQuery and PaypleCpayAuthCheck are available
+      if (typeof window.$ === "undefined") {
+        console.error("jQuery is not loaded");
+        throw new Error(
+          "결제 스크립트(jQuery)가 로드되지 않았습니다. 페이지를 새로고침 해주세요."
+        );
+      }
+
+      if (typeof window.PaypleCpayAuthCheck !== "function") {
+        console.error(
+          "Payple script is not loaded or PaypleCpayAuthCheck is not a function"
+        );
+        console.log(
+          "Window object:",
+          Object.keys(window).filter((key) => key.includes("Pay"))
+        );
+        throw new Error(
+          "결제 스크립트(Payple)가 로드되지 않았습니다. 페이지를 새로고침 해주세요."
+        );
+      }
+
+      // Open Payple payment window with the received parameters
+      try {
+        console.log(
+          "Attempting to open Payple payment window with params:",
+          paymentData.paymentParams
+        );
+
+        // Add a custom callback function for testing
+        const callbackFunction = (response: any) => {
+          console.log("Payment callback received:", response);
+
+          // Store response in sessionStorage as a backup method
+          try {
+            sessionStorage.setItem(
+              "paypleCallbackResponse",
+              JSON.stringify(response)
+            );
+          } catch (e) {
+            console.error("Error storing callback response:", e);
+          }
+        };
+
+        // Clone the payment parameters and add the callback
+        const paymentParamsWithCallback = {
+          ...paymentData.paymentParams,
+          callbackFunction: callbackFunction.name, // Pass the function name
+        };
+
+        // Define the callback function on the window object so Payple can access it
+        (window as any)[callbackFunction.name] = callbackFunction;
+
+        // Try opening the payment window with callback first
+        try {
+          window.PaypleCpayAuthCheck(paymentParamsWithCallback);
+        } catch (e) {
+          console.warn("Failed to open with callback, trying without:", e);
+          window.PaypleCpayAuthCheck(paymentData.paymentParams);
+        }
+      } catch (paypleError: unknown) {
+        console.error("Error calling PaypleCpayAuthCheck:", paypleError);
+        const errorMessage =
+          paypleError instanceof Error
+            ? paypleError.message
+            : "알 수 없는 오류";
+        throw new Error(
+          "결제창을 여는 중 오류가 발생했습니다: " + errorMessage
+        );
+      }
+    } catch (err: any) {
+      console.error("Payment initialization error:", err);
+      // Extract the specific error message if it's a Firebase error
+      const errorMessage =
+        err.code === "functions/invalid-argument"
+          ? err.message || "결제 정보가 유효하지 않습니다."
+          : "결제 초기화 중 오류가 발생했습니다. 다시 시도해주세요.";
+
+      setError(errorMessage);
+      setIsProcessing(false);
+    }
+  };
+
+  // Add Payple callback function to window object
+  useEffect(() => {
+    // Define the callback function for Payple
+    (window as any).receivePaypleResult = function (response: any) {
+      console.log("Payple callback received:", response);
+
+      // Store response in sessionStorage
+      try {
+        sessionStorage.setItem(
+          "paypleCallbackResponse",
+          JSON.stringify(response)
+        );
+
+        // Check if user is still on payment page, and redirect if needed
+        if (window.location.pathname !== "/payment-result") {
+          console.log("Redirecting to payment-result page with callback data");
+          window.location.href = "/payment-result";
+        }
+      } catch (e) {
+        console.error("Error handling Payple callback:", e);
+      }
+    };
+
+    return () => {
+      // Clean up the callback when component unmounts
+      (window as any).receivePaypleResult = undefined;
+    };
+  }, []);
+
+  // Add the Payple script dynamically
+  useEffect(() => {
+    const loadPaypleScript = () => {
+      // First load jQuery if it's not already loaded
+      if (typeof window.$ === "undefined") {
+        const jqueryScript = document.createElement("script");
+        jqueryScript.src = "https://code.jquery.com/jquery-3.6.0.min.js";
+        jqueryScript.async = true;
+        jqueryScript.onload = () => {
+          console.log("jQuery successfully loaded");
+          // After jQuery is loaded, load the Payple script
+          const paypleScript = document.createElement("script");
+          paypleScript.src = "https://cpay.payple.kr/js/v1/payment.js"; // Production URL
+          paypleScript.async = true;
+          paypleScript.onload = () => {
+            console.log("Payple script successfully loaded");
+          };
+          paypleScript.onerror = (e) => {
+            console.error("Failed to load Payple script:", e);
+          };
+          document.body.appendChild(paypleScript);
+        };
+        jqueryScript.onerror = (e) => {
+          console.error("Failed to load jQuery:", e);
+        };
+        document.body.appendChild(jqueryScript);
+      } else {
+        // jQuery already loaded, just load Payple script
+        const paypleScript = document.createElement("script");
+        paypleScript.src = "https://cpay.payple.kr/js/v1/payment.js"; // Production URL
+        paypleScript.async = true;
+        paypleScript.onload = () => {
+          console.log("Payple script successfully loaded");
+        };
+        paypleScript.onerror = (e) => {
+          console.error("Failed to load Payple script:", e);
+        };
+        document.body.appendChild(paypleScript);
+      }
+    };
+
+    loadPaypleScript();
+
+    return () => {
+      // Clean up scripts when component unmounts
+      const jqueryScript = document.querySelector(
+        'script[src="https://code.jquery.com/jquery-3.6.0.min.js"]'
+      );
+      const paypleScript = document.querySelector(
+        'script[src="https://cpay.payple.kr/js/v1/payment.js"]'
+      );
+      if (jqueryScript) document.body.removeChild(jqueryScript);
+      if (paypleScript) document.body.removeChild(paypleScript);
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <Wrapper>
+        <LoadingSpinner />
+      </Wrapper>
+    );
+  }
 
   return (
-    <PaymentContainer>
-      <FormTitle>결제 정보 입력</FormTitle>
-      
-      <form id="orderForm" name="orderForm">
-        <SelectGroup>
-          <FormGroup>
-            <Label>결제 유형</Label>
-            <Select name="simple_flag" id="simple_flag" defaultValue="Y" onChange={handleInputChange}>
-              <option value="N">단건결제</option>
-              <option value="Y">간편결제</option>
-            </Select>
-          </FormGroup>
-          
-          <FormGroup>
-            <Label>결제창 방식</Label>
-            <Select name="is_direct" id="is_direct" defaultValue="Y" onChange={handleInputChange}>
-              <option value="N">POPUP</option>
-              <option value="Y">DIRECT</option>
-            </Select>
-          </FormGroup>
-        </SelectGroup>
-        
-        <SelectGroup>
-          <FormGroup>
-            <Label>결제 수단</Label>
-            <Select id="pay_type" name="pay_type" defaultValue="card" onChange={handleInputChange}>
-              <option value="transfer">계좌이체결제</option>
-              <option value="card">신용카드</option>
-            </Select>
-          </FormGroup>
-          
-          <FormGroup id="card_ver_view">
-            <Label>결제창 선택</Label>
-            <Select id="card_ver" name="card_ver" defaultValue="01" onChange={handleInputChange}>
-              <option value="">결제창 선택</option>
-              <option value="01">카드 정기</option>
-              <option value="02">카드 일반</option>
-            </Select>
-          </FormGroup>
-        </SelectGroup>
-        
-        <FormGroup>
-          <Label htmlFor="payple_payer_id">[간편결제] 페이플 결제자 ID</Label>
-          <Input type="text" name="payple_payer_id" id="payple_payer_id" defaultValue="" onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buyer_no">구매자 고유번호</Label>
-          <Input type="text" name="buyer_no" id="buyer_no" defaultValue={formData.current.buyer_no} onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buyer_name">구매자 이름</Label>
-          <Input type="text" name="buyer_name" id="buyer_name" defaultValue={formData.current.buyer_name} onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buyer_hp">구매자 휴대폰번호</Label>
-          <Input type="text" name="buyer_hp" id="buyer_hp" defaultValue={formData.current.buyer_hp} onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buyer_email">구매자 Email</Label>
-          <Input type="text" name="buyer_email" id="buyer_email" defaultValue={formData.current.buyer_email} onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buy_goods">구매상품</Label>
-          <Input type="text" name="buy_goods" id="buy_goods" defaultValue={formData.current.buy_goods} onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buy_total">결제금액</Label>
-          <Input type="text" name="buy_total" id="buy_total" defaultValue={formData.current.buy_total} onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buy_istax">과세여부</Label>
-          <Select id="buy_istax" name="buy_istax" defaultValue="Y" onChange={handleInputChange}>
-            <option value="Y">과세</option>
-            <option value="N">비과세</option>
-          </Select>
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="buy_taxtotal">부가세</Label>
-          <Input type="text" name="buy_taxtotal" id="buy_taxtotal" defaultValue="" onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="order_num">주문번호</Label>
-          <Input type="text" name="order_num" id="order_num" defaultValue={formData.current.order_num} onChange={handleInputChange} />
-        </FormGroup>
-        
-        <FormGroup id="is_reguler_view">
-          <Label htmlFor="is_reguler">정기결제</Label>
-          <Select id="is_reguler" name="is_reguler" defaultValue="Y" onChange={handleInputChange}>
-            <option value="N">N</option>
-            <option value="Y">Y</option>
-          </Select>
-        </FormGroup>
-        
-        <FormGroup id="pay_year_view">
-          <Label htmlFor="pay_year">정기결제 구분년도</Label>
-          <Select id="pay_year" name="pay_year" defaultValue="2025" onChange={handleInputChange}>
-            <option value="">===</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-            <option value="2023">2023</option>
-            <option value="2022">2022</option>
-            <option value="2021">2021</option>
-            <option value="2020">2020</option>
-            <option value="2019">2019</option>
-          </Select>
-        </FormGroup>
-        
-        <FormGroup id="pay_month_view">
-          <Label htmlFor="pay_month">정기결제 구분월</Label>
-          <Select id="pay_month" name="pay_month" defaultValue="4" onChange={handleInputChange}>
-            <option value="">===</option>
-            <option value="12">12</option>
-            <option value="11">11</option>
-            <option value="10">10</option>
-            <option value="9">9</option>
-            <option value="8">8</option>
-            <option value="7">7</option>
-            <option value="6">6</option>
-            <option value="5">5</option>
-            <option value="4">4</option>
-            <option value="3">3</option>
-            <option value="2">2</option>
-            <option value="1">1</option>
-          </Select>
-        </FormGroup>
-        
-        <FormGroup id="taxsave_view" style={{ display: 'none' }}>
-          <Label htmlFor="is_taxsave">현금영수증</Label>
-          <Select id="is_taxsave" name="is_taxsave" defaultValue="N" onChange={handleInputChange}>
-            <option value="N">N</option>
-            <option value="Y">Y</option>
-          </Select>
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="work_type">결제요청방식</Label>
-          <Select id="work_type" name="work_type" defaultValue="PAY" onChange={handleInputChange}>
-            <option value="CERT">결제요청&gt; 결제확인&gt; 결제완료</option>
-            <option value="PAY">결제요청&gt; 결제완료</option>
-            <option value="AUTH">인증</option>
-          </Select>
-        </FormGroup>
-        
-        <FormGroup>
-          <Label htmlFor="auth_type">재결제 인증방식</Label>
-          <Select id="auth_type" name="auth_type" defaultValue="sms" onChange={handleInputChange}>
-            <option value="sms">문자</option>
-            <option value="pwd">패스워드</option>
-          </Select>
-        </FormGroup>
-      </form>
-      
-      <PayButton id="orderFormSubmit" onClick={handleSubmit}>결제하기</PayButton>
-    </PaymentContainer>
+    <Wrapper>
+      <Card>
+        <Title>One Cup English 구독</Title>
+        <Subtitle>원컵 잉글리시 프리미엄 멤버십을 시작하세요</Subtitle>
+
+        <SubscriptionCard>
+          <SubscriptionTitle>프리미엄 멤버십</SubscriptionTitle>
+          <SubscriptionPrice>₩9,900/월</SubscriptionPrice>
+          <SubscriptionDescription>
+            • 매일 새로운 기술/비즈니스 영어 아티클
+            <br />
+            • 단어장 무제한 저장
+            <br />
+            • 아티클 전체 내용 확인 및 오디오 청취
+            <br />• 프리미엄 기능 모두 이용 가능
+          </SubscriptionDescription>
+
+          {userData?.hasActiveSubscription ? (
+            <>
+              <InfoText>
+                이미 구독 중입니다. 구독 시작일:{" "}
+                {userData.subscriptionStartDate?.toLocaleDateString()}
+              </InfoText>
+              <Button onClick={() => navigate("/profile")}>
+                프로필로 돌아가기
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={handlePaymentClick} disabled={isProcessing}>
+                {isProcessing ? <LoadingSpinner /> : "구독 시작하기"}
+              </Button>
+              {error && <ErrorText>{error}</ErrorText>}
+              <InfoText>
+                구독은 매월 자동으로 갱신되며, 언제든지 취소할 수 있습니다.
+              </InfoText>
+            </>
+          )}
+        </SubscriptionCard>
+      </Card>
+    </Wrapper>
   );
-};
-
-/* 
- * Oid 생성 함수
- */
-const createOid = (): string => {
-  const now_date = new Date();
-  const now_year = now_date.getFullYear();
-  let now_month = (now_date.getMonth() + 1).toString();
-  now_month = (parseInt(now_month) < 10) ? '0' + now_month : now_month;
-  let now_day = now_date.getDate().toString();
-  now_day = (parseInt(now_day) < 10) ? '0' + now_day : now_day;
-  const datetime = now_date.getTime();
-  return 'test' + now_year + now_month + now_day + datetime;
-};
-
-export default Payment;
+}
