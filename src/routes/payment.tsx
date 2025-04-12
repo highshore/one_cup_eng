@@ -6,14 +6,113 @@ import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../firebase";
 
-// Declare the jQuery global variable
+// Declare the jQuery global variable and other globals
 declare global {
   interface Window {
     PaypleCpayAuthCheck: (paymentParams: any) => void;
     $: any; // jQuery
-    receivePaypleResult: (response: any) => void; // Add Payple callback function
+    PaypleCpayCallback: any[]; // Array of callback handlers
+    functionsInstance?: typeof functions;
+    checkCallbackState: () => void; // Add the debug function
   }
 }
+
+// Initialize the Payple callback array if it doesn't exist
+if (!window.PaypleCpayCallback) {
+  window.PaypleCpayCallback = [];
+}
+
+// Add our callback handler to the array
+window.PaypleCpayCallback.push(function(response: any) {
+  console.log("Payple callback received through callback array:", response);
+  
+  // Enhanced debug logging
+  try {
+    console.log("Payple callback details:", {
+      responseType: typeof response,
+      hasData: !!response,
+      keys: response ? Object.keys(response) : [],
+      payResult: response?.PCD_PAY_RST,
+      payCode: response?.PCD_PAY_CODE,
+      payMsg: response?.PCD_PAY_MSG,
+      payerId: response?.PCD_PAYER_ID,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Store response in sessionStorage
+    sessionStorage.setItem("paypleCallbackResponse", JSON.stringify(response));
+    
+    // Get the session info
+    const sessionInfo = sessionStorage.getItem("paymentSessionInfo");
+    if (sessionInfo) {
+      const parsedSession = JSON.parse(sessionInfo);
+      console.log("Session info found:", parsedSession);
+      
+      // Manually call our Firebase function to verify the payment
+      const verifyPayment = httpsCallable(functions, "verifyPaymentResult");
+      verifyPayment({
+        userId: parsedSession.userId,
+        paymentParams: response,
+        timestamp: Date.now()
+      })
+      .then(result => {
+        console.log("Payment verification result:", result.data);
+        
+        // Store the verification result
+        sessionStorage.setItem("paymentVerificationResult", JSON.stringify(result.data));
+        
+        // Redirect to the result page - the user stays in the frontend app
+        // Payple handles the server-side POST to our HTTP function separately
+        window.location.href = "/payment-result";
+      })
+      .catch(error => {
+        console.error("Payment verification error:", error);
+        sessionStorage.setItem("paymentVerificationError", JSON.stringify({
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          timestamp: new Date().toISOString()
+        }));
+        
+        // Still redirect to result page to show the error
+        window.location.href = "/payment-result";
+      });
+    } else {
+      console.error("No session info found in sessionStorage");
+      
+      // Fallback: still redirect but without verification
+      window.location.href = "/payment-result";
+    }
+  } catch (e) {
+    console.error("Error in Payple callback handler:", e);
+    
+    // Log the full error details
+    console.error("Error details:", {
+      message: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : null,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Still redirect to the result page to show the error
+    window.location.href = "/payment-result";
+  }
+  
+  // Return true to indicate the callback was handled
+  return true;
+});
+
+// Expose a function to check the callback state
+window.checkCallbackState = function() {
+  console.log("PaypleCpayCallback state:", {
+    exists: !!window.PaypleCpayCallback,
+    isArray: Array.isArray(window.PaypleCpayCallback),
+    length: window.PaypleCpayCallback?.length || 0,
+    sessionInfo: sessionStorage.getItem("paymentSessionInfo"),
+    callbackResponse: sessionStorage.getItem("paypleCallbackResponse"),
+    verificationResult: sessionStorage.getItem("paymentVerificationResult"),
+    verificationError: sessionStorage.getItem("paymentVerificationError")
+  });
+};
 
 // Styled components
 const Wrapper = styled.div`
@@ -174,60 +273,34 @@ export default function Payment() {
     }
   };
 
+  // Make functions available globally for the callback to use
+  useEffect(() => {
+    window.functionsInstance = functions;
+    
+    return () => {
+      window.functionsInstance = undefined;
+    };
+  }, []);
+
   const handlePaymentClick = async () => {
     if (!currentUser) {
       setError("로그인이 필요합니다.");
       return;
     }
 
-    // Debug the current user information
-    console.log("Current user object:", {
-      uid: currentUser.uid,
-      email: currentUser.email,
-      displayName: currentUser.displayName,
-      emailVerified: currentUser.emailVerified,
-      isAnonymous: currentUser.isAnonymous,
-      providerData: currentUser.providerData,
-    });
-
     setIsProcessing(true);
     setError(null);
 
     try {
-      // Create user info object with default email if missing
-      const userEmail = currentUser.email || "hello@1cupenglish.com";
-
-      // Log what we're sending for debugging
+      // Simple user info with minimal data
       const userInfo = {
         userId: currentUser.uid,
-        userEmail: userEmail,
+        userEmail: currentUser.email || "hello@1cupenglish.com",
         userName: currentUser.displayName || "사용자",
+        userPhone: currentUser.phoneNumber?.slice(-8) || Date.now().toString().slice(-8)
       };
-      console.log("Sending user info to payment function:", userInfo);
-
-      // Call the Firebase function to get payment window data
-      const getPaymentWindow = httpsCallable(functions, "getPaymentWindow");
-      const result = await getPaymentWindow(userInfo);
-
-      // Cast the result data to the expected type
-      const paymentData = result.data as {
-        success: boolean;
-        authKey: string;
-        paymentParams: any;
-        message?: string;
-      };
-
-      // Check if the response indicates success
-      if (!paymentData || !paymentData.success) {
-        throw new Error(
-          paymentData?.message || "결제 정보를 가져오는데 실패했습니다."
-        );
-      }
-
-      // Log payment parameters for debugging
-      console.log("Payment parameters received:", paymentData.paymentParams);
-
-      // Store the payment session info in sessionStorage for the callback
+      
+      // Store session info for result page
       sessionStorage.setItem(
         "paymentSessionInfo",
         JSON.stringify({
@@ -236,116 +309,45 @@ export default function Payment() {
         })
       );
 
-      // Check if jQuery and PaypleCpayAuthCheck are available
-      if (typeof window.$ === "undefined") {
-        console.error("jQuery is not loaded");
-        throw new Error(
-          "결제 스크립트(jQuery)가 로드되지 않았습니다. 페이지를 새로고침 해주세요."
-        );
+      // Log debug info
+      console.log("PaypleCpayCallback array setup:", {
+        exists: !!window.PaypleCpayCallback,
+        isArray: Array.isArray(window.PaypleCpayCallback),
+        length: window.PaypleCpayCallback?.length || 0
+      });
+
+      // Get payment window data
+      const getPaymentWindow = httpsCallable(functions, "getPaymentWindow");
+      const result = await getPaymentWindow(userInfo);
+      const paymentData = result.data as any;
+
+      if (!paymentData?.success) {
+        throw new Error(paymentData?.message || "결제 정보를 가져오는데 실패했습니다.");
       }
 
-      if (typeof window.PaypleCpayAuthCheck !== "function") {
-        console.error(
-          "Payple script is not loaded or PaypleCpayAuthCheck is not a function"
-        );
-        console.log(
-          "Window object:",
-          Object.keys(window).filter((key) => key.includes("Pay"))
-        );
-        throw new Error(
-          "결제 스크립트(Payple)가 로드되지 않았습니다. 페이지를 새로고침 해주세요."
-        );
+      // Verify scripts are loaded
+      if (typeof window.$ === "undefined" || typeof window.PaypleCpayAuthCheck !== "function") {
+        console.error("Payment scripts not loaded");
+        throw new Error("결제 스크립트가 로드되지 않았습니다. 페이지를 새로고침 해주세요.");
       }
 
-      // Open Payple payment window with the received parameters
-      try {
-        console.log(
-          "Attempting to open Payple payment window with params:",
-          paymentData.paymentParams
-        );
-
-        // Add a custom callback function for testing
-        const callbackFunction = (response: any) => {
-          console.log("Payment callback received:", response);
-
-          // Store response in sessionStorage as a backup method
-          try {
-            sessionStorage.setItem(
-              "paypleCallbackResponse",
-              JSON.stringify(response)
-            );
-          } catch (e) {
-            console.error("Error storing callback response:", e);
-          }
-        };
-
-        // Clone the payment parameters and add the callback
-        const paymentParamsWithCallback = {
-          ...paymentData.paymentParams,
-          callbackFunction: callbackFunction.name, // Pass the function name
-        };
-
-        // Define the callback function on the window object so Payple can access it
-        (window as any)[callbackFunction.name] = callbackFunction;
-
-        // Try opening the payment window with callback first
-        try {
-          window.PaypleCpayAuthCheck(paymentParamsWithCallback);
-        } catch (e) {
-          console.warn("Failed to open with callback, trying without:", e);
-          window.PaypleCpayAuthCheck(paymentData.paymentParams);
-        }
-      } catch (paypleError: unknown) {
-        console.error("Error calling PaypleCpayAuthCheck:", paypleError);
-        const errorMessage =
-          paypleError instanceof Error
-            ? paypleError.message
-            : "알 수 없는 오류";
-        throw new Error(
-          "결제창을 여는 중 오류가 발생했습니다: " + errorMessage
-        );
-      }
-    } catch (err: any) {
-      console.error("Payment initialization error:", err);
-      // Extract the specific error message if it's a Firebase error
-      const errorMessage =
-        err.code === "functions/invalid-argument"
-          ? err.message || "결제 정보가 유효하지 않습니다."
-          : "결제 초기화 중 오류가 발생했습니다. 다시 시도해주세요.";
-
-      setError(errorMessage);
+      // Call Payple with debug info
+      console.log("Opening payment window with params:", {
+        PCD_RST_URL: paymentData.paymentParams.PCD_RST_URL || 'Not set'
+      });
+      
+      // Add explanation about the data flow between Payple, our HTTP function, and the frontend
+      console.log("Payment flow: User stays in frontend → Payple opens payment window → " +
+                  "User completes payment → Payple sends POST to our HTTP function → " +
+                  "Our callback array handles the frontend response → Redirect to result page");
+      
+      window.PaypleCpayAuthCheck(paymentData.paymentParams);
+    } catch (err) {
+      console.error("Payment error:", err);
+      setError(err instanceof Error ? err.message : "결제 초기화 중 오류가 발생했습니다.");
       setIsProcessing(false);
     }
   };
-
-  // Add Payple callback function to window object
-  useEffect(() => {
-    // Define the callback function for Payple
-    (window as any).receivePaypleResult = function (response: any) {
-      console.log("Payple callback received:", response);
-
-      // Store response in sessionStorage
-      try {
-        sessionStorage.setItem(
-          "paypleCallbackResponse",
-          JSON.stringify(response)
-        );
-
-        // Check if user is still on payment page, and redirect if needed
-        if (window.location.pathname !== "/payment-result") {
-          console.log("Redirecting to payment-result page with callback data");
-          window.location.href = "/payment-result";
-        }
-      } catch (e) {
-        console.error("Error handling Payple callback:", e);
-      }
-    };
-
-    return () => {
-      // Clean up the callback when component unmounts
-      (window as any).receivePaypleResult = undefined;
-    };
-  }, []);
 
   // Add the Payple script dynamically
   useEffect(() => {
@@ -359,7 +361,7 @@ export default function Payment() {
           console.log("jQuery successfully loaded");
           // After jQuery is loaded, load the Payple script
           const paypleScript = document.createElement("script");
-          paypleScript.src = "https://cpay.payple.kr/js/v1/payment.js"; // Production URL
+          paypleScript.src = "https://cpay.payple.kr/js/v1/payment.js";
           paypleScript.async = true;
           paypleScript.onload = () => {
             console.log("Payple script successfully loaded");
@@ -376,7 +378,7 @@ export default function Payment() {
       } else {
         // jQuery already loaded, just load Payple script
         const paypleScript = document.createElement("script");
-        paypleScript.src = "https://cpay.payple.kr/js/v1/payment.js"; // Production URL
+        paypleScript.src = "https://cpay.payple.kr/js/v1/payment.js";
         paypleScript.async = true;
         paypleScript.onload = () => {
           console.log("Payple script successfully loaded");
@@ -398,8 +400,12 @@ export default function Payment() {
       const paypleScript = document.querySelector(
         'script[src="https://cpay.payple.kr/js/v1/payment.js"]'
       );
-      if (jqueryScript) document.body.removeChild(jqueryScript);
-      if (paypleScript) document.body.removeChild(paypleScript);
+      if (jqueryScript && jqueryScript.parentNode) {
+        jqueryScript.parentNode.removeChild(jqueryScript);
+      }
+      if (paypleScript && paypleScript.parentNode) {
+        paypleScript.parentNode.removeChild(paypleScript);
+      }
     };
   }, []);
 
