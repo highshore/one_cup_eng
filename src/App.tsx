@@ -18,6 +18,9 @@ import ProtectedRoute from "./components/protected_route.tsx";
 import AuthProvider from "./contexts/AuthContext";
 import Payment from "./routes/payment.tsx";
 import PaymentResult from "./routes/payment-result.tsx";
+import Meetup from "./routes/meetup.tsx";
+import Guide from "./routes/guide.tsx";
+import Community from "./routes/community.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -34,6 +37,19 @@ const router = createBrowserRouter([
       {
         path: "policy/:type",
         element: <Policy />,
+      },
+      // Add the new public routes
+      {
+        path: "meetup",
+        element: <Meetup />,
+      },
+      {
+        path: "guide",
+        element: <Guide />,
+      },
+      {
+        path: "community",
+        element: <Community />,
       },
       // Add the payment result page to the public routes
       {

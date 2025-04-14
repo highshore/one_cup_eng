@@ -416,17 +416,17 @@ interface UserData {
 // Define SubscriptionInfo section
 const SubscriptionInfo = styled(TransparentCard)``;
 
-const SubscribeAgainButton = styled(Button)`
-  background-color: #2c1810;
-  font-size: 0.875rem;
-  padding: 0.5rem 1rem;
-  margin-top: 0.5rem;
-  align-self: flex-start;
+// const SubscribeAgainButton = styled(Button)`
+//   background-color: #2c1810;
+//   font-size: 0.875rem;
+//   padding: 0.5rem 1rem;
+//   margin-top: 0.5rem;
+//   align-self: flex-start;
 
-  &:hover {
-    background-color: #3d241a;
-  }
-`;
+//   &:hover {
+//     background-color: #3d241a;
+//   }
+// `;
 
 export default function Profile() {
   const user = auth.currentUser;
@@ -945,7 +945,7 @@ export default function Profile() {
             <InfoValue>{userData?.left_count || 0}</InfoValue>
           </InfoRow>
 
-          <div
+          {/* <div
             style={{
               marginTop: "1.5rem",
               display: "flex",
@@ -965,7 +965,7 @@ export default function Profile() {
                 다시 구독하기
               </SubscribeAgainButton>
             )}
-          </div>
+          </div> */}
         </SectionContent>
       </SubscriptionInfo>
 

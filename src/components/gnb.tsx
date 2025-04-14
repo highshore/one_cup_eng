@@ -390,10 +390,9 @@ export default function GNB({}: GNBProps) {
         </LogoContainer>
 
         <MenuContainer>
-          <MenuItem to="/about">서비스 소개</MenuItem>
-          <MenuItem to="/pricing">요금제</MenuItem>
-          <MenuItem to="/stories">고객후기</MenuItem>
-          <MenuItem to="/faq">자주 묻는 질문</MenuItem>
+          <MenuItem to="/meetup">Meet Up</MenuItem>
+          <MenuItem to="/community">Community</MenuItem>
+          <MenuItem to="/guide">Guide</MenuItem>
         </MenuContainer>
 
         {currentUser ? (
@@ -414,17 +413,14 @@ export default function GNB({}: GNBProps) {
         )}
 
         <MobileMenuContainer className="mobile-menu" isOpen={isMenuOpen}>
-          <MobileMenuItem to="/about" onClick={() => setIsMenuOpen(false)}>
-            서비스 소개
+          <MobileMenuItem to="/meetup" onClick={() => setIsMenuOpen(false)}>
+            Meetup
           </MobileMenuItem>
-          <MobileMenuItem to="/pricing" onClick={() => setIsMenuOpen(false)}>
-            요금제
+          <MobileMenuItem to="/guide" onClick={() => setIsMenuOpen(false)}>
+            Guide
           </MobileMenuItem>
-          <MobileMenuItem to="/stories" onClick={() => setIsMenuOpen(false)}>
-            고객후기
-          </MobileMenuItem>
-          <MobileMenuItem to="/faq" onClick={() => setIsMenuOpen(false)}>
-            자주 묻는 질문
+          <MobileMenuItem to="/community" onClick={() => setIsMenuOpen(false)}>
+            Community
           </MobileMenuItem>
           {currentUser ? (
             <ProfileButton to="/profile">
