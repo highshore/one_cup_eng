@@ -1963,7 +1963,7 @@ const Article = () => {
       return acc + paragraph.split(/\s+/).length;
     }, 0);
 
-    const readingTimeInSeconds = (totalWords / 150) * 60; // 150 words per minute
+    const readingTimeInSeconds = (totalWords / 50) * 60; // 150 words per minute
     const minutes = Math.floor(readingTimeInSeconds / 60);
     const seconds = Math.round(readingTimeInSeconds % 60);
 
