@@ -1036,12 +1036,25 @@ const LoadingDefinitionContent = styled.div`
   min-height: 100px;
 `;
 
-// Replace DeepL with GPT-4o-mini for contextual word definitions
 const getWordDefinition = async (
   word: string,
-  context: string
+  context: string,
+  articleId: string
 ): Promise<string> => {
   try {
+    // Normalize the word to lowercase for consistent storage
+    const wordLower = word.toLowerCase();
+
+    // First check if the definition exists in Firestore
+    const meaningRef = doc(db, `articles/${articleId}/meanings/${wordLower}`);
+    const meaningSnap = await getDoc(meaningRef);
+
+    // If the definition exists in Firestore, return it
+    if (meaningSnap.exists()) {
+      return meaningSnap.data().definition;
+    }
+
+    // If not found in Firestore, call the GPT API
     const apiKey =
       "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";
     const url = "https://api.openai.com/v1/chat/completions";
@@ -1061,7 +1074,7 @@ const getWordDefinition = async (
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4.1-nano",
         messages: [
           {
             role: "user",
@@ -1078,7 +1091,15 @@ const getWordDefinition = async (
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const definition = data.choices[0].message.content;
+
+    // Store the result in Firestore for future use
+    await setDoc(meaningRef, {
+      word: wordLower,
+      definition: definition,
+    });
+
+    return definition;
   } catch (error) {
     console.error("GPT API Error:", error);
     return `뜻풀이를 가져오는 중 오류가 발생했습니다: ${error}`;
@@ -2080,7 +2101,14 @@ const Article = () => {
     // Get definition
     try {
       console.log("Requesting definition for:", selectedWord);
-      const definition = await getWordDefinition(selectedWord, context);
+      if (!articleId) {
+        throw new Error("Article ID is missing");
+      }
+      const definition = await getWordDefinition(
+        selectedWord,
+        context,
+        articleId as string
+      );
       console.log("Definition received:", definition);
 
       setWordDefinitionModal((prev) => ({

@@ -7,7 +7,7 @@ import { auth } from "../firebase";
 
 // Import logo
 import logo from "../assets/1cup_logo_circular.png";
-import defaultUser from "../assets/default_user.png";
+import defaultUser from "../assets/default_user.jpg";
 
 // Define colors for consistency
 const colors = {
@@ -259,25 +259,31 @@ export default function GNB({}: GNBProps) {
     // Load profile image only when user object changes or avatar update is detected
     if (user?.photoURL) {
       console.log("GNB - Loading photoURL:", user.photoURL);
-      
+
       try {
         // Store in localStorage to persist across page navigation
-        const storedAvatarUrl = localStorage.getItem('user_avatar_url');
-        const currentAvatarTimestamp = localStorage.getItem('avatar_update_timestamp');
-        
+        const storedAvatarUrl = localStorage.getItem("user_avatar_url");
+        const currentAvatarTimestamp = localStorage.getItem(
+          "avatar_update_timestamp"
+        );
+
         // Only update if avatar URL changed or if timestamp indicates an update
-        if (!storedAvatarUrl || storedAvatarUrl !== user.photoURL || currentAvatarTimestamp) {
+        if (
+          !storedAvatarUrl ||
+          storedAvatarUrl !== user.photoURL ||
+          currentAvatarTimestamp
+        ) {
           const url = new URL(user.photoURL);
           // Add cache-busting only when avatar is updated
           if (currentAvatarTimestamp) {
             url.searchParams.set("t", currentAvatarTimestamp);
             // Clear the timestamp after using it
-            localStorage.removeItem('avatar_update_timestamp');
+            localStorage.removeItem("avatar_update_timestamp");
           }
-          
+
           const newAvatarUrl = url.toString();
           setProfileImageUrl(newAvatarUrl);
-          localStorage.setItem('user_avatar_url', user.photoURL);
+          localStorage.setItem("user_avatar_url", user.photoURL);
         } else {
           // Use the already processed URL with any existing cache busting
           setProfileImageUrl(storedAvatarUrl);
@@ -286,12 +292,12 @@ export default function GNB({}: GNBProps) {
         console.log("GNB - Invalid URL format:", user.photoURL, error);
         // If URL is not a valid URL format, just use it as-is
         setProfileImageUrl(user.photoURL);
-        localStorage.setItem('user_avatar_url', user.photoURL);
+        localStorage.setItem("user_avatar_url", user.photoURL);
       }
     } else {
       console.log("GNB - No photoURL found for user");
       setProfileImageUrl(defaultUser);
-      localStorage.removeItem('user_avatar_url');
+      localStorage.removeItem("user_avatar_url");
     }
   }, [currentUser]);
 
@@ -303,8 +309,8 @@ export default function GNB({}: GNBProps) {
           const url = new URL(auth.currentUser.photoURL);
           url.searchParams.set("t", Date.now().toString());
           setProfileImageUrl(url.toString());
-          localStorage.setItem('user_avatar_url', auth.currentUser.photoURL);
-          localStorage.removeItem('avatar_update_timestamp');
+          localStorage.setItem("user_avatar_url", auth.currentUser.photoURL);
+          localStorage.removeItem("avatar_update_timestamp");
         } catch (error) {
           console.log("GNB - Error updating avatar from storage event:", error);
         }
@@ -414,13 +420,13 @@ export default function GNB({}: GNBProps) {
 
         <MobileMenuContainer className="mobile-menu" isOpen={isMenuOpen}>
           <MobileMenuItem to="/meetup" onClick={() => setIsMenuOpen(false)}>
-            Meetup
+            밋업
           </MobileMenuItem>
           <MobileMenuItem to="/guide" onClick={() => setIsMenuOpen(false)}>
-            Guide
+            가이드
           </MobileMenuItem>
           <MobileMenuItem to="/community" onClick={() => setIsMenuOpen(false)}>
-            Community
+            커뮤니티
           </MobileMenuItem>
           {currentUser ? (
             <ProfileButton to="/profile">

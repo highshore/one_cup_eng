@@ -1,13 +1,18 @@
 import { styled } from "styled-components";
 import { auth, storage, db } from "../firebase";
 import { useState, useEffect } from "react";
-import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
+import {
+  getDownloadURL,
+  ref,
+  uploadBytes,
+  deleteObject,
+} from "firebase/storage";
 import { updateProfile, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale/ko";
-import defaultUserImage from "../assets/default_user.png";
+import defaultUserImage from "../assets/default_user.jpg";
 
 // Updated Wrapper to use full width and follow layout guidelines
 const Wrapper = styled.div`
@@ -167,7 +172,6 @@ const AvatarInput = styled.input`
   display: none;
 `;
 
-
 const NameInput = styled.input`
   font-size: 16px;
   font-weight: 500;
@@ -310,15 +314,15 @@ const ArticlesList = styled.div`
   gap: 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(44, 24, 16, 0.5) transparent;
-  
+
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background-color: rgba(44, 24, 16, 0.3);
     border-radius: 6px;
@@ -457,11 +461,11 @@ export default function Profile() {
 
       try {
         setLoading(true);
-        
+
         // Set avatar here instead of waiting for user data
         if (user.photoURL) {
           console.log("Profile - Found photoURL:", user.photoURL);
-          
+
           try {
             // Just add a cache-busting parameter and use the URL directly
             const url = new URL(user.photoURL);
@@ -476,7 +480,7 @@ export default function Profile() {
           console.log("Profile - No photoURL found for user");
           setAvatar("");
         }
-        
+
         const userDocRef = doc(db, `users/${user.uid}`);
         const userDoc = await getDoc(userDocRef);
 
@@ -588,7 +592,7 @@ export default function Profile() {
         // Upload the file
         const result = await uploadBytes(locationRef, file);
         const avatarUrl = await getDownloadURL(result.ref);
-        
+
         console.log("Profile - Uploaded new avatar:", avatarUrl);
 
         // Update the profile
@@ -639,7 +643,10 @@ export default function Profile() {
       try {
         await deleteObject(locationRef);
       } catch (storageError) {
-        console.log("Storage object might not exist, continuing:", storageError);
+        console.log(
+          "Storage object might not exist, continuing:",
+          storageError
+        );
         // Continue even if storage deletion fails (maybe image doesn't exist)
       }
 
@@ -849,15 +856,17 @@ export default function Profile() {
             <UserAvatarSection>
               <AvatarUpload htmlFor="avatar">
                 {avatar ? (
-                  <AvatarImg 
-                    src={avatar} 
-                    alt="Profile" 
+                  <AvatarImg
+                    src={avatar}
+                    alt="Profile"
                     onError={(e) => {
                       // If image fails to load, fall back to default
                       const target = e.target as HTMLImageElement;
                       target.onerror = null; // Prevent infinite error loop
                       target.src = defaultUserImage;
-                      console.log("Profile - Image failed to load, using default");
+                      console.log(
+                        "Profile - Image failed to load, using default"
+                      );
                       // Don't update avatar state - keep the URL even if it doesn't load
                     }}
                   />

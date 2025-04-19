@@ -5,7 +5,9 @@ import React from "react";
 import GNB from "../components/gnb";
 import Footer from "../components/footer";
 // Import the hero image
-import heroImage from "../assets/homepage/one-cup-eng-hero.png";
+import heroImage from "../assets/homepage/one-cup-eng-hero.jpg";
+import meetupImage from "../assets/homepage/meetup.jpg";
+import coffeeCupImage from "../assets/homepage/coffeecup.png";
 
 // Define colors object since it's not exported from layout.tsx
 const colors = {
@@ -628,14 +630,100 @@ const FeatureCTA = styled.p`
   margin-top: 2rem;
 `;
 
-// Testimonials Section
-const TestimonialsSection = styled.section`
+// Pricing Section with Coffee Cup design
+const PricingSection = styled.section`
   padding: 5rem 2rem;
   background-color: ${colors.primaryBg};
   text-align: center;
+  position: relative;
+  overflow: hidden;
 `;
 
-const TestimonialTabs = styled.div`
+const PricingSectionTitle = styled.h2`
+  font-size: 2.5rem;
+  color: ${colors.primary};
+  margin-bottom: 1.5rem;
+  font-weight: 700;
+  position: relative;
+  display: inline-block;
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
+`;
+
+const PricingSubtitle = styled.p`
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: ${colors.text.medium};
+  margin-bottom: 2.5rem;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+`;
+
+const CoffeeCupImageContainer = styled.div`
+  position: relative;
+  width: 150px;
+  margin: 0 auto 2rem;
+`;
+
+const CoffeeCupImg = styled.img`
+  width: 100%;
+  filter: drop-shadow(0 10px 15px rgba(44, 24, 16, 0.2));
+`;
+
+const SteamAnimation = styled.div`
+  position: absolute;
+  top: 0;
+  left: 30px;
+  right: 30px;
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 25px;
+    background: white;
+    border-radius: 50%;
+    animation: steam 3s infinite ease-out;
+    opacity: 0;
+    filter: blur(5px);
+  }
+
+  &::before {
+    left: 15px;
+    animation-delay: 0.3s;
+  }
+
+  &::after {
+    right: 15px;
+    animation-delay: 0.6s;
+    height: 35px;
+  }
+
+  @keyframes steam {
+    0% {
+      transform: translateY(0) scaleX(1);
+      opacity: 0;
+    }
+    15% {
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateY(-20px) scaleX(1.2);
+      opacity: 0.4;
+    }
+    100% {
+      transform: translateY(-40px) scaleX(0.6);
+      opacity: 0;
+    }
+  }
+`;
+
+const PricingTabs = styled.div`
   display: flex;
   justify-content: center;
   gap: 1rem;
@@ -655,76 +743,6 @@ const TabButton = styled.button<{ active: boolean }>`
   &:hover {
     background-color: ${(props) =>
       props.active ? colors.primaryDark : colors.primaryPale};
-  }
-`;
-
-const PricingTable = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin: 0 auto 3rem;
-  max-width: 1000px;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-`;
-
-const PricingCard = styled.div`
-  background-color: white;
-  border-radius: 15px;
-  padding: 2rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: transform 0.3s ease;
-
-  &:hover {
-    transform: translateY(-10px);
-  }
-`;
-
-const PricingTitle = styled.h3`
-  font-size: 1.5rem;
-  color: ${colors.primary};
-  margin-bottom: 1rem;
-`;
-
-const PricingPrice = styled.div`
-  font-size: 2rem;
-  font-weight: 700;
-  color: ${colors.primary};
-  margin-bottom: 1rem;
-`;
-
-const PricingPeriod = styled.div`
-  font-size: 1rem;
-  color: ${colors.text.light};
-  margin-bottom: 1.5rem;
-`;
-
-const PricingFeatures = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0 0 2rem;
-  text-align: left;
-  width: 100%;
-`;
-
-const PricingFeature = styled.li`
-  margin-bottom: 0.8rem;
-  color: ${colors.text.medium};
-  display: flex;
-  align-items: center;
-
-  &::before {
-    content: "✓";
-    color: ${colors.accent};
-    margin-right: 0.5rem;
-    font-weight: bold;
   }
 `;
 
@@ -780,31 +798,230 @@ const FAQAnswer = styled.div<FAQAnswerProps>`
   line-height: 1.6;
 `;
 
-// Standard button for other sections
-const SubscribeButton = styled(Link)`
-  display: inline-block;
-  background-color: white;
-  color: black;
-  font-weight: 700;
-  padding: 1rem 2.5rem;
-  border-radius: 20px;
-  text-decoration: none;
-  font-size: 1.4rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.9);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  }
-`;
-
 // Define styled component for page wrapper
 const PageWrapper = styled.div`
   padding-top: 60px; /* Add padding to account for fixed navbar */
   @media (max-width: 768px) {
     padding-top: 50px;
+  }
+`;
+
+// MeetupSection styled component
+const MeetupSection = styled.section`
+  background-color: #181818;
+  color: white;
+  padding: 4rem 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+  }
+`;
+
+const MeetupTitle = styled.h2`
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  position: relative;
+  display: inline-block;
+  background: linear-gradient(
+    to right,
+    #fff 20%,
+    #c8a27a 40%,
+    #f0d4a8 60%,
+    #fff 80%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 3s linear infinite;
+  overflow: hidden;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+
+  @keyframes shine {
+    to {
+      background-position: 200% center;
+    }
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.4) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: shimmer 3s infinite;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-clip: text;
+    -webkit-background-clip: text;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+`;
+
+const MeetupSubtitle = styled.p`
+  font-size: 1.6rem;
+  margin-bottom: 2.5rem;
+  font-weight: 600;
+  color: #ddd;
+  animation: fadeIn 1.5s ease-in-out;
+  position: relative;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const MeetupImageContainer = styled.div`
+  position: relative;
+  max-width: 500px;
+  max-height: 300px;
+  margin: 0px auto 0;
+  overflow: hidden;
+  border-radius: 100px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  transform: translateZ(0);
+
+  /* Separate the shadow animation from transform for better performance */
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 100px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  &:hover::after {
+    opacity: 1;
+  }
+`;
+
+const MeetupImage = styled.img`
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  transform: translateY(-100px);
+  transition: transform 0.3s ease;
+  will-change: transform;
+
+  ${MeetupImageContainer}:hover & {
+    transform: translateY(-105px);
+  }
+`;
+
+const MeetupTextOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.7);
+`;
+
+const MeetupComingSoon = styled.h3`
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 2rem;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeSlideUp 0.8s forwards;
+  animation-delay: 0.2s;
+
+  @keyframes fadeSlideUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const MeetupButton = styled.button`
+  background-color: #c8a27a;
+  color: #2c1810;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeSlideUp 0.8s forwards;
+  animation-delay: 0.4s;
+
+  &:hover {
+    background-color: #d8b28a;
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: rgba(255, 255, 255, 0.1);
+    transform: rotate(30deg);
+    transition: transform 0.5s ease;
+  }
+
+  &:hover::after {
+    transform: rotate(30deg) translate(10%, 10%);
   }
 `;
 
@@ -967,173 +1184,153 @@ export default function Home() {
           <Bubble size={250} top={10} left={80} delay={2} opacity={0.2} />
           <Bubble size={140} top={80} left={50} delay={2.5} opacity={0.26} />
         </BubbleBackground>
-          <HeroContent>
-            <HeroTitle>영어 한잔</HeroTitle>
-            <HeroSubtitle>
-              아메리카노 한잔 값으로 배우는 비즈니스 영어
-            </HeroSubtitle>
-            <CoffeeButton>
-              <Steam>
-                <span></span>
-              </Steam>
-              <CupShape to="/auth">Start Now</CupShape>
-            </CoffeeButton>
-          </HeroContent>
+        <HeroContent>
+          <HeroTitle>영어 한잔</HeroTitle>
+          <HeroSubtitle>
+            아메리카노 한잔 값으로 배우는 비즈니스 영어
+          </HeroSubtitle>
+          <CoffeeButton>
+            <Steam>
+              <span></span>
+            </Steam>
+            <CupShape to="/auth">Start Now</CupShape>
+          </CoffeeButton>
+        </HeroContent>
       </HeroSection>
 
       {/* Problem Section */}
       <ProblemSection>
-          <SectionTitle>
-            영미권 엘리트의 관심사, 궁금하지 않으신가요?
-          </SectionTitle>
-          <SolutionStatement>
-            저희도 그랬습니다. 그래서 '영어 한잔'을 만들었습니다.
-          </SolutionStatement>
+        <SectionTitle>
+          영미권 엘리트의 관심사, 궁금하지 않으신가요?
+        </SectionTitle>
+        <SolutionStatement>
+          저희도 그랬습니다. 그래서 '영어 한잔'을 만들었습니다.
+        </SolutionStatement>
 
-          {/* Replace ProblemList with NewsCardDeck */}
-          <NewsCardDeck>
-            {newsCards.map((card, index) => {
-              // Calculate if this card should be active based on current activeCardIndex
-              const cardPosition =
-                (index - activeCardIndex + newsCards.length) % newsCards.length;
-              const isActive = cardPosition === 0;
-              // Only animate the card that was previously active
-              const isAnimating =
-                previousCardIndex !== null && index === previousCardIndex;
+        {/* Replace ProblemList with NewsCardDeck */}
+        <NewsCardDeck>
+          {newsCards.map((card, index) => {
+            // Calculate if this card should be active based on current activeCardIndex
+            const cardPosition =
+              (index - activeCardIndex + newsCards.length) % newsCards.length;
+            const isActive = cardPosition === 0;
+            // Only animate the card that was previously active
+            const isAnimating =
+              previousCardIndex !== null && index === previousCardIndex;
 
-              return (
-                <NewsCard
-                  key={index}
-                  index={cardPosition}
-                  isActive={isActive}
-                  isDragging={isAnimating}
-                  totalCards={newsCards.length}
-                  zIndex={newsCards.length - cardPosition}
-                  onClick={isActive ? handleCardClick : undefined}
-                >
-                  <CardWrapper>
-                    <CardSource>{card.source}</CardSource>
-                    <CardTitle>{card.title}</CardTitle>
-                    <CardMain>
-                      <CardImage imageUrl={card.image} />
-                      <CardText>{card.content}</CardText>
-                    </CardMain>
-                    <CardDate>{card.date}</CardDate>
-                  </CardWrapper>
-                </NewsCard>
-              );
-            })}
-          </NewsCardDeck>
+            return (
+              <NewsCard
+                key={index}
+                index={cardPosition}
+                isActive={isActive}
+                isDragging={isAnimating}
+                totalCards={newsCards.length}
+                zIndex={newsCards.length - cardPosition}
+                onClick={isActive ? handleCardClick : undefined}
+              >
+                <CardWrapper>
+                  <CardSource>{card.source}</CardSource>
+                  <CardTitle>{card.title}</CardTitle>
+                  <CardMain>
+                    <CardImage imageUrl={card.image} />
+                    <CardText>{card.content}</CardText>
+                  </CardMain>
+                  <CardDate>{card.date}</CardDate>
+                </CardWrapper>
+              </NewsCard>
+            );
+          })}
+        </NewsCardDeck>
       </ProblemSection>
 
       {/* Features Section */}
       <FeaturesSection>
-          <SectionTitle>하루 5분, 내 영어 실력을 바꾸는 시간</SectionTitle>
-          <FeatureSlider>
-            <FeatureCard>
-              <FeatureTitle>최신 영어 토픽</FeatureTitle>
-              <FeatureDescription>
-                Fortune 500 기업 임원들이 가장 즐겨 읽는 Wall Street Journal,
-                Financial Times에서 이 순간 가장 핫한 영어 토픽을 기반으로
-                콘텐츠를 제작합니다.
-              </FeatureDescription>
-            </FeatureCard>
-            <FeatureCard>
-              <FeatureTitle>속독 모드</FeatureTitle>
-              <FeatureDescription>
-                본문을 쉽게 읽을 수 있도록 도와주는 속독 모드로 빠르게 내용을
-                파악할 수 있습니다.
-              </FeatureDescription>
-            </FeatureCard>
-            <FeatureCard>
-              <FeatureTitle>한글 번역 및 단어 정리</FeatureTitle>
-              <FeatureDescription>
-                한글 번역 및 주요 단어 정리까지 제공하여 더욱 효과적인 학습이
-                가능합니다.
-              </FeatureDescription>
-            </FeatureCard>
-          </FeatureSlider>
-          <FeatureCTA>
-            하루 5분으로 영어 실력과 글로벌 감각을 동시에 키워보세요!
-          </FeatureCTA>
+        <SectionTitle>하루 5분, 내 영어 실력을 바꾸는 시간</SectionTitle>
+        <FeatureSlider>
+          <FeatureCard>
+            <FeatureTitle>최신 영어 토픽</FeatureTitle>
+            <FeatureDescription>
+              Fortune 500 기업 임원들이 가장 즐겨 읽는 Wall Street Journal,
+              Financial Times에서 이 순간 가장 핫한 영어 토픽을 기반으로
+              콘텐츠를 제작합니다.
+            </FeatureDescription>
+          </FeatureCard>
+          <FeatureCard>
+            <FeatureTitle>속독 모드</FeatureTitle>
+            <FeatureDescription>
+              본문을 쉽게 읽을 수 있도록 도와주는 속독 모드로 빠르게 내용을
+              파악할 수 있습니다.
+            </FeatureDescription>
+          </FeatureCard>
+          <FeatureCard>
+            <FeatureTitle>한글 번역 및 단어 정리</FeatureTitle>
+            <FeatureDescription>
+              한글 번역 및 주요 단어 정리까지 제공하여 더욱 효과적인 학습이
+              가능합니다.
+            </FeatureDescription>
+          </FeatureCard>
+        </FeatureSlider>
+        <FeatureCTA>
+          하루 5분으로 영어 실력과 글로벌 감각을 동시에 키워보세요!
+        </FeatureCTA>
       </FeaturesSection>
 
-      {/* Testimonials Section */}
-      <TestimonialsSection>
-          <SectionTitle>이용 후기</SectionTitle>
-          <TestimonialTabs>
-            <TabButton
-              active={activeTab === "IT"}
-              onClick={() => setActiveTab("IT")}
-            >
-              IT
-            </TabButton>
-            <TabButton
-              active={activeTab === "Business"}
-              onClick={() => setActiveTab("Business")}
-            >
-              Business
-            </TabButton>
-          </TestimonialTabs>
-          <PricingTable>
-            <PricingCard>
-              <PricingTitle>30일</PricingTitle>
-              <PricingPrice>4,500원</PricingPrice>
-              <PricingPeriod>월</PricingPeriod>
-              <PricingFeatures>
-                <PricingFeature>하루 5분 영어 학습</PricingFeature>
-                <PricingFeature>최신 영어 토픽 제공</PricingFeature>
-                <PricingFeature>속독 모드</PricingFeature>
-                <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
-              </PricingFeatures>
-              <SubscribeButton to="/profile">지금 구독하기</SubscribeButton>
-            </PricingCard>
-            <PricingCard>
-              <PricingTitle>90일</PricingTitle>
-              <PricingPrice>12,500원</PricingPrice>
-              <PricingPeriod>3개월</PricingPeriod>
-              <PricingFeatures>
-                <PricingFeature>하루 5분 영어 학습</PricingFeature>
-                <PricingFeature>최신 영어 토픽 제공</PricingFeature>
-                <PricingFeature>속독 모드</PricingFeature>
-                <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
-                <PricingFeature>학습 진도 추적</PricingFeature>
-              </PricingFeatures>
-              <SubscribeButton to="/profile">지금 구독하기</SubscribeButton>
-            </PricingCard>
-            <PricingCard>
-              <PricingTitle>180일</PricingTitle>
-              <PricingPrice>24,000원</PricingPrice>
-              <PricingPeriod>6개월</PricingPeriod>
-              <PricingFeatures>
-                <PricingFeature>하루 5분 영어 학습</PricingFeature>
-                <PricingFeature>최신 영어 토픽 제공</PricingFeature>
-                <PricingFeature>속독 모드</PricingFeature>
-                <PricingFeature>한글 번역 및 단어 정리</PricingFeature>
-                <PricingFeature>학습 진도 추적</PricingFeature>
-                <PricingFeature>맞춤형 학습 추천</PricingFeature>
-              </PricingFeatures>
-              <SubscribeButton to="/profile">지금 구독하기</SubscribeButton>
-            </PricingCard>
-          </PricingTable>
-      </TestimonialsSection>
+      {/* Pricing Section */}
+      <PricingSection>
+        <PricingSectionTitle>
+          이 모든 것을 아메리카노 가격에 연동
+        </PricingSectionTitle>
+        <PricingTabs>
+          <TabButton
+            active={activeTab === "IT"}
+            onClick={() => setActiveTab("IT")}
+          >
+            IT
+          </TabButton>
+          <TabButton
+            active={activeTab === "Business"}
+            onClick={() => setActiveTab("Business")}
+          >
+            Business
+          </TabButton>
+        </PricingTabs>
+        <CoffeeCupImageContainer>
+          <CoffeeCupImg src={coffeeCupImage} alt="Coffee Cup" />
+          <SteamAnimation />
+        </CoffeeCupImageContainer>
+        <PricingSubtitle>4,500원으로 30일 간 마음껏 즐기세요.</PricingSubtitle>
+      </PricingSection>
 
+      {/* Meetup Section */}
+      <MeetupSection>
+        <MeetupTitle>AI 시대, 단순 영어 지식만으로는 부족합니다</MeetupTitle>
+        <MeetupSubtitle>
+          오프라인 밋업에서 실전 커뮤니케이션을 연마하세요
+        </MeetupSubtitle>
+        <MeetupImageContainer>
+          <MeetupImage src={meetupImage} alt="Offline Meetup" />
+          <MeetupTextOverlay>
+            <MeetupComingSoon>Coming Soon...</MeetupComingSoon>
+            <MeetupButton>구독자 무료</MeetupButton>
+          </MeetupTextOverlay>
+        </MeetupImageContainer>
+      </MeetupSection>
       {/* FAQ Section */}
       <FAQSection>
-          <SectionTitle>자주 묻는 질문</SectionTitle>
-          <FAQContainer>
-            {faqs.map((faq, index) => (
-              <FAQItem key={index}>
-                <FAQQuestion
-                  onClick={() => toggleFAQ(index)}
-                  isOpen={openFAQ === index}
-                >
-                  {faq.question}
-                </FAQQuestion>
-                <FAQAnswer isOpen={openFAQ === index}>{faq.answer}</FAQAnswer>
-              </FAQItem>
-            ))}
-          </FAQContainer>
+        <SectionTitle>자주 묻는 질문</SectionTitle>
+        <FAQContainer>
+          {faqs.map((faq, index) => (
+            <FAQItem key={index}>
+              <FAQQuestion
+                onClick={() => toggleFAQ(index)}
+                isOpen={openFAQ === index}
+              >
+                {faq.question}
+              </FAQQuestion>
+              <FAQAnswer isOpen={openFAQ === index}>{faq.answer}</FAQAnswer>
+            </FAQItem>
+          ))}
+        </FAQContainer>
       </FAQSection>
 
       {/* Using the imported Footer component */}
