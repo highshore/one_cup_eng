@@ -4,10 +4,13 @@ import { Link } from "react-router-dom";
 import React from "react";
 import GNB from "../components/gnb";
 import Footer from "../components/footer";
-// Import the hero image
-import heroImage from "../assets/homepage/one-cup-eng-hero.jpg";
+
+import heroBg from "../assets/homepage/hero_bg.jpg";
+import bookImage from "../assets/homepage/book.png";
+import coffeeImage from "../assets/homepage/coffee_cup.png"; 
+import kakaoLogo from "../assets/homepage/kakao_logo.png";
+import kakaoNotification from "../assets/homepage/kakao_notification.png";
 import meetupImage from "../assets/homepage/meetup.jpg";
-import coffeeCupImage from "../assets/homepage/coffeecup.png";
 
 // Define colors object since it's not exported from layout.tsx
 const colors = {
@@ -29,215 +32,53 @@ const HeroSection = styled.section<{ backgroundImage: string }>`
   background: url(${(props) => props.backgroundImage}) no-repeat center center;
   background-size: cover;
   color: white;
-  padding: 6rem 2rem;
+  padding: 6rem 0;
   position: relative;
   overflow: hidden;
-  text-align: left;
-`;
-
-// Background bubbles effect
-const BubbleBackground = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  z-index: 0;
-
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    width: 300px;
-    height: 300px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    filter: blur(20px);
-  }
-
-  &::before {
-    top: -100px;
-    left: -50px;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(
-      circle,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.05) 50%,
-      rgba(255, 255, 255, 0) 70%
-    );
-  }
-
-  &::after {
-    bottom: -150px;
-    right: -50px;
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(
-      circle,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.03) 60%,
-      rgba(255, 255, 255, 0) 70%
-    );
-  }
-`;
-
-// Additional bubble elements with more dynamic movement
-const Bubble = styled.div<{
-  size: number;
-  top: number;
-  left: number;
-  delay: number;
-  opacity?: number;
-}>`
-  position: absolute;
-  width: ${(props) => props.size}px;
-  height: ${(props) => props.size}px;
-  top: ${(props) => props.top}%;
-  left: ${(props) => props.left}%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, ${(props) => props.opacity || 0.15}) 0%,
-    rgba(
-        255,
-        255,
-        255,
-        ${(props) => (props.opacity ? props.opacity / 3 : 0.05)}
-      )
-      60%,
-    rgba(255, 255, 255, 0) 70%
-  );
-  border-radius: 50%;
-  filter: blur(${(props) => Math.min(props.size / 40, 4)}px);
-  animation: float-${(props) => Math.floor(props.delay) % 4} ${(props) =>
-        12 + props.delay}s ease-in-out infinite,
-    pulse-${(props) => Math.floor(props.delay) % 3} ${(props) =>
-        6 + props.delay / 2}s ease-in-out infinite;
-  animation-delay: ${(props) => props.delay}s, ${(props) => props.delay / 2}s;
-
-  /* Multiple animation patterns for different bubbles */
-  @keyframes float-0 {
-    0% {
-      transform: translate(0, 0) scale(1);
-    }
-    25% {
-      transform: translate(30px, -25px) scale(1.08);
-    }
-    50% {
-      transform: translate(60px, -30px) scale(1.15);
-    }
-    75% {
-      transform: translate(30px, -10px) scale(1.08);
-    }
-    100% {
-      transform: translate(0, 0) scale(1);
-    }
-  }
-
-  @keyframes float-1 {
-    0% {
-      transform: translate(0, 0) scale(1);
-    }
-    33% {
-      transform: translate(-35px, -30px) scale(1.1);
-    }
-    66% {
-      transform: translate(-25px, -60px) scale(1.15);
-    }
-    100% {
-      transform: translate(0, 0) scale(1);
-    }
-  }
-
-  @keyframes float-2 {
-    0% {
-      transform: translate(0, 0) scale(1);
-    }
-    20% {
-      transform: translate(25px, -20px) scale(1.05);
-    }
-    40% {
-      transform: translate(45px, -35px) scale(1.1);
-    }
-    60% {
-      transform: translate(25px, -60px) scale(1.12);
-    }
-    80% {
-      transform: translate(-15px, -30px) scale(1.08);
-    }
-    100% {
-      transform: translate(0, 0) scale(1);
-    }
-  }
-
-  @keyframes float-3 {
-    0% {
-      transform: translate(0, 0) scale(1) rotate(0deg);
-    }
-    30% {
-      transform: translate(-30px, -40px) scale(1.1) rotate(5deg);
-    }
-    50% {
-      transform: translate(-45px, -30px) scale(1.15) rotate(10deg);
-    }
-    70% {
-      transform: translate(-60px, -15px) scale(1.1) rotate(5deg);
-    }
-    100% {
-      transform: translate(0, 0) scale(1) rotate(0deg);
-    }
-  }
-
-  /* Enhanced pulsating effects */
-  @keyframes pulse-0 {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.6;
-    }
-  }
-
-  @keyframes pulse-1 {
-    0%,
-    100% {
-      opacity: 0.9;
-    }
-    30% {
-      opacity: 0.5;
-    }
-    70% {
-      opacity: 0.7;
-    }
-  }
-
-  @keyframes pulse-2 {
-    0%,
-    100% {
-      opacity: 0.85;
-    }
-    25% {
-      opacity: 1;
-    }
-    75% {
-      opacity: 0.6;
-    }
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  @media (max-width: 768px) {
+    min-height: 500px;
+    padding: 4rem 0;
   }
 `;
 
 const HeroContent = styled.div`
   position: relative;
   z-index: 1;
-  max-width: 800px;
+  max-width: 850px;
+  width: 100%;
   margin: 0 auto;
-  text-align: left;
+  padding: 0 20px;
+  height: 400px;
+  
+  @media (max-width: 768px) {
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+`;
 
-  /* Add text shadow for better contrast */
-  & h1,
-  & p {
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+const HeroTextContent = styled.div`
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 400px;
+  z-index: 2;
+  
+  @media (max-width: 768px) {
+    position: relative;
+    left: auto;
+    top: 0;
+    transform: none;
+    max-width: 100%;
+    text-align: center;
+    margin-bottom: 2rem;
   }
 `;
 
@@ -249,10 +90,13 @@ const HeroTitle = styled.h1`
   position: relative;
   z-index: 1;
   text-align: left;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 
   @media (max-width: 768px) {
     font-size: 3rem;
+    text-align: center;
   }
+
 `;
 
 const HeroSubtitle = styled.p`
@@ -262,9 +106,17 @@ const HeroSubtitle = styled.p`
   color: white;
   font-weight: 700;
   text-align: left;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 
   @media (max-width: 768px) {
-    font-size: 1.6rem;
+    font-size: 1.3rem;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
   }
 `;
 
@@ -272,10 +124,15 @@ const HeroSubtitle = styled.p`
 const CoffeeButton = styled.div`
   position: relative;
   display: inline-block;
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   cursor: pointer;
   z-index: 10;
   text-align: left;
+  
+  @media (max-width: 768px) {
+    margin: 0 auto;
+    text-align: center;
+  }
 `;
 
 const CupShape = styled(Link)`
@@ -370,6 +227,85 @@ const Steam = styled.div`
       transform: translateY(-70px) scaleX(0.4) rotate(-5deg);
       opacity: 0;
     }
+  }
+`;
+
+const HeroImagesWrapper = styled.div`
+  position: absolute;
+  width: 450px;
+  height: 100%;
+  right: 20px;
+  top: 0;
+  
+  @media (max-width: 768px) {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    right: auto;
+    display: flex;
+    justify-content: center;
+  }
+`;
+
+const BookImage = styled.img`
+  position: absolute;
+  height: auto;
+  width: 270px;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  
+  @media (max-width: 768px) {
+    width: 220px;
+    left: 20px;
+  }
+`;
+
+const CoffeeImage = styled.img`
+  position: absolute;
+  height: auto;
+  width: 220px;
+  right: 70px;
+  top: 50%;
+  transform: translateY(-25%);
+  z-index: 2;
+  
+  @media (max-width: 768px) {
+    width: 180px;
+    right: 20px;
+  }
+`;
+
+const KakaoContainer = styled.div`
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 3;
+  
+  @media (max-width: 768px) {
+    right: -20px;
+    gap: 15px;
+  }
+`;
+
+const KakaoIcon = styled.img<{ isNotification?: boolean }>`
+  width: ${props => props.isNotification ? '80px' : '60px'};
+  height: ${props => props.isNotification ? '80px' : '60px'};
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.1);
+  }
+  
+  @media (max-width: 768px) {
+    width: ${props => props.isNotification ? '70px' : '50px'};
+    height: ${props => props.isNotification ? '70px' : '50px'};
   }
 `;
 
@@ -1175,26 +1111,29 @@ export default function Home() {
     <PageWrapper>
       <GNB />
       {/* Hero Section */}
-      <HeroSection backgroundImage={heroImage}>
-        <BubbleBackground>
-          <Bubble size={200} top={20} left={20} delay={0} opacity={0.25} />
-          <Bubble size={150} top={60} left={70} delay={2} opacity={0.22} />
-          <Bubble size={180} top={30} left={60} delay={1} opacity={0.24} />
-          <Bubble size={120} top={70} left={30} delay={3} opacity={0.28} />
-          <Bubble size={250} top={10} left={80} delay={2} opacity={0.2} />
-          <Bubble size={140} top={80} left={50} delay={2.5} opacity={0.26} />
-        </BubbleBackground>
+      <HeroSection backgroundImage={heroBg}>
         <HeroContent>
-          <HeroTitle>영어 한잔</HeroTitle>
-          <HeroSubtitle>
-            아메리카노 한잔 값으로 배우는 비즈니스 영어
-          </HeroSubtitle>
-          <CoffeeButton>
-            <Steam>
-              <span></span>
-            </Steam>
-            <CupShape to="/auth">Start Now</CupShape>
-          </CoffeeButton>
+          <HeroTextContent>
+            <HeroTitle>영어 한잔</HeroTitle>
+            <HeroSubtitle>
+              아메리카노 한잔 값으로 배우는 비즈니스 영어
+            </HeroSubtitle>
+            <CoffeeButton>
+              <Steam>
+                <span></span>
+              </Steam>
+              <CupShape to="/auth">Start Now</CupShape>
+            </CoffeeButton>
+          </HeroTextContent>
+          
+          <HeroImagesWrapper>
+            <BookImage src={bookImage} alt="Book" />
+            <CoffeeImage src={coffeeImage} alt="Coffee Cup" />
+            <KakaoContainer>
+              <KakaoIcon src={kakaoLogo} alt="Kakao Logo" />
+              <KakaoIcon src={kakaoNotification} alt="Kakao Notification" isNotification={true} />
+            </KakaoContainer>
+          </HeroImagesWrapper>
         </HeroContent>
       </HeroSection>
 
@@ -1295,7 +1234,7 @@ export default function Home() {
           </TabButton>
         </PricingTabs>
         <CoffeeCupImageContainer>
-          <CoffeeCupImg src={coffeeCupImage} alt="Coffee Cup" />
+          <CoffeeCupImg src={coffeeImage} alt="Coffee Cup" />
           <SteamAnimation />
         </CoffeeCupImageContainer>
         <PricingSubtitle>4,500원으로 30일 간 마음껏 즐기세요.</PricingSubtitle>
