@@ -6,7 +6,7 @@ import Footer from "../components/footer";
 
 import heroBg from "../assets/homepage/hero_bg.jpg";
 import bookImage from "../assets/homepage/book.png";
-import coffeeImage from "../assets/homepage/coffee_cup.png"; 
+import coffeeImage from "../assets/homepage/coffee_cup.png";
 import coffeeTakeout from "../assets/homepage/coffee_takeout.png";
 import kakaoLogo from "../assets/homepage/kakao_logo.png";
 import kakaoNotification from "../assets/homepage/kakao_notification.png";
@@ -53,7 +53,7 @@ const HeroSection = styled.section<{ backgroundImage: string }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   @media (max-width: 768px) {
     min-height: 500px;
     padding: 4rem 0;
@@ -68,7 +68,7 @@ const HeroContent = styled.div`
   margin: 0 auto;
   padding: 0 20px;
   height: 400px;
-  
+
   @media (max-width: 768px) {
     height: 500px;
     display: flex;
@@ -83,7 +83,7 @@ const HeroTextContent = styled.div`
   top: 15%;
   max-width: 300px;
   z-index: 2;
-  
+
   @media (max-width: 768px) {
     position: relative;
     left: auto;
@@ -104,7 +104,7 @@ const HeroTitle = styled.h1`
   z-index: 1;
   text-align: left;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
     font-size: 3rem;
@@ -119,14 +119,14 @@ const HeroSubtitle = styled.p`
   font-weight: 700;
   text-align: left;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
     font-size: 1.3rem;
     text-align: center;
     margin-bottom: 2rem;
   }
-  
+
   @media (max-width: 480px) {
     font-size: 1.1rem;
     margin-bottom: 2rem;
@@ -139,7 +139,7 @@ const HeroImagesWrapper = styled.div`
   height: 100%;
   right: 20px;
   top: 0;
-  
+
   @media (max-width: 768px) {
     position: relative;
     width: 100%;
@@ -157,7 +157,7 @@ const BookImage = styled.img`
   bottom: -10px;
   width: 320px;
   z-index: 2;
-  
+
   @media (max-width: 768px) {
     width: 220px;
     left: 20px;
@@ -167,11 +167,11 @@ const BookImage = styled.img`
 const CoffeeImage = styled.img`
   position: absolute;
   height: auto;
-  right: 210px;
+  right: 220px;
   bottom: 60px;
   width: 240px;
   z-index: 1;
-  
+
   @media (max-width: 768px) {
     width: 180px;
     right: 20px;
@@ -215,7 +215,7 @@ const CoffeeSteam = styled.div`
     animation-delay: 0s;
     height: 30px;
   }
-  
+
   @keyframes steam {
     0% {
       transform: translateY(0) scaleX(0.8);
@@ -232,7 +232,6 @@ const CoffeeSteam = styled.div`
   }
 `;
 
-
 const KakaoContainer = styled.div`
   position: absolute;
   right: 0px;
@@ -243,7 +242,7 @@ const KakaoContainer = styled.div`
   z-index: 3;
   animation: floatingKakao 5s ease-in-out infinite;
   will-change: transform;
-  
+
   @keyframes floatingKakao {
     0% {
       transform: translateY(0px);
@@ -255,17 +254,17 @@ const KakaoContainer = styled.div`
       transform: translateY(0px);
     }
   }
-  
+
   .kakao-logo-wrapper {
     animation: floatingLogo 6s ease-in-out infinite;
     will-change: transform;
   }
-  
+
   @media (max-width: 768px) {
     right: -20px;
     gap: 15px;
     animation-duration: 4s;
-    
+
     @keyframes floatingKakao {
       0% {
         transform: translateY(0px);
@@ -277,7 +276,7 @@ const KakaoContainer = styled.div`
         transform: translateY(0px);
       }
     }
-    
+
     .kakao-logo-wrapper {
       animation-duration: 3s;
     }
@@ -285,36 +284,49 @@ const KakaoContainer = styled.div`
 `;
 
 const KakaoIcon = styled.img<{ isNotification?: boolean }>`
-  max-width: ${props => props.isNotification ? '200px' : '80px'};
+  max-width: ${(props) => (props.isNotification ? "240px" : "80px")};
   height: auto;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
   transition: transform 0.3s ease;
-  
+
   @media (max-width: 768px) {
-    max-width: ${props => props.isNotification ? '70px' : '50px'};
+    max-width: ${(props) => (props.isNotification ? "70px" : "50px")};
   }
 `;
 
 const KakaoNotificationContainer = styled.div`
   position: relative;
   display: inline-block;
+  animation: fadeInOut 10s ease-in-out infinite;
+  opacity: 0;
+
+  @keyframes fadeInOut {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    10%,
+    90% {
+      opacity: 1;
+    }
+  }
 `;
 
 const KakaoNotificationButton = styled.a`
   position: absolute;
-  top: 88px;
+  top: 110px;
   left: 10px;
   background-color: #181818;
   color: white;
   border: none;
-  border-radius: 12px;
-  width: 180px;
-  padding: 5px 10px;
+  border-radius: 10px;
+  width: 220px;
+  padding: 8px 10px;
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   z-index: 4;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;
   letter-spacing: -0.02em;
@@ -327,16 +339,16 @@ const KakaoNotificationButton = styled.a`
   justify-content: center;
 
   &:hover {
-    background-color: #4A2F23;
+    background-color: #4a2f23;
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
     color: white;
   }
-  
+
   &:active {
     transform: translateY(-1px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   }
-  
+
   @media (max-width: 768px) {
     font-size: 0.7rem;
     padding: 4px 10px;
@@ -357,7 +369,7 @@ const SectionTitle = styled.h2`
   color: ${colors.primary};
   margin-bottom: 1.5rem;
   font-weight: 700;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
     font-size: 2rem;
@@ -548,7 +560,7 @@ const SolutionStatement = styled.p`
   color: ${colors.primary};
   font-weight: 600;
   margin-bottom: 2rem;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 `;
 
 // Features Section
@@ -590,13 +602,13 @@ const FeatureTitle = styled.h3`
   font-size: 1.5rem;
   color: ${colors.primary};
   margin-bottom: 1rem;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 `;
 
 const FeatureDescription = styled.p`
   color: ${colors.text.medium};
   line-height: 1.6;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 `;
 
 const FeatureCTA = styled.p`
@@ -604,7 +616,7 @@ const FeatureCTA = styled.p`
   color: ${colors.primary};
   font-weight: 600;
   margin-top: 2rem;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 `;
 
 // Pricing Section with Coffee Cup design
@@ -623,7 +635,7 @@ const PricingSectionTitle = styled.h2`
   font-weight: 700;
   position: relative;
   display: inline-block;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
     font-size: 2rem;
@@ -639,7 +651,7 @@ const PricingSubtitle = styled.p`
   max-width: 700px;
   margin-left: auto;
   margin-right: auto;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 `;
 
 const CoffeeCupImageContainer = styled.div`
@@ -757,7 +769,7 @@ const FAQQuestion = styled.div<FAQQuestionProps>`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   &::after {
     content: "${(props) => (props.isOpen ? "−" : "+")}";
@@ -776,7 +788,7 @@ const FAQAnswer = styled.div<FAQAnswerProps>`
   transition: all 0.3s ease;
   color: ${colors.text.medium};
   line-height: 1.6;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 `;
 
 // Define styled component for page wrapper
@@ -832,7 +844,7 @@ const MeetupTitle = styled.h2`
   animation: shine 3s linear infinite;
   overflow: hidden;
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   @keyframes shine {
     to {
@@ -878,7 +890,7 @@ const MeetupSubtitle = styled.p`
   max-width: 700px;
   margin-left: auto;
   margin-right: auto;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   @keyframes fadeIn {
     from {
@@ -959,7 +971,7 @@ const MeetupComingSoon = styled.h3`
   transform: translateY(20px);
   animation: fadeSlideUp 0.8s forwards;
   animation-delay: 0.2s;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   @keyframes fadeSlideUp {
     to {
@@ -985,7 +997,7 @@ const MeetupButton = styled.button`
   transform: translateY(20px);
   animation: fadeSlideUp 0.8s forwards;
   animation-delay: 0.4s;
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: "Noto Sans KR", sans-serif;
 
   &:hover {
     background-color: #d8b28a;
@@ -1149,14 +1161,10 @@ export default function Home() {
         <HeroContent>
           <HeroTextContent>
             <HeroTitle>영어 한잔</HeroTitle>
-            <HeroSubtitle>
-              아메리카노 한잔 값으로 키우는
-            </HeroSubtitle>
-            <HeroSubtitle>
-              비즈니스 영어
-            </HeroSubtitle>
+            <HeroSubtitle>아메리카노 한잔 값으로 키우는</HeroSubtitle>
+            <HeroSubtitle>비즈니스 영어</HeroSubtitle>
           </HeroTextContent>
-          
+
           <HeroImagesWrapper>
             <BookImage src={bookImage} alt="Book" />
             <CoffeeImage src={coffeeImage} alt="Coffee Cup" />
@@ -1168,8 +1176,18 @@ export default function Home() {
                 <KakaoIcon src={kakaoLogo} alt="Kakao Logo" />
               </div>
               <KakaoNotificationContainer>
-                <KakaoIcon src={kakaoNotification} alt="Kakao Notification" isNotification={true} />
-                <KakaoNotificationButton href="https://1cupenglish.com/article/pK4BueOBgvHckajctRMH" target="_blank" rel="noopener noreferrer">아티클 확인하기</KakaoNotificationButton>
+                <KakaoIcon
+                  src={kakaoNotification}
+                  alt="Kakao Notification"
+                  isNotification={true}
+                />
+                <KakaoNotificationButton
+                  href="https://1cupenglish.com/article/pK4BueOBgvHckajctRMH"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  아티클 확인하기
+                </KakaoNotificationButton>
               </KakaoNotificationContainer>
             </KakaoContainer>
           </HeroImagesWrapper>
