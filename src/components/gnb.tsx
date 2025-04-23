@@ -396,9 +396,9 @@ export default function GNB({}: GNBProps) {
         </LogoContainer>
 
         <MenuContainer>
-          <MenuItem to="/meetup">Meet Up</MenuItem>
-          <MenuItem to="/community">Community</MenuItem>
-          <MenuItem to="/guide">Guide</MenuItem>
+          <MenuItem to="/meetup">밋업</MenuItem>
+          <MenuItem to="/community">커뮤니티</MenuItem>
+          <MenuItem to="/guide">가이드</MenuItem>
         </MenuContainer>
 
         {currentUser ? (

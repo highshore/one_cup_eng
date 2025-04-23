@@ -5,7 +5,7 @@ import GNB from "../components/gnb";
 import Footer from "../components/footer";
 
 import heroBg from "../assets/homepage/hero_bg.jpg";
-import bookImage from "../assets/homepage/book.png";
+import wstPaper from "../assets/homepage/wst_paper.png";
 import coffeeImage from "../assets/homepage/coffee_cup.png";
 import coffeeTakeout from "../assets/homepage/coffee_takeout.png";
 import kakaoLogo from "../assets/homepage/kakao_logo.png";
@@ -99,7 +99,7 @@ const HeroTitle = styled.h1`
   font-size: 3.6rem;
   font-weight: 800;
   margin-bottom: 1rem;
-  color: white;
+  color: #ffffff;
   position: relative;
   z-index: 1;
   text-align: left;
@@ -115,7 +115,7 @@ const HeroTitle = styled.h1`
 const HeroSubtitle = styled.p`
   font-size: 1.5rem;
   line-height: 1.5;
-  color: white;
+  color: #ffffff;
   font-weight: 700;
   text-align: left;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
@@ -150,13 +150,13 @@ const HeroImagesWrapper = styled.div`
   }
 `;
 
-const BookImage = styled.img`
+const WSTPaperImage = styled.img`
   position: absolute;
   height: auto;
-  right: 330px;
-  bottom: -10px;
-  width: 320px;
-  z-index: 2;
+  right: 400px;
+  bottom: -180px;
+  width: 500px;
+  z-index: 0;
 
   @media (max-width: 768px) {
     width: 220px;
@@ -167,9 +167,9 @@ const BookImage = styled.img`
 const CoffeeImage = styled.img`
   position: absolute;
   height: auto;
-  right: 220px;
-  bottom: 60px;
-  width: 240px;
+  right: 280px;
+  bottom: 30px;
+  width: 220px;
   z-index: 1;
 
   @media (max-width: 768px) {
@@ -180,8 +180,8 @@ const CoffeeImage = styled.img`
 
 const CoffeeSteam = styled.div`
   position: absolute;
-  right: 400px;
-  top: 120px;
+  right: 450px;
+  bottom: 240px;
   z-index: 2;
   pointer-events: none;
 
@@ -191,7 +191,7 @@ const CoffeeSteam = styled.div`
     content: "";
     position: absolute;
     width: 8px;
-    height: 30px;
+    height: 40px;
     background: white;
     border-radius: 50%;
     animation: steam 3s infinite ease-in-out;
@@ -891,6 +891,12 @@ const MeetupSubtitle = styled.p`
   margin-left: auto;
   margin-right: auto;
   font-family: "Noto Sans KR", sans-serif;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  line-height: 1.8;
+  gap: 0.5rem;
 
   @keyframes fadeIn {
     from {
@@ -900,6 +906,66 @@ const MeetupSubtitle = styled.p`
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  .changing-text-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    overflow: hidden;
+    height: 1.8em;
+  }
+
+  .changing-text {
+    position: relative;
+    color: #f0f0a0;
+    display: inline-block;
+  }
+
+  .changing-text span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: textFade 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .changing-text span:nth-child(1) {
+    position: relative; /* First item serves as space holder */
+    opacity: 0;
+    animation-delay: 7.5s; /* This will be the last to show in the cycle */
+  }
+
+  .changing-text span:nth-child(2) {
+    animation-delay: 0s;
+  }
+
+  .changing-text span:nth-child(3) {
+    animation-delay: 2.5s;
+  }
+
+  .changing-text span:nth-child(4) {
+    animation-delay: 5s;
+  }
+
+  @keyframes textFade {
+    0%,
+    5% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    10%,
+    22.5% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    27.5%,
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
     }
   }
 `;
@@ -1161,12 +1227,12 @@ export default function Home() {
         <HeroContent>
           <HeroTextContent>
             <HeroTitle>영어 한잔</HeroTitle>
-            <HeroSubtitle>아메리카노 한잔 값으로 키우는</HeroSubtitle>
-            <HeroSubtitle>비즈니스 영어</HeroSubtitle>
+            <HeroSubtitle>매일 아침 영어 한잔으로</HeroSubtitle>
+            <HeroSubtitle>배우는 비즈니스 영어</HeroSubtitle>
           </HeroTextContent>
 
           <HeroImagesWrapper>
-            <BookImage src={bookImage} alt="Book" />
+            <WSTPaperImage src={wstPaper} alt="WST Paper" />
             <CoffeeImage src={coffeeImage} alt="Coffee Cup" />
             <CoffeeSteam>
               <span></span>
@@ -1299,9 +1365,18 @@ export default function Home() {
 
       {/* Meetup Section */}
       <MeetupSection>
-        <MeetupTitle>AI 시대, 단순 영어 지식만으로는 부족합니다</MeetupTitle>
+        <MeetupTitle>AI 시대, 찐 커뮤니케이션 실력이 중요합니다</MeetupTitle>
         <MeetupSubtitle>
-          오프라인 밋업에서 실전 커뮤니케이션을 연마하세요
+          <span>영어로</span>
+          <span className="changing-text-wrapper">
+            <span className="changing-text">
+              <span>라포를 형성하는</span>
+              <span>신뢰를 얻는</span>
+              <span>호감을 사는</span>
+              <span>상대를 설득하는</span>
+            </span>
+          </span>
+          <span>법, 영어 한잔 밋업에서 연마하세요</span>
         </MeetupSubtitle>
         <MeetupImageContainer>
           <MeetupImage src={meetupImage} alt="Offline Meetup" />
