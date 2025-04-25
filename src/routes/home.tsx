@@ -1,5 +1,9 @@
 import { useState } from "react";
-import styled, { createGlobalStyle } from "styled-components";
+import styled, {
+  createGlobalStyle,
+  ThemeProvider,
+  css,
+} from "styled-components";
 import React from "react";
 import GNB from "../components/gnb";
 import Footer from "../components/footer";
@@ -11,6 +15,9 @@ import coffeeTakeout from "../assets/homepage/coffee_takeout.png";
 import kakaoLogo from "../assets/homepage/kakao_logo.png";
 import kakaoNotification from "../assets/homepage/kakao_notification.png";
 import meetupImage from "../assets/homepage/meetup.jpg";
+import featureImg01 from "../assets/homepage/01.article.png";
+import featureImg02 from "../assets/homepage/02.speed reading.png";
+import featureImg03 from "../assets/homepage/03.translations.png";
 
 // Add global style for Noto Sans KR font
 const GlobalStyle = createGlobalStyle`
@@ -563,6 +570,25 @@ const SolutionStatement = styled.p`
   font-family: "Noto Sans KR", sans-serif;
 `;
 
+// Common style utilities
+const breakpoints = {
+  mobile: "768px",
+};
+// Media query mixin
+const media = {
+  mobile: (strings: TemplateStringsArray, ...interpolations: any[]) => css`
+    @media (max-width: ${breakpoints.mobile}) {
+      ${css(strings, ...interpolations)}
+    }
+  `,
+};
+// Flex center mixin
+const flexCenter = css`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
 // Features Section
 const FeaturesSection = styled.section`
   padding: 5rem 2rem;
@@ -570,45 +596,115 @@ const FeaturesSection = styled.section`
   text-align: center;
 `;
 
+// Feature slider layout with common utilities
 const FeatureSlider = styled.div`
-  display: flex;
-  overflow-x: auto;
+  ${flexCenter}
   gap: 2rem;
   padding: 2rem 0;
   margin: 0 auto 3rem;
-  max-width: 1200px;
-  scrollbar-width: none;
+  max-width: 850px;
+  overflow: visible;
+  will-change: contents;
 
-  &::-webkit-scrollbar {
-    display: none;
+  ${media.mobile`
+    flex-direction: column;
+    gap: 1.5rem;
+  `}
+`;
+
+// Make isActive optional with a default value
+interface FeatureCardProps {
+  isActive?: boolean;
+}
+
+const FeatureCard = styled.div<FeatureCardProps>`
+  width: ${(props) => (props.isActive ? "300px" : "200px")};
+  min-height: ${(props) => (props.isActive ? "350px" : "300px")};
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: ${colors.primaryBg};
+  border-radius: 15px;
+  padding: 2rem 1rem;
+  box-shadow: ${(props) =>
+    props.isActive
+      ? "0 15px 30px rgba(0, 0, 0, 0.25)"
+      : "0 10px 20px rgba(0, 0, 0, 0.15)"};
+  text-align: center;
+  transition: all 0.4s ease-out;
+  border: 1px solid
+    ${(props) => (props.isActive ? colors.accent : colors.primary)};
+  opacity: ${(props) => (props.isActive ? 1 : 0.7)};
+  transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(0.94)")};
+  z-index: ${(props) => (props.isActive ? 10 : 1)};
+  overflow: visible;
+  position: relative;
+  cursor: pointer;
+  will-change: transform, opacity, box-shadow, width, height;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  perspective: 1000px;
+
+  &:hover {
+    transform: ${(props) =>
+      props.isActive
+        ? "scale(1.05) translateY(-10px)"
+        : "translateY(-10px) scale(0.96)"};
+    box-shadow: ${(props) =>
+      props.isActive
+        ? "0 18px 35px rgba(0, 0, 0, 0.3)"
+        : "0 12px 25px rgba(0, 0, 0, 0.2)"};
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    min-height: ${(props) => (props.isActive ? "380px" : "330px")};
+    transform: ${(props) => (props.isActive ? "scale(1.02)" : "scale(0.98)")};
+    margin-bottom: 1.5rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 `;
 
-const FeatureCard = styled.div`
-  min-width: 300px;
-  background-color: ${colors.primaryBg};
-  border-radius: 15px;
-  padding: 2rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  text-align: left;
-  transition: transform 0.3s ease;
+// Add default props
+FeatureCard.defaultProps = {
+  isActive: false,
+};
 
-  &:hover {
-    transform: translateY(-10px);
-  }
+const FeatureImage = styled.img`
+  width: ${(props) => (props.theme.isActive ? "220px" : "180px")};
+  margin: 0.5rem 0 1.5rem;
+  object-fit: contain;
+  transition: transform 0.3s ease-out, width 0.3s ease-out;
+  transform: ${(props) =>
+    props.theme.isHovered ? "translateY(-5px)" : "translateY(0)"};
+  will-change: transform, width;
+  transform-style: preserve-3d;
 `;
 
 const FeatureTitle = styled.h3`
-  font-size: 1.5rem;
-  color: ${colors.primary};
+  font-size: ${(props) => (props.theme.isActive ? "1.6rem" : "1.4rem")};
+  color: ${(props) => (props.theme.isHovered ? colors.accent : colors.primary)};
   margin-bottom: 1rem;
   font-family: "Noto Sans KR", sans-serif;
+  text-align: center;
+  transition: font-size 0.3s ease-out, color 0.2s ease-out;
+  will-change: font-size, color;
 `;
 
 const FeatureDescription = styled.p`
   color: ${colors.text.medium};
   line-height: 1.6;
   font-family: "Noto Sans KR", sans-serif;
+  text-align: center;
+  font-size: ${(props) => (props.theme.isActive ? "1rem" : "0.9rem")};
+  transition: font-size 0.3s ease-out;
+  will-change: font-size;
 `;
 
 const FeatureCTA = styled.p`
@@ -1081,9 +1177,12 @@ export default function Home() {
     null
   );
   const [isPaused, setIsPaused] = useState(false);
+  const [activeFeature, setActiveFeature] = useState(0);
+  const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
   // Reference to store the timer ID
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Sample news data - replace with your actual content
   const newsCards = [
@@ -1218,6 +1317,85 @@ export default function Home() {
     },
   ];
 
+  // Set up automatic feature card rotation
+  React.useEffect(() => {
+    // Function to handle automatic feature highlight
+    const rotateFeatures = () => {
+      setActiveFeature((prevIndex) => (prevIndex + 1) % 3);
+    };
+
+    // Start the automatic rotation with a longer interval to reduce strain
+    featureTimerRef.current = setInterval(rotateFeatures, 15000);
+
+    // Initial card highlight
+    setActiveFeature(0);
+
+    // Pause rotation when user hovers or interacts with cards
+    const pauseRotation = () => {
+      if (featureTimerRef.current) {
+        clearInterval(featureTimerRef.current);
+      }
+    };
+
+    // Resume rotation after delay
+    const resumeRotation = () => {
+      if (featureTimerRef.current) {
+        clearInterval(featureTimerRef.current);
+      }
+      featureTimerRef.current = setInterval(rotateFeatures, 15000);
+    };
+
+    // Add event listeners to the feature slider
+    const featureSlider = document.querySelector(".feature-slider");
+    if (featureSlider) {
+      featureSlider.addEventListener("mouseenter", pauseRotation);
+      featureSlider.addEventListener("mouseleave", resumeRotation);
+      featureSlider.addEventListener("touchstart", pauseRotation, {
+        passive: true,
+      });
+      featureSlider.addEventListener("touchend", resumeRotation);
+    }
+
+    // Cleanup function to clear the interval when component unmounts
+    return () => {
+      if (featureTimerRef.current) {
+        clearInterval(featureTimerRef.current);
+      }
+
+      if (featureSlider) {
+        featureSlider.removeEventListener("mouseenter", pauseRotation);
+        featureSlider.removeEventListener("mouseleave", resumeRotation);
+        featureSlider.removeEventListener("touchstart", pauseRotation);
+        featureSlider.removeEventListener("touchend", resumeRotation);
+      }
+    };
+  }, []);
+
+  // Define feature cards data
+  const featureCards = [
+    {
+      title: "최신 영어 토픽",
+      image: featureImg01,
+      alt: "최신 영어 토픽",
+      description:
+        "Fortune 500 기업 임원들이 가장 즐겨 읽는 Wall Street Journal, Financial Times에서 이 순간 가장 핫한 영어 토픽을 기반으로 콘텐츠를 제작합니다.",
+    },
+    {
+      title: "속독 모드",
+      image: featureImg02,
+      alt: "속독 모드",
+      description:
+        "본문을 쉽게 읽을 수 있도록 도와주는 속독 모드로 빠르게 내용을 파악할 수 있습니다.",
+    },
+    {
+      title: "한글 번역 및 단어 정리",
+      image: featureImg03,
+      alt: "한글 번역 및 단어 정리",
+      description:
+        "한글 번역 및 주요 단어 정리까지 제공하여 더욱 효과적인 학습이 가능합니다.",
+    },
+  ];
+
   return (
     <PageWrapper>
       <GlobalStyle />
@@ -1308,29 +1486,30 @@ export default function Home() {
       {/* Features Section */}
       <FeaturesSection>
         <SectionTitle>하루 5분, 내 영어 실력을 바꾸는 시간</SectionTitle>
-        <FeatureSlider>
-          <FeatureCard>
-            <FeatureTitle>최신 영어 토픽</FeatureTitle>
-            <FeatureDescription>
-              Fortune 500 기업 임원들이 가장 즐겨 읽는 Wall Street Journal,
-              Financial Times에서 이 순간 가장 핫한 영어 토픽을 기반으로
-              콘텐츠를 제작합니다.
-            </FeatureDescription>
-          </FeatureCard>
-          <FeatureCard>
-            <FeatureTitle>속독 모드</FeatureTitle>
-            <FeatureDescription>
-              본문을 쉽게 읽을 수 있도록 도와주는 속독 모드로 빠르게 내용을
-              파악할 수 있습니다.
-            </FeatureDescription>
-          </FeatureCard>
-          <FeatureCard>
-            <FeatureTitle>한글 번역 및 단어 정리</FeatureTitle>
-            <FeatureDescription>
-              한글 번역 및 주요 단어 정리까지 제공하여 더욱 효과적인 학습이
-              가능합니다.
-            </FeatureDescription>
-          </FeatureCard>
+        <FeatureSlider className="feature-slider">
+          {featureCards.map((card, index) => (
+            <FeatureCard
+              key={index}
+              isActive={activeFeature === index}
+              onClick={() => setActiveFeature(index)}
+              onMouseEnter={() => {
+                setActiveFeature(index);
+                setHoveredFeature(index);
+              }}
+              onMouseLeave={() => setHoveredFeature(null)}
+            >
+              <ThemeProvider
+                theme={{
+                  isActive: activeFeature === index,
+                  isHovered: hoveredFeature === index,
+                }}
+              >
+                <FeatureTitle>{card.title}</FeatureTitle>
+                <FeatureImage src={card.image} alt={card.alt} />
+                <FeatureDescription>{card.description}</FeatureDescription>
+              </ThemeProvider>
+            </FeatureCard>
+          ))}
         </FeatureSlider>
         <FeatureCTA>
           하루 5분으로 영어 실력과 글로벌 감각을 동시에 키워보세요!
