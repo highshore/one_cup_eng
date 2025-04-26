@@ -1,7 +1,6 @@
 import { useState } from "react";
 import styled, {
   createGlobalStyle,
-  ThemeProvider,
   css,
 } from "styled-components";
 import React from "react";
@@ -11,17 +10,17 @@ import Footer from "../components/footer";
 import heroBg from "../assets/homepage/hero_bg.jpg";
 import wstPaper from "../assets/homepage/wst_paper.png";
 import coffeeImage from "../assets/homepage/coffee_cup.png";
-import coffeeTakeout from "../assets/homepage/coffee_takeout.png";
 import kakaoLogo from "../assets/homepage/kakao_logo.png";
 import kakaoNotification from "../assets/homepage/kakao_notification.png";
 import meetupImage from "../assets/homepage/meetup.jpg";
-import featureImg01 from "../assets/homepage/01.article.png";
-import featureImg02 from "../assets/homepage/02.speed reading.png";
-import featureImg03 from "../assets/homepage/03.translations.png";
+import featureCard1 from "../assets/homepage/feature_card_1.png";
+import featureCard2 from "../assets/homepage/feature_card_2.png";
+import featureCard3 from "../assets/homepage/feature_card_3.png";
+import oneCupCup from "../assets/homepage/1cup_cup.png";
 
 // Add global style for Noto Sans KR font
 const GlobalStyle = createGlobalStyle`
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap');
   
   body, html {
     font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -48,6 +47,18 @@ const colors = {
   },
 };
 
+// Common section styles
+const SectionBase = css`
+  min-height: 450px;
+  padding: 5rem 2rem;
+  position: relative;
+  overflow: hidden;
+  
+  @media (max-width: 768px) {
+    padding: 3rem 1rem;
+  }
+`;
+
 // Hero Section
 const HeroSection = styled.section<{ backgroundImage: string }>`
   background: url(${(props) => props.backgroundImage}) no-repeat center center;
@@ -57,12 +68,14 @@ const HeroSection = styled.section<{ backgroundImage: string }>`
   position: relative;
   overflow: hidden;
   max-height: 450px;
+  min-height: 450px;
   display: flex;
   align-items: center;
   justify-content: center;
 
   @media (max-width: 768px) {
-    min-height: 500px;
+    min-height: 80vh;
+    background-size: cover;
     padding: 4rem 0;
   }
 `;
@@ -98,7 +111,7 @@ const HeroTextContent = styled.div`
     transform: none;
     max-width: 100%;
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
   }
 `;
 
@@ -114,6 +127,7 @@ const HeroTitle = styled.h1`
   font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
+    margin-top: 30px;
     font-size: 3rem;
     text-align: center;
   }
@@ -129,13 +143,7 @@ const HeroSubtitle = styled.p`
   font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
-    font-size: 1.3rem;
     text-align: center;
-    margin-bottom: 2rem;
-  }
-
-  @media (max-width: 480px) {
-    font-size: 1.1rem;
     margin-bottom: 2rem;
   }
 `;
@@ -161,33 +169,35 @@ const WSTPaperImage = styled.img`
   position: absolute;
   height: auto;
   right: 400px;
-  bottom: -180px;
+  bottom: -190px;
   width: 500px;
   z-index: 0;
 
   @media (max-width: 768px) {
-    width: 220px;
+    width: 300px;
     left: 20px;
+    bottom: -80px;
   }
 `;
 
 const CoffeeImage = styled.img`
   position: absolute;
   height: auto;
-  right: 280px;
+  right: 260px;
   bottom: 30px;
   width: 220px;
   z-index: 1;
 
   @media (max-width: 768px) {
-    width: 180px;
+    width: 150px;
     right: 20px;
+    bottom: 60px;
   }
 `;
 
 const CoffeeSteam = styled.div`
   position: absolute;
-  right: 450px;
+  right: 430px;
   bottom: 240px;
   z-index: 2;
   pointer-events: none;
@@ -237,6 +247,12 @@ const CoffeeSteam = styled.div`
       opacity: 0;
     }
   }
+  
+  @media (max-width: 768px) {
+    right: 140px;
+    bottom: 200px;
+    transform: scale(0.7);
+  }
 `;
 
 const KakaoContainer = styled.div`
@@ -268,19 +284,22 @@ const KakaoContainer = styled.div`
   }
 
   @media (max-width: 768px) {
-    right: -20px;
-    gap: 15px;
+    right: 10px;
+    top: 10px;
+    gap: 8px;
+    transform: scale(0.85);
+    transform-origin: top right;
     animation-duration: 4s;
 
     @keyframes floatingKakao {
       0% {
-        transform: translateY(0px);
+        transform: translateY(0px) scale(0.85);
       }
       50% {
-        transform: translateY(-5px);
+        transform: translateY(-5px) scale(0.85);
       }
       100% {
-        transform: translateY(0px);
+        transform: translateY(0px) scale(0.85);
       }
     }
 
@@ -358,28 +377,38 @@ const KakaoNotificationButton = styled.a`
 
   @media (max-width: 768px) {
     font-size: 0.7rem;
-    padding: 4px 10px;
-    top: 25px;
-    left: 50%;
+    padding: 4px 8px;
+    top: 40px;
+    left: auto;
+    right: 0;
+    width: 140px;
   }
 `;
 
 // Problem Section
 const ProblemSection = styled.section`
-  padding: 5rem 2rem;
+  ${SectionBase}
   background-color: ${colors.primaryBg};
   text-align: center;
+  
+  @media (max-width: 768px) {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
 `;
 
 const SectionTitle = styled.h2`
   font-size: 2.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
   color: ${colors.primary};
   margin-bottom: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
   font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
-    font-size: 2rem;
+    font-size: 1.8rem;
+    padding: 0 10px;
   }
 `;
 
@@ -392,8 +421,9 @@ const NewsCardDeck = styled.div`
   perspective: 1000px;
 
   @media (max-width: 768px) {
-    width: 340px;
-    height: 330px;
+    width: 320px;
+    height: 380px;
+    margin-bottom: 2rem;
   }
 `;
 
@@ -504,6 +534,10 @@ const CardTitle = styled.h3`
     height: 1px;
     background-color: rgba(0, 0, 0, 0.1);
   }
+  
+  @media (max-width: 768px) {
+    font-size: 1.2rem;
+  }
 `;
 
 const CardMain = styled.div`
@@ -513,6 +547,12 @@ const CardMain = styled.div`
   min-height: 0;
   margin-bottom: 0;
   height: 140px; /* Specifically set the height to match the image */
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 0.8rem;
+    height: auto;
+  }
 `;
 
 const CardImage = styled.div<{ imageUrl: string }>`
@@ -526,6 +566,12 @@ const CardImage = styled.div<{ imageUrl: string }>`
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
   /* Newspaper style image treatment */
   filter: grayscale(10%) contrast(1.1) brightness(1.05);
+  
+  @media (max-width: 768px) {
+    width: 100%;
+    min-width: 100%;
+    height: 120px;
+  }
 `;
 
 const CardText = styled.p`
@@ -568,6 +614,12 @@ const SolutionStatement = styled.p`
   font-weight: 600;
   margin-bottom: 2rem;
   font-family: "Noto Sans KR", sans-serif;
+  
+  @media (max-width: 768px) {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+    padding: 0 15px;
+  }
 `;
 
 // Common style utilities
@@ -591,7 +643,7 @@ const flexCenter = css`
 
 // Features Section
 const FeaturesSection = styled.section`
-  padding: 5rem 2rem;
+  ${SectionBase}
   background-color: white;
   text-align: center;
 `;
@@ -599,243 +651,180 @@ const FeaturesSection = styled.section`
 // Feature slider layout with common utilities
 const FeatureSlider = styled.div`
   ${flexCenter}
-  gap: 2rem;
+  gap: 1.5rem;
   padding: 2rem 0;
-  margin: 0 auto 3rem;
+  margin: 0 auto;
   max-width: 850px;
   overflow: visible;
   will-change: contents;
+  height: 450px; /* Add fixed height */
 
   ${media.mobile`
     flex-direction: column;
     gap: 1.5rem;
+    height: auto; /* Allow height to adjust on mobile */
+    padding: 1rem 0;
   `}
 `;
 
-// Make isActive optional with a default value
-interface FeatureCardProps {
-  isActive?: boolean;
-}
-
-const FeatureCard = styled.div<FeatureCardProps>`
-  width: ${(props) => (props.isActive ? "300px" : "200px")};
-  min-height: ${(props) => (props.isActive ? "350px" : "300px")};
+// Styled image that will act as a feature card
+const FeatureCard = styled.img<{ isActive?: boolean }>`
+  width: ${(props) => (props.isActive ? "280px" : "240px")};
   height: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background-color: ${colors.primaryBg};
-  border-radius: 15px;
-  padding: 2rem 1rem;
-  box-shadow: ${(props) =>
-    props.isActive
-      ? "0 15px 30px rgba(0, 0, 0, 0.25)"
-      : "0 10px 20px rgba(0, 0, 0, 0.15)"};
-  text-align: center;
-  transition: all 0.4s ease-out;
-  border: 1px solid
-    ${(props) => (props.isActive ? colors.accent : colors.primary)};
-  opacity: ${(props) => (props.isActive ? 1 : 0.7)};
-  transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(0.94)")};
-  z-index: ${(props) => (props.isActive ? 10 : 1)};
-  overflow: visible;
-  position: relative;
   cursor: pointer;
-  will-change: transform, opacity, box-shadow, width, height;
-  transform-origin: center center;
-  backface-visibility: hidden;
-  perspective: 1000px;
-
+  transition: all 0.3s ease-out;
+  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.15));
+  opacity: ${(props) => (props.isActive ? 1 : 0.85)};
+  transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(1)")};
+  will-change: transform, opacity, filter;
+  
   &:hover {
-    transform: ${(props) =>
-      props.isActive
-        ? "scale(1.05) translateY(-10px)"
-        : "translateY(-10px) scale(0.96)"};
-    box-shadow: ${(props) =>
-      props.isActive
-        ? "0 18px 35px rgba(0, 0, 0, 0.3)"
-        : "0 12px 25px rgba(0, 0, 0, 0.2)"};
+    transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(1.02)")};
+    filter: drop-shadow(0 15px 20px rgba(0, 0, 0, 0.2));
   }
-
+  
   @media (max-width: 768px) {
-    width: 100%;
-    max-width: 320px;
-    height: auto;
-    min-height: ${(props) => (props.isActive ? "380px" : "330px")};
-    transform: ${(props) => (props.isActive ? "scale(1.02)" : "scale(0.98)")};
-    margin-bottom: 1.5rem;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
+    width: ${(props) => (props.isActive ? "280px" : "250px")};
+    margin-bottom: 0.5rem;
+    transform: ${(props) => (props.isActive ? "scale(1.02)" : "scale(1)")};
   }
 `;
 
-// Add default props
-FeatureCard.defaultProps = {
-  isActive: false,
-};
-
-const FeatureImage = styled.img`
-  width: ${(props) => (props.theme.isActive ? "220px" : "180px")};
-  margin: 0.5rem 0 1.5rem;
-  object-fit: contain;
-  transition: transform 0.3s ease-out, width 0.3s ease-out;
-  transform: ${(props) =>
-    props.theme.isHovered ? "translateY(-5px)" : "translateY(0)"};
-  will-change: transform, width;
-  transform-style: preserve-3d;
-`;
-
-const FeatureTitle = styled.h3`
-  font-size: ${(props) => (props.theme.isActive ? "1.6rem" : "1.4rem")};
-  color: ${(props) => (props.theme.isHovered ? colors.accent : colors.primary)};
-  margin-bottom: 1rem;
-  font-family: "Noto Sans KR", sans-serif;
-  text-align: center;
-  transition: font-size 0.3s ease-out, color 0.2s ease-out;
-  will-change: font-size, color;
-`;
-
-const FeatureDescription = styled.p`
-  color: ${colors.text.medium};
-  line-height: 1.6;
-  font-family: "Noto Sans KR", sans-serif;
-  text-align: center;
-  font-size: ${(props) => (props.theme.isActive ? "1rem" : "0.9rem")};
-  transition: font-size 0.3s ease-out;
-  will-change: font-size;
-`;
-
-const FeatureCTA = styled.p`
-  font-size: 1.2rem;
+const SectionSubText = styled.p`
+  font-size: 1rem;
   color: ${colors.primary};
   font-weight: 600;
-  margin-top: 2rem;
+  margin-top: 1rem;
   font-family: "Noto Sans KR", sans-serif;
+  
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
 `;
 
 // Pricing Section with Coffee Cup design
 const PricingSection = styled.section`
-  padding: 5rem 2rem;
-  background-color: ${colors.primaryBg};
+  ${SectionBase}
+  min-height: 600px;
+  background: linear-gradient(to bottom, 
+    ${colors.primaryBg} 0%, 
+    ${colors.primaryBg} 60%, 
+    rgba(243, 111, 32, 0.1) 80%, 
+    rgba(243, 111, 32, 0.2) 100%
+  );
   text-align: center;
+  padding-bottom: 200px; /* Space for the cup and gradient */
   position: relative;
-  overflow: hidden;
-`;
-
-const PricingSectionTitle = styled.h2`
-  font-size: 2.5rem;
-  color: ${colors.primary};
-  margin-bottom: 1.5rem;
-  font-weight: 700;
-  position: relative;
-  display: inline-block;
-  font-family: "Noto Sans KR", sans-serif;
-
+  
+  &::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 120%; /* Increased height to move center lower */
+    background: radial-gradient(
+      circle at center 150%, /* Moved center point lower to 90% from top */
+      #F36F20 0%, 
+      rgba(243, 111, 32, 0.8) 25%, 
+      rgba(243, 111, 32, 0.4) 50%, 
+      rgba(243, 111, 32, 0) 75%
+    );
+    z-index: 0;
+    pointer-events: none;
+  }
+  
   @media (max-width: 768px) {
-    font-size: 2rem;
+    min-height: 500px;
+    padding-bottom: 150px;
   }
 `;
 
-const PricingSubtitle = styled.p`
-  font-size: 1.5rem;
-  font-weight: 500;
-  line-height: 1.5;
-  color: ${colors.text.medium};
-  margin-bottom: 2.5rem;
-  max-width: 700px;
-  margin-left: auto;
-  margin-right: auto;
+// Replace TabButton with ActionButton for navigation
+const ActionButton = styled.a`
+  background-color: ${colors.primary};
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  margin-top: 1.5rem;
   font-family: "Noto Sans KR", sans-serif;
-`;
-
-const CoffeeCupImageContainer = styled.div`
   position: relative;
-  width: 150px;
-  margin: 0 auto 2rem;
-`;
+  z-index: 3;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 
-const CoffeeCupImg = styled.img`
-  width: 100%;
-  filter: drop-shadow(0 10px 15px rgba(44, 24, 16, 0.2));
-`;
-
-const SteamAnimation = styled.div`
-  position: absolute;
-  top: 0;
-  left: 30px;
-  right: 30px;
-
-  &::before,
   &::after {
     content: "";
     position: absolute;
-    width: 8px;
-    height: 25px;
-    background: white;
-    border-radius: 50%;
-    animation: steam 3s infinite ease-out;
-    opacity: 0;
-    filter: blur(5px);
+    top: 0;
+    left: 0;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(240, 212, 168, 0.1) 35%,
+      rgba(200, 162, 122, 0.1) 50%,
+      rgba(240, 212, 168, 0.1) 65%,
+      transparent 100%
+    );
+    transform: translateX(-180%);
+    animation: buttonShimmer 4s ease-in-out infinite;
+    pointer-events: none;
   }
 
-  &::before {
-    left: 15px;
-    animation-delay: 0.3s;
-  }
-
-  &::after {
-    right: 15px;
-    animation-delay: 0.6s;
-    height: 35px;
-  }
-
-  @keyframes steam {
+  @keyframes buttonShimmer {
     0% {
-      transform: translateY(0) scaleX(1);
-      opacity: 0;
-    }
-    15% {
-      opacity: 0.8;
-    }
-    50% {
-      transform: translateY(-20px) scaleX(1.2);
-      opacity: 0.4;
+      transform: translateX(-180%);
     }
     100% {
-      transform: translateY(-40px) scaleX(0.6);
-      opacity: 0;
+      transform: translateX(280%);
     }
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.9rem;
+    margin-top: 1rem;
   }
 `;
 
-const PricingTabs = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 3rem;
-`;
-
-const TabButton = styled.button<{ active: boolean }>`
-  background-color: ${(props) => (props.active ? colors.primary : "white")};
-  color: ${(props) => (props.active ? "white" : colors.primary)};
-  border: 2px solid ${colors.primary};
-  padding: 0.8rem 1.5rem;
-  border-radius: 50px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:hover {
-    background-color: ${(props) =>
-      props.active ? colors.primaryDark : colors.primaryPale};
+const CircleCupImage = styled.img`
+  width: 200px;
+  height: auto;
+  filter: drop-shadow(0 5px 25px rgba(0, 0, 0, 0.4));
+  position: absolute;
+  bottom: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  
+  @media (max-width: 768px) {
+    width: 150px;
+    bottom: 0px;
   }
 `;
 
 // FAQ Section
 const FAQSection = styled.section`
-  padding: 5rem 2rem;
+  ${SectionBase}
   background-color: white;
   text-align: center;
 `;
@@ -843,6 +832,10 @@ const FAQSection = styled.section`
 const FAQContainer = styled.div`
   max-width: 800px;
   margin: 0 auto;
+  
+  @media (max-width: 768px) {
+    padding: 0 15px;
+  }
 `;
 
 const FAQItem = styled.div`
@@ -850,6 +843,10 @@ const FAQItem = styled.div`
   border: 1px solid ${colors.primaryPale};
   border-radius: 10px;
   overflow: hidden;
+  
+  @media (max-width: 768px) {
+    margin-bottom: 1rem;
+  }
 `;
 
 interface FAQQuestionProps {
@@ -871,6 +868,15 @@ const FAQQuestion = styled.div<FAQQuestionProps>`
     content: "${(props) => (props.isOpen ? "−" : "+")}";
     font-size: 1.5rem;
   }
+  
+  @media (max-width: 768px) {
+    padding: 1rem;
+    font-size: 0.9rem;
+    
+    &::after {
+      font-size: 1.2rem;
+    }
+  }
 `;
 
 interface FAQAnswerProps {
@@ -885,6 +891,12 @@ const FAQAnswer = styled.div<FAQAnswerProps>`
   color: ${colors.text.medium};
   line-height: 1.6;
   font-family: "Noto Sans KR", sans-serif;
+  
+  @media (max-width: 768px) {
+    padding: ${(props) => (props.isOpen ? "1rem" : "0 1rem")};
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
 `;
 
 // Define styled component for page wrapper
@@ -897,12 +909,10 @@ const PageWrapper = styled.div`
 
 // MeetupSection styled component
 const MeetupSection = styled.section`
+  ${SectionBase}
   background-color: #181818;
   color: white;
-  padding: 4rem 2rem;
   text-align: center;
-  position: relative;
-  overflow: hidden;
 
   &::before {
     content: "";
@@ -973,6 +983,12 @@ const MeetupTitle = styled.h2`
     100% {
       transform: translateX(100%);
     }
+  }
+  
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+    padding: 0 15px;
+    margin-bottom: 1rem;
   }
 `;
 
@@ -1064,6 +1080,17 @@ const MeetupSubtitle = styled.p`
       transform: translateY(-20px);
     }
   }
+  
+  @media (max-width: 768px) {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    padding: 0 10px;
+    
+    .changing-text-wrapper {
+      height: 1.6em;
+    }
+  }
 `;
 
 const MeetupImageContainer = styled.div`
@@ -1095,6 +1122,25 @@ const MeetupImageContainer = styled.div`
   &:hover::after {
     opacity: 1;
   }
+  
+  /* Add hover effect directly here */
+  &:hover img {
+    transform: translateY(-105px);
+  }
+  
+  @media (max-width: 768px) {
+    max-width: 320px;
+    max-height: 200px;
+    border-radius: 50px;
+    
+    &::after {
+      border-radius: 50px;
+    }
+    
+    &:hover img {
+      transform: translateY(-65px);
+    }
+  }
 `;
 
 const MeetupImage = styled.img`
@@ -1104,9 +1150,9 @@ const MeetupImage = styled.img`
   transform: translateY(-100px);
   transition: transform 0.3s ease;
   will-change: transform;
-
-  ${MeetupImageContainer}:hover & {
-    transform: translateY(-105px);
+  
+  @media (max-width: 768px) {
+    transform: translateY(-60px);
   }
 `;
 
@@ -1141,6 +1187,11 @@ const MeetupComingSoon = styled.h3`
       transform: translateY(0);
     }
   }
+  
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
 `;
 
 const MeetupButton = styled.button`
@@ -1166,10 +1217,14 @@ const MeetupButton = styled.button`
     transform: translateY(-3px);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   }
+  
+  @media (max-width: 768px) {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+  }
 `;
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"IT" | "Business">("IT");
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -1178,7 +1233,6 @@ export default function Home() {
   );
   const [isPaused, setIsPaused] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
-  const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
   // Reference to store the timer ID
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -1325,7 +1379,7 @@ export default function Home() {
     };
 
     // Start the automatic rotation with a longer interval to reduce strain
-    featureTimerRef.current = setInterval(rotateFeatures, 15000);
+    featureTimerRef.current = setInterval(rotateFeatures, 5000);
 
     // Initial card highlight
     setActiveFeature(0);
@@ -1342,7 +1396,7 @@ export default function Home() {
       if (featureTimerRef.current) {
         clearInterval(featureTimerRef.current);
       }
-      featureTimerRef.current = setInterval(rotateFeatures, 15000);
+      featureTimerRef.current = setInterval(rotateFeatures, 5000);
     };
 
     // Add event listeners to the feature slider
@@ -1369,30 +1423,21 @@ export default function Home() {
         featureSlider.removeEventListener("touchend", resumeRotation);
       }
     };
-  }, []);
+  }, [setActiveFeature]); // Add dependency to fix linter warning
 
-  // Define feature cards data
+  // Feature card images
   const featureCards = [
     {
-      title: "최신 영어 토픽",
-      image: featureImg01,
+      image: featureCard1,
       alt: "최신 영어 토픽",
-      description:
-        "Fortune 500 기업 임원들이 가장 즐겨 읽는 Wall Street Journal, Financial Times에서 이 순간 가장 핫한 영어 토픽을 기반으로 콘텐츠를 제작합니다.",
     },
     {
-      title: "속독 모드",
-      image: featureImg02,
+      image: featureCard2,
       alt: "속독 모드",
-      description:
-        "본문을 쉽게 읽을 수 있도록 도와주는 속독 모드로 빠르게 내용을 파악할 수 있습니다.",
     },
     {
-      title: "한글 번역 및 단어 정리",
-      image: featureImg03,
+      image: featureCard3,
       alt: "한글 번역 및 단어 정리",
-      description:
-        "한글 번역 및 주요 단어 정리까지 제공하여 더욱 효과적인 학습이 가능합니다.",
     },
   ];
 
@@ -1405,8 +1450,7 @@ export default function Home() {
         <HeroContent>
           <HeroTextContent>
             <HeroTitle>영어 한잔</HeroTitle>
-            <HeroSubtitle>매일 아침 영어 한잔으로</HeroSubtitle>
-            <HeroSubtitle>배우는 비즈니스 영어</HeroSubtitle>
+            <HeroSubtitle>매일 아침 영어 한잔으로<br />배우는 비즈니스 영어</HeroSubtitle>
           </HeroTextContent>
 
           <HeroImagesWrapper>
@@ -1485,66 +1529,50 @@ export default function Home() {
 
       {/* Features Section */}
       <FeaturesSection>
-        <SectionTitle>하루 5분, 내 영어 실력을 바꾸는 시간</SectionTitle>
+        <SectionTitle>
+          30일 하루 5분,
+          <span style={{ fontWeight: 600 }}> 내 영어 실력을 바꾸는 시간</span>
+        </SectionTitle>
         <FeatureSlider className="feature-slider">
           {featureCards.map((card, index) => (
             <FeatureCard
               key={index}
+              src={card.image}
+              alt={card.alt}
               isActive={activeFeature === index}
               onClick={() => setActiveFeature(index)}
-              onMouseEnter={() => {
-                setActiveFeature(index);
-                setHoveredFeature(index);
-              }}
-              onMouseLeave={() => setHoveredFeature(null)}
-            >
-              <ThemeProvider
-                theme={{
-                  isActive: activeFeature === index,
-                  isHovered: hoveredFeature === index,
-                }}
-              >
-                <FeatureTitle>{card.title}</FeatureTitle>
-                <FeatureImage src={card.image} alt={card.alt} />
-                <FeatureDescription>{card.description}</FeatureDescription>
-              </ThemeProvider>
-            </FeatureCard>
+              onMouseEnter={() => setActiveFeature(index)}
+            />
           ))}
         </FeatureSlider>
-        <FeatureCTA>
-          하루 5분으로 영어 실력과 글로벌 감각을 동시에 키워보세요!
-        </FeatureCTA>
+        <SectionSubText>
+        * IT/비즈니스 중 관심분야 택1
+        </SectionSubText>
       </FeaturesSection>
 
       {/* Pricing Section */}
       <PricingSection>
-        <PricingSectionTitle>
-          이 모든 것을 아메리카노 가격에 연동
-        </PricingSectionTitle>
-        <PricingTabs>
-          <TabButton
-            active={activeTab === "IT"}
-            onClick={() => setActiveTab("IT")}
-          >
-            IT
-          </TabButton>
-          <TabButton
-            active={activeTab === "Business"}
-            onClick={() => setActiveTab("Business")}
-          >
-            Business
-          </TabButton>
-        </PricingTabs>
-        <CoffeeCupImageContainer>
-          <CoffeeCupImg src={coffeeTakeout} alt="Coffee Cup" />
-          <SteamAnimation />
-        </CoffeeCupImageContainer>
-        <PricingSubtitle>4,500원으로 30일 간 마음껏 즐기세요.</PricingSubtitle>
+        <div style={{ position: "relative", zIndex: 3 }}>
+          <SectionTitle>
+            <span style={{ fontWeight: 600 }}>이 모든 것을 </span>          
+            커피 한 잔 가격으로<br />
+            30일간
+            <span style={{ fontWeight: 600 }}> 마음껏 누리세요</span>
+          </SectionTitle>
+          
+          <ActionButton href="/subscribe" target="_blank">
+            월 4,700원에 시작하기
+          </ActionButton>
+
+        </div>
+        
+        {/* Cup image positioned over the gradient */}
+        <CircleCupImage src={oneCupCup} alt="1 Cup English Cup" />
       </PricingSection>
 
       {/* Meetup Section */}
       <MeetupSection>
-        <MeetupTitle>AI 시대, 찐 커뮤니케이션 실력이 중요합니다</MeetupTitle>
+        <MeetupTitle>오히려 대면 커뮤니케이션이 중요해진 AI 시대</MeetupTitle>
         <MeetupSubtitle>
           <span>영어로</span>
           <span className="changing-text-wrapper">
