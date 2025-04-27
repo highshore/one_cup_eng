@@ -1,8 +1,5 @@
 import { useState } from "react";
-import styled, {
-  createGlobalStyle,
-  css,
-} from "styled-components";
+import styled, { createGlobalStyle, css } from "styled-components";
 import React from "react";
 import GNB from "../components/gnb";
 import Footer from "../components/footer";
@@ -53,7 +50,7 @@ const SectionBase = css`
   padding: 5rem 2rem;
   position: relative;
   overflow: hidden;
-  
+
   @media (max-width: 768px) {
     padding: 3rem 1rem;
   }
@@ -74,7 +71,7 @@ const HeroSection = styled.section<{ backgroundImage: string }>`
   justify-content: center;
 
   @media (max-width: 768px) {
-    min-height: 80vh;
+    min-height: 600px;
     background-size: cover;
     padding: 4rem 0;
   }
@@ -174,9 +171,7 @@ const WSTPaperImage = styled.img`
   z-index: 0;
 
   @media (max-width: 768px) {
-    width: 300px;
-    left: 20px;
-    bottom: -80px;
+    display: none;
   }
 `;
 
@@ -189,9 +184,7 @@ const CoffeeImage = styled.img`
   z-index: 1;
 
   @media (max-width: 768px) {
-    width: 150px;
-    right: 20px;
-    bottom: 60px;
+    display: none;
   }
 `;
 
@@ -247,11 +240,9 @@ const CoffeeSteam = styled.div`
       opacity: 0;
     }
   }
-  
+
   @media (max-width: 768px) {
-    right: 140px;
-    bottom: 200px;
-    transform: scale(0.7);
+    display: none;
   }
 `;
 
@@ -261,6 +252,7 @@ const KakaoContainer = styled.div`
   top: 20px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 10px;
   z-index: 3;
   animation: floatingKakao 5s ease-in-out infinite;
@@ -279,27 +271,31 @@ const KakaoContainer = styled.div`
   }
 
   .kakao-logo-wrapper {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
     animation: floatingLogo 6s ease-in-out infinite;
     will-change: transform;
   }
 
   @media (max-width: 768px) {
-    right: 10px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
     top: 10px;
-    gap: 8px;
-    transform: scale(0.85);
-    transform-origin: top right;
+    gap: 12px;
+    transform-origin: center top;
     animation-duration: 4s;
 
     @keyframes floatingKakao {
       0% {
-        transform: translateY(0px) scale(0.85);
+        transform: translateX(-50%) translateY(0px) scale(0.85);
       }
       50% {
-        transform: translateY(-5px) scale(0.85);
+        transform: translateX(-50%) translateY(-5px) scale(0.85);
       }
       100% {
-        transform: translateY(0px) scale(0.85);
+        transform: translateX(-50%) translateY(0px) scale(0.85);
       }
     }
 
@@ -316,13 +312,16 @@ const KakaoIcon = styled.img<{ isNotification?: boolean }>`
   transition: transform 0.3s ease;
 
   @media (max-width: 768px) {
-    max-width: ${(props) => (props.isNotification ? "70px" : "50px")};
+    ${(props) => !props.isNotification && "align-self: flex-start;"}
+    max-width: ${(props) => (props.isNotification ? "300px" : "100px")};
   }
 `;
 
 const KakaoNotificationContainer = styled.div`
   position: relative;
-  display: inline-block;
+  display: flex;
+  justify-content: center;
+  width: 100%;
   animation: fadeInOut 10s ease-in-out infinite;
   opacity: 0;
 
@@ -341,7 +340,8 @@ const KakaoNotificationContainer = styled.div`
 const KakaoNotificationButton = styled.a`
   position: absolute;
   top: 110px;
-  left: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   background-color: #181818;
   color: white;
   border: none;
@@ -371,17 +371,16 @@ const KakaoNotificationButton = styled.a`
   }
 
   &:active {
-    transform: translateY(-1px);
+    transform: translateX(-50%) translateY(-1px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   }
 
   @media (max-width: 768px) {
-    font-size: 0.7rem;
-    padding: 4px 8px;
-    top: 40px;
-    left: auto;
-    right: 0;
-    width: 140px;
+    font-size: 1.2rem;
+    padding: 12px 20px;
+    border-radius: 20px;
+    top: 130px;
+    width: 280px;
   }
 `;
 
@@ -390,7 +389,7 @@ const ProblemSection = styled.section`
   ${SectionBase}
   background-color: ${colors.primaryBg};
   text-align: center;
-  
+
   @media (max-width: 768px) {
     padding-top: 4rem;
     padding-bottom: 4rem;
@@ -409,216 +408,6 @@ const SectionTitle = styled.h2`
   @media (max-width: 768px) {
     font-size: 1.8rem;
     padding: 0 10px;
-  }
-`;
-
-// Adding card deck related components
-const NewsCardDeck = styled.div`
-  position: relative;
-  width: 480px;
-  height: 350px;
-  margin: 0 auto 3rem;
-  perspective: 1000px;
-
-  @media (max-width: 768px) {
-    width: 320px;
-    height: 380px;
-    margin-bottom: 2rem;
-  }
-`;
-
-interface CardProps {
-  index: number;
-  isActive: boolean;
-  isDragging: boolean;
-  totalCards: number;
-  zIndex: number;
-}
-
-const NewsCard = styled.div<CardProps>`
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background-color: #f9f7f1; /* Off-white newspaper color */
-  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23e6e0d4' fill-opacity='0.2' fill-rule='evenodd'/%3E%3C/svg%3E");
-  border-radius: 10px;
-  box-shadow: ${(props) =>
-    props.isDragging
-      ? "0 30px 50px rgba(0, 0, 0, 0.25)"
-      : props.isActive
-      ? "0 10px 20px rgba(0, 0, 0, 0.15)"
-      : "0 2px 8px rgba(0, 0, 0, 0.08)"};
-  padding: 1.5rem 1.5rem 0.8rem;
-  backface-visibility: hidden;
-  transform-origin: center bottom;
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.3s ease;
-  cursor: pointer;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transform: ${(props) =>
-    props.isDragging
-      ? `translateY(150px) translateX(10px) rotate(10deg) scale(0.9)`
-      : `translateY(${props.index * 2}px) rotate(${props.index * 0.8}deg)`};
-  opacity: 1;
-  z-index: ${(props) => (props.isDragging ? 1000 : props.zIndex)};
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  will-change: transform;
-
-  &:hover {
-    transform: ${(props) =>
-      props.isActive && !props.isDragging
-        ? `translateY(${props.index * 2 - 5}px) rotate(${props.index * 0.8}deg)`
-        : props.isDragging
-        ? `translateY(150px) translateX(10px) rotate(10deg) scale(0.9)`
-        : `translateY(${props.index * 2}px) rotate(${props.index * 0.8}deg)`};
-  }
-
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 5px;
-    background-color: #1a1a1a;
-  }
-`;
-
-const CardWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-`;
-
-const CardSource = styled.div`
-  font-family: "Georgia", serif;
-  font-weight: 700;
-  color: #1a1a1a;
-  font-size: 1.1rem;
-  text-transform: uppercase;
-  text-align: center;
-  margin-bottom: 0.8rem;
-  position: relative;
-  padding-bottom: 0.5rem;
-
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 25%;
-    right: 25%;
-    height: 1px;
-    background-color: #424242;
-  }
-`;
-
-const CardTitle = styled.h3`
-  font-family: "Noto Sans KR", sans-serif;
-  font-size: 1.4rem;
-  color: #1a1a1a;
-  margin-bottom: 1rem;
-  font-weight: 800;
-  line-height: 1.3;
-  letter-spacing: -0.03em;
-  text-align: left;
-  position: relative;
-
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: -0.5rem;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background-color: rgba(0, 0, 0, 0.1);
-  }
-  
-  @media (max-width: 768px) {
-    font-size: 1.2rem;
-  }
-`;
-
-const CardMain = styled.div`
-  display: flex;
-  gap: 1.2rem;
-  flex: 1 1 auto;
-  min-height: 0;
-  margin-bottom: 0;
-  height: 140px; /* Specifically set the height to match the image */
-  
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 0.8rem;
-    height: auto;
-  }
-`;
-
-const CardImage = styled.div<{ imageUrl: string }>`
-  width: 140px;
-  min-width: 140px;
-  height: 140px;
-  background-image: url(${(props) => props.imageUrl});
-  background-size: cover;
-  background-position: center;
-  border-radius: 10px;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
-  /* Newspaper style image treatment */
-  filter: grayscale(10%) contrast(1.1) brightness(1.05);
-  
-  @media (max-width: 768px) {
-    width: 100%;
-    min-width: 100%;
-    height: 120px;
-  }
-`;
-
-const CardText = styled.p`
-  text-align: left;
-  font-family: "Georgia", serif;
-  font-size: 0.95rem;
-  color: #444;
-  line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  margin: 0;
-
-  /* Newspaper-style first letter */
-  &::first-letter {
-    font-size: 1.2em;
-    font-weight: 600;
-  }
-
-  /* Add hyphenation for newspaper feel */
-  hyphens: auto;
-`;
-
-const CardDate = styled.div`
-  font-family: "Georgia", serif;
-  font-size: 0.8rem;
-  color: #666;
-  letter-spacing: 0.5px;
-  text-align: right;
-  padding-right: 0.2rem;
-  margin-top: 0.3rem;
-  font-style: italic;
-`;
-
-const SolutionStatement = styled.p`
-  font-size: 1.5rem;
-  color: ${colors.primary};
-  font-weight: 600;
-  margin-bottom: 2rem;
-  font-family: "Noto Sans KR", sans-serif;
-  
-  @media (max-width: 768px) {
-    font-size: 1.2rem;
-    margin-bottom: 1.5rem;
-    padding: 0 15px;
   }
 `;
 
@@ -677,12 +466,12 @@ const FeatureCard = styled.img<{ isActive?: boolean }>`
   opacity: ${(props) => (props.isActive ? 1 : 0.85)};
   transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(1)")};
   will-change: transform, opacity, filter;
-  
+
   &:hover {
     transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(1.02)")};
     filter: drop-shadow(0 15px 20px rgba(0, 0, 0, 0.2));
   }
-  
+
   @media (max-width: 768px) {
     width: ${(props) => (props.isActive ? "280px" : "250px")};
     margin-bottom: 0.5rem;
@@ -696,7 +485,7 @@ const SectionSubText = styled.p`
   font-weight: 600;
   margin-top: 1rem;
   font-family: "Noto Sans KR", sans-serif;
-  
+
   @media (max-width: 768px) {
     font-size: 0.9rem;
     margin-top: 0.5rem;
@@ -707,16 +496,17 @@ const SectionSubText = styled.p`
 const PricingSection = styled.section`
   ${SectionBase}
   min-height: 600px;
-  background: linear-gradient(to bottom, 
-    ${colors.primaryBg} 0%, 
-    ${colors.primaryBg} 60%, 
-    rgba(243, 111, 32, 0.1) 80%, 
+  background: linear-gradient(
+    to bottom,
+    ${colors.primaryBg} 0%,
+    ${colors.primaryBg} 60%,
+    rgba(243, 111, 32, 0.1) 80%,
     rgba(243, 111, 32, 0.2) 100%
   );
   text-align: center;
   padding-bottom: 200px; /* Space for the cup and gradient */
   position: relative;
-  
+
   &::before {
     content: "";
     position: absolute;
@@ -725,16 +515,16 @@ const PricingSection = styled.section`
     right: 0;
     height: 120%; /* Increased height to move center lower */
     background: radial-gradient(
-      circle at center 150%, /* Moved center point lower to 90% from top */
-      #F36F20 0%, 
-      rgba(243, 111, 32, 0.8) 25%, 
-      rgba(243, 111, 32, 0.4) 50%, 
+      circle at center 150%,
+      /* Moved center point lower to 90% from top */ #f36f20 0%,
+      rgba(243, 111, 32, 0.8) 25%,
+      rgba(243, 111, 32, 0.4) 50%,
       rgba(243, 111, 32, 0) 75%
     );
     z-index: 0;
     pointer-events: none;
   }
-  
+
   @media (max-width: 768px) {
     min-height: 500px;
     padding-bottom: 150px;
@@ -798,7 +588,7 @@ const ActionButton = styled.a`
     transform: translateY(0);
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   }
-  
+
   @media (max-width: 768px) {
     padding: 0.7rem 1.2rem;
     font-size: 0.9rem;
@@ -815,7 +605,7 @@ const CircleCupImage = styled.img`
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
-  
+
   @media (max-width: 768px) {
     width: 150px;
     bottom: 0px;
@@ -832,7 +622,7 @@ const FAQSection = styled.section`
 const FAQContainer = styled.div`
   max-width: 800px;
   margin: 0 auto;
-  
+
   @media (max-width: 768px) {
     padding: 0 15px;
   }
@@ -843,7 +633,7 @@ const FAQItem = styled.div`
   border: 1px solid ${colors.primaryPale};
   border-radius: 10px;
   overflow: hidden;
-  
+
   @media (max-width: 768px) {
     margin-bottom: 1rem;
   }
@@ -868,11 +658,11 @@ const FAQQuestion = styled.div<FAQQuestionProps>`
     content: "${(props) => (props.isOpen ? "−" : "+")}";
     font-size: 1.5rem;
   }
-  
+
   @media (max-width: 768px) {
     padding: 1rem;
     font-size: 0.9rem;
-    
+
     &::after {
       font-size: 1.2rem;
     }
@@ -891,7 +681,7 @@ const FAQAnswer = styled.div<FAQAnswerProps>`
   color: ${colors.text.medium};
   line-height: 1.6;
   font-family: "Noto Sans KR", sans-serif;
-  
+
   @media (max-width: 768px) {
     padding: ${(props) => (props.isOpen ? "1rem" : "0 1rem")};
     font-size: 0.9rem;
@@ -984,7 +774,7 @@ const MeetupTitle = styled.h2`
       transform: translateX(100%);
     }
   }
-  
+
   @media (max-width: 768px) {
     font-size: 1.8rem;
     padding: 0 15px;
@@ -1080,13 +870,13 @@ const MeetupSubtitle = styled.p`
       transform: translateY(-20px);
     }
   }
-  
+
   @media (max-width: 768px) {
     font-size: 1.2rem;
     line-height: 1.6;
     margin-bottom: 1.5rem;
     padding: 0 10px;
-    
+
     .changing-text-wrapper {
       height: 1.6em;
     }
@@ -1122,21 +912,21 @@ const MeetupImageContainer = styled.div`
   &:hover::after {
     opacity: 1;
   }
-  
+
   /* Add hover effect directly here */
   &:hover img {
     transform: translateY(-105px);
   }
-  
+
   @media (max-width: 768px) {
     max-width: 320px;
     max-height: 200px;
     border-radius: 50px;
-    
+
     &::after {
       border-radius: 50px;
     }
-    
+
     &:hover img {
       transform: translateY(-65px);
     }
@@ -1150,7 +940,7 @@ const MeetupImage = styled.img`
   transform: translateY(-100px);
   transition: transform 0.3s ease;
   will-change: transform;
-  
+
   @media (max-width: 768px) {
     transform: translateY(-60px);
   }
@@ -1187,7 +977,7 @@ const MeetupComingSoon = styled.h3`
       transform: translateY(0);
     }
   }
-  
+
   @media (max-width: 768px) {
     font-size: 1.8rem;
     margin-bottom: 1rem;
@@ -1217,7 +1007,7 @@ const MeetupButton = styled.button`
     transform: translateY(-3px);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   }
-  
+
   @media (max-width: 768px) {
     padding: 0.6rem 1.2rem;
     font-size: 0.9rem;
@@ -1226,123 +1016,10 @@ const MeetupButton = styled.button`
 
 export default function Home() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
-  const [activeCardIndex, setActiveCardIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [previousCardIndex, setPreviousCardIndex] = useState<number | null>(
-    null
-  );
-  const [isPaused, setIsPaused] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
 
   // Reference to store the timer ID
-  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  // Sample news data - replace with your actual content
-  const newsCards = [
-    {
-      date: "2024-12-21",
-      title: "트럼프, EU에 미국산 석유와 가스를 구매하지 않으면 관세 경고",
-      content:
-        "Donald Trump emphasizes the necessity for the European Union to address its significant trade imbalance with the United States, urging European leaders to boost their purchases of American oil and gas to avoid punitive tariffs.",
-      source: "Wall Street Journal",
-      image:
-        "https://images.unsplash.com/photo-1580128660010-fd027e1e587a?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&h=400&q=80",
-    },
-    {
-      date: "2024-12-02",
-      title: "오픈AI, 사용자 수 10억 명 노린다",
-      content:
-        "Adding momentum to OpenAI's aspirations, SoftBank Group Corp is preparing to enhance its stake in the company with a substantial investment potentially reaching $1.5 billion. Such financial backing signals strong confidence in OpenAI's innovative capabilities and market prospects.",
-      source: "New York Times",
-      image:
-        "https://images.unsplash.com/photo-1676299081847-824916de030a?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&h=400&q=80",
-    },
-    {
-      date: "2024-10-26",
-      title: "일론 머스크, 매출 반등 언급 후 테슬라 주가 22% 급등",
-      content:
-        "Tesla's narrative as more than just a car manufacturer continues to evolve, even as it faces skepticism regarding its ambitious robotaxi plans. Investors should remain cautious about the company's promises in this emerging sector.",
-      source: "Bloomberg",
-      image:
-        "https://images.unsplash.com/photo-1617704548623-340376564e68?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&h=400&q=80",
-    },
-    {
-      date: "2023-05-07",
-      title: "Renewable Energy Investments Surge",
-      content:
-        "Investment in renewable energy infrastructure has reached record levels this quarter. Analysts project this trend will continue as countries pursue ambitious climate goals.",
-      source: "Reuters",
-      image:
-        "https://images.unsplash.com/photo-1716967318503-05b7064afa41?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&h=400&q=80",
-    },
-    {
-      date: "2023-05-06",
-      title: "AI Adoption Accelerates in Finance",
-      content:
-        "Financial institutions are increasingly implementing AI solutions to streamline operations and enhance customer experiences. Early adopters report significant efficiency gains.",
-      source: "The Economist",
-      image:
-        "https://images.unsplash.com/photo-1488229297570-58520851e868?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&h=400&q=80",
-    },
-  ];
-
-  const handleCardClick = () => {
-    // Don't allow clicking if animation is in progress
-    if (isDragging) return;
-
-    // Pause the automatic animation for a while when user interacts
-    setIsPaused(true);
-
-    // Resume after 6 seconds of inactivity (2 animation cycles)
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-
-    setTimeout(() => {
-      setIsPaused(false);
-    }, 6000);
-
-    animateNextCard();
-  };
-
-  const animateNextCard = () => {
-    // Store the current active card index as the one to animate
-    setPreviousCardIndex(activeCardIndex);
-    setIsDragging(true);
-
-    // Change to next card immediately, but only animate the previous one
-    setActiveCardIndex((prevIndex) => (prevIndex + 1) % newsCards.length);
-
-    // Clear the animation state after animation completes
-    setTimeout(() => {
-      setPreviousCardIndex(null);
-      setIsDragging(false);
-    }, 500);
-  };
-
-  // Set up automatic animation
-  React.useEffect(() => {
-    // Function to handle the automatic card animation
-    const autoAnimate = () => {
-      if (!isPaused && !isDragging) {
-        animateNextCard();
-      }
-
-      // Schedule the next animation
-      timerRef.current = setTimeout(autoAnimate, 3000);
-    };
-
-    // Start the automatic animation
-    timerRef.current = setTimeout(autoAnimate, 3000);
-
-    // Cleanup function to clear the timeout when component unmounts
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, [isPaused, isDragging, activeCardIndex]);
 
   const toggleFAQ = (index: number) => {
     setOpenFAQ(openFAQ === index ? null : index);
@@ -1450,7 +1127,11 @@ export default function Home() {
         <HeroContent>
           <HeroTextContent>
             <HeroTitle>영어 한잔</HeroTitle>
-            <HeroSubtitle>매일 아침 영어 한잔으로<br />배우는 비즈니스 영어</HeroSubtitle>
+            <HeroSubtitle>
+              매일 아침 영어 한잔으로
+              <br />
+              배우는 비즈니스 영어
+            </HeroSubtitle>
           </HeroTextContent>
 
           <HeroImagesWrapper>
@@ -1484,53 +1165,14 @@ export default function Home() {
 
       {/* Problem Section */}
       <ProblemSection>
-        <SectionTitle>
-          영미권 엘리트의 관심사, 궁금하지 않으신가요?
-        </SectionTitle>
-        <SolutionStatement>
-          저희도 그랬습니다. 그래서 '영어 한잔'을 만들었습니다.
-        </SolutionStatement>
-
-        {/* Replace ProblemList with NewsCardDeck */}
-        <NewsCardDeck>
-          {newsCards.map((card, index) => {
-            // Calculate if this card should be active based on current activeCardIndex
-            const cardPosition =
-              (index - activeCardIndex + newsCards.length) % newsCards.length;
-            const isActive = cardPosition === 0;
-            // Only animate the card that was previously active
-            const isAnimating =
-              previousCardIndex !== null && index === previousCardIndex;
-
-            return (
-              <NewsCard
-                key={index}
-                index={cardPosition}
-                isActive={isActive}
-                isDragging={isAnimating}
-                totalCards={newsCards.length}
-                zIndex={newsCards.length - cardPosition}
-                onClick={isActive ? handleCardClick : undefined}
-              >
-                <CardWrapper>
-                  <CardSource>{card.source}</CardSource>
-                  <CardTitle>{card.title}</CardTitle>
-                  <CardMain>
-                    <CardImage imageUrl={card.image} />
-                    <CardText>{card.content}</CardText>
-                  </CardMain>
-                  <CardDate>{card.date}</CardDate>
-                </CardWrapper>
-              </NewsCard>
-            );
-          })}
-        </NewsCardDeck>
+        <SectionTitle>전세계 상위 1%가 가장 주목하는 토픽</SectionTitle>
       </ProblemSection>
 
       {/* Features Section */}
       <FeaturesSection>
         <SectionTitle>
           30일 하루 5분,
+          <br />
           <span style={{ fontWeight: 600 }}> 내 영어 실력을 바꾸는 시간</span>
         </SectionTitle>
         <FeatureSlider className="feature-slider">
@@ -1545,34 +1187,32 @@ export default function Home() {
             />
           ))}
         </FeatureSlider>
-        <SectionSubText>
-        * IT/비즈니스 중 관심분야 택1
-        </SectionSubText>
+        <SectionSubText>* IT/비즈니스 중 관심분야 택1</SectionSubText>
       </FeaturesSection>
 
       {/* Pricing Section */}
       <PricingSection>
         <div style={{ position: "relative", zIndex: 3 }}>
           <SectionTitle>
-            <span style={{ fontWeight: 600 }}>이 모든 것을 </span>          
-            커피 한 잔 가격으로<br />
+            <span style={{ fontWeight: 600 }}>이 모든 것을 </span>
+            커피 한 잔 가격으로
+            <br />
             30일간
             <span style={{ fontWeight: 600 }}> 마음껏 누리세요</span>
           </SectionTitle>
-          
+
           <ActionButton href="/subscribe" target="_blank">
             월 4,700원에 시작하기
           </ActionButton>
-
         </div>
-        
+
         {/* Cup image positioned over the gradient */}
         <CircleCupImage src={oneCupCup} alt="1 Cup English Cup" />
       </PricingSection>
 
       {/* Meetup Section */}
       <MeetupSection>
-        <MeetupTitle>오히려 대면 커뮤니케이션이 중요해진 AI 시대</MeetupTitle>
+        <MeetupTitle>AI 시대의 경쟁력, 대면 커뮤니케이션</MeetupTitle>
         <MeetupSubtitle>
           <span>영어로</span>
           <span className="changing-text-wrapper">
