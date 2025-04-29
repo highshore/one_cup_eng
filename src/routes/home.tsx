@@ -420,12 +420,30 @@ const ProblemImage = styled.img`
   will-change: transform, opacity;
 `;
 
+const ProblemCaption = styled.div`
+  text-align: center;
+  font-size: 1.2rem;
+  color: ${colors.text.medium};
+  font-weight: 500;
+  margin-bottom: 2rem;
+  font-family: "Noto Sans KR", sans-serif;
+
+  letter-spacing: -0.02em;
+  line-height: 1.5;
+  position: relative;
+  
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+`;
+
 const SectionTitle = styled.h2`
   font-size: 2.5rem;
   letter-spacing: -0.02em;
   line-height: 1.3;
   color: ${colors.primary};
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.2rem;
   font-weight: 800;
   font-family: "Noto Sans KR", sans-serif;
 
@@ -1051,8 +1069,9 @@ export default function Home() {
     const handleScroll = () => {
       if (!problemSectionRef.current) return;
 
-      const image = problemSectionRef.current.querySelector("img");
-      if (!image) return;
+      const image = problemSectionRef.current.querySelector("img") as HTMLImageElement;
+      const caption = problemSectionRef.current.querySelector(ProblemCaption) as HTMLDivElement;
+      if (!image || !caption) return;
 
       const rect = problemSectionRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
@@ -1067,10 +1086,17 @@ export default function Home() {
         // Apply the animation effect as user scrolls
         image.style.transform = `translateY(${50 - scrollProgress * 50}px)`;
         image.style.opacity = `${scrollProgress}`;
+        
+        // Animate caption to appear first, before the image
+        const captionProgress = Math.min(1, scrollProgress * 1.5);
+        caption.style.transform = `translateY(${20 - captionProgress * 20}px)`;
+        caption.style.opacity = `${captionProgress}`;
       } else {
         // Reset when out of view
         image.style.transform = "translateY(50px)";
         image.style.opacity = "0";
+        caption.style.transform = "translateY(20px)";
+        caption.style.opacity = "0";
       }
     };
 
@@ -1226,7 +1252,10 @@ export default function Home() {
 
       {/* Problem Section */}
       <ProblemSection ref={problemSectionRef}>
-        <SectionTitle>전세계 상위 1%가 가장 주목하는 토픽</SectionTitle>
+        <SectionTitle>전세계 상위 1%<span style={{ fontWeight: 600 }}>가 가장 주목하는 토픽</span></SectionTitle>
+        <ProblemCaption>
+        글로벌 임원들이 주목하는 핵심 토픽을 매일 오전 엄선해 <br />5분 만에 영어 실력과 시야를 함께 키워드립니다
+        </ProblemCaption>
         <ProblemImageContainer>
           <ProblemImage
             src={ceosImage}
