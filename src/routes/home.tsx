@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import styled, { createGlobalStyle, css } from "styled-components";
 import React from "react";
 import GNB from "../components/gnb";
@@ -14,6 +14,7 @@ import featureCard1 from "../assets/homepage/feature_card_1.png";
 import featureCard2 from "../assets/homepage/feature_card_2.png";
 import featureCard3 from "../assets/homepage/feature_card_3.png";
 import oneCupCup from "../assets/homepage/1cup_cup.png";
+import ceosImage from "../assets/homepage/ceos.png";
 
 // Add global style for Noto Sans KR font
 const GlobalStyle = createGlobalStyle`
@@ -389,11 +390,50 @@ const ProblemSection = styled.section`
   ${SectionBase}
   background-color: ${colors.primaryBg};
   text-align: center;
+  position: relative;
+  overflow: hidden;
 
   @media (max-width: 768px) {
     padding-top: 4rem;
     padding-bottom: 4rem;
   }
+`;
+
+const ProblemImageContainer = styled.div`
+  position: relative;
+  width: 100%;
+  max-width: 700px;
+  margin: 2rem auto 0;
+  height: auto;
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background: linear-gradient(
+      to bottom,
+      rgba(253, 249, 246, 0),
+      rgba(253, 249, 246, 0.85)
+    );
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  @media (max-width: 768px) {
+    max-width: 85%;
+  }
+`;
+
+const ProblemImage = styled.img`
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+  will-change: transform, opacity;
 `;
 
 const SectionTitle = styled.h2`
@@ -1017,9 +1057,46 @@ const MeetupButton = styled.button`
 export default function Home() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
+  const problemSectionRef = useRef<HTMLElement>(null);
 
   // Reference to store the timer ID
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Set up scroll animation
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!problemSectionRef.current) return;
+
+      const image = problemSectionRef.current.querySelector("img");
+      if (!image) return;
+
+      const rect = problemSectionRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+
+      // When the section starts entering the viewport
+      if (rect.top < windowHeight * 0.75) {
+        const scrollProgress = Math.min(
+          1,
+          (windowHeight * 0.75 - rect.top) / (windowHeight * 0.25)
+        );
+
+        // Apply the animation effect as user scrolls
+        image.style.transform = `translateY(${50 - scrollProgress * 50}px)`;
+        image.style.opacity = `${scrollProgress}`;
+      } else {
+        // Reset when out of view
+        image.style.transform = "translateY(50px)";
+        image.style.opacity = "0";
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    handleScroll(); // Initial calculation
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   const toggleFAQ = (index: number) => {
     setOpenFAQ(openFAQ === index ? null : index);
@@ -1164,8 +1241,15 @@ export default function Home() {
       </HeroSection>
 
       {/* Problem Section */}
-      <ProblemSection>
+      <ProblemSection ref={problemSectionRef}>
         <SectionTitle>전세계 상위 1%가 가장 주목하는 토픽</SectionTitle>
+        <ProblemImageContainer>
+          <ProblemImage
+            src={ceosImage}
+            alt="World's Top CEOs"
+            style={{ transform: "translateY(50px)", opacity: 0 }}
+          />
+        </ProblemImageContainer>
       </ProblemSection>
 
       {/* Features Section */}
