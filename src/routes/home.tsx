@@ -407,22 +407,6 @@ const ProblemImageContainer = styled.div`
   height: auto;
   overflow: hidden;
 
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 70px;
-    background: linear-gradient(
-      to bottom,
-      rgba(253, 249, 246, 0),
-      rgba(253, 249, 246, 0.85)
-    );
-    pointer-events: none;
-    z-index: 2;
-  }
-
   @media (max-width: 768px) {
     max-width: 85%;
   }
