@@ -33,6 +33,7 @@ interface ArticleData {
     korean: string;
   };
   url: string;
+  image_url?: string; // Added new optional field
   audio?: {
     url: string;
     timestamps: AudioTimestamp[];
@@ -1248,6 +1249,30 @@ const AudioModeToggle = styled(QuickReadingToggle)`
   }
 `;
 
+const ArticleImage = styled.img`
+  width: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  margin: 1.5rem 0 0.5rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 768px) {
+    margin: 1rem 0 0.5rem 0;
+  }
+`;
+
+const ImageCaption = styled.p`
+  font-size: 0.8rem;
+  color: ${colors.text.light};
+  text-align: left;
+  margin: 0 0 1.5rem 0;
+
+  @media (max-width: 768px) {
+    font-size: 0.7rem;
+    margin: 0 0 1rem 0;
+  }
+`;
+
 const Article = () => {
   const { articleId } = useParams<{ articleId: string }>();
   const { currentUser } = useAuth(); // Get the current user from auth context
@@ -1351,15 +1376,17 @@ const Article = () => {
     }
 
     // Get all the words in this paragraph and their positions
-    const words = paragraph.split(/(\s+)/);
+    // Using a more precise regex to match words, spaces, and punctuation
+    const words = paragraph.split(/(\s+|[.,!?;:'"()[\]{}])/);
     let result = [];
     let wordIndex = 0;
 
     for (let i = 0; i < words.length; i++) {
       const content = words[i];
       const isWhitespace = /^\s+$/.test(content);
+      const isPunctuation = /^[.,!?;:'"()[\]{}]$/.test(content);
 
-      if (!isWhitespace) {
+      if (!isWhitespace && !isPunctuation) {
         // Check if this word should be highlighted
         const cleanWord = content
           .replace(/[.,!?;:'"()[\]{}]|…/g, "")
@@ -1384,8 +1411,8 @@ const Article = () => {
                 style={{
                   ...(isCurrentWord
                     ? {
-                        backgroundColor: colors.accent,
-                        color: "white",
+                        backgroundColor: "#FFF2CC", // Subtle yellow highlight
+                        color: colors.text.dark,
                         padding: "0 0.1rem",
                         borderRadius: "2px",
                         display: "inline",
@@ -1425,7 +1452,7 @@ const Article = () => {
           );
         }
       } else {
-        // Whitespace
+        // Whitespace or punctuation
         result.push(
           <React.Fragment key={`space-${i}`}>{content}</React.Fragment>
         );
@@ -1444,49 +1471,67 @@ const Article = () => {
     }
 
     audioTimeUpdateRef.current = requestAnimationFrame(() => {
-      if (audioRef.current && sequentialWords.length > 0) {
+      if (audioRef.current) {
         const currentTime = audioRef.current.currentTime;
         setCurrentTime(currentTime);
 
         // Update progress percentage
-        const progress = (currentTime / (audioRef.current.duration || 1)) * 100;
-        setAudioProgress(progress);
+        const progress = (currentTime / audioRef.current.duration) * 100;
+        setAudioProgress(isNaN(progress) ? 0 : progress);
 
-        // Find the current word being spoken in the sequential array
-        const wordIndex = sequentialWords.findIndex(
-          (item) => currentTime >= item.start && currentTime <= item.end
-        );
-
-        if (wordIndex !== currentWordIndex) {
-          setCurrentWordIndex(wordIndex);
-
-          // If a word is active, scroll to it
-          if (wordIndex >= 0) {
-            setTimeout(() => {
-              const wordElement = document.querySelector(
-                `[data-sequential-index="${wordIndex}"]`
-              );
-              if (wordElement) {
-                // Only scroll if the element is outside the viewport
-                const rect = wordElement.getBoundingClientRect();
-                const isInViewport =
-                  rect.top >= 0 &&
-                  rect.left >= 0 &&
-                  rect.bottom <=
-                    (window.innerHeight ||
-                      document.documentElement.clientHeight) &&
-                  rect.right <=
-                    (window.innerWidth || document.documentElement.clientWidth);
-
-                if (!isInViewport) {
-                  wordElement.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center",
-                    inline: "nearest",
-                  });
-                }
+        // If we have timestamps, find and highlight the current word
+        if (sequentialWords.length > 0) {
+          // Find the current word being spoken in the sequential array
+          let newWordIndex = -1;
+          
+          // First check for exact matches where time is between start and end
+          newWordIndex = sequentialWords.findIndex(
+            (item) => currentTime >= item.start && currentTime <= item.end
+          );
+          
+          // If no exact match, find the closest word that starts before current time
+          if (newWordIndex === -1) {
+            // Find the last word that starts before current time
+            for (let i = sequentialWords.length - 1; i >= 0; i--) {
+              if (sequentialWords[i].start <= currentTime) {
+                newWordIndex = i;
+                break;
               }
-            }, 100);
+            }
+          }
+
+          if (newWordIndex !== currentWordIndex) {
+            console.log(`Updating word index from ${currentWordIndex} to ${newWordIndex} at time ${currentTime.toFixed(2)}`);
+            setCurrentWordIndex(newWordIndex);
+
+            // If a word is active, scroll to it
+            if (newWordIndex >= 0) {
+              setTimeout(() => {
+                const wordElement = document.querySelector(
+                  `[data-sequential-index="${newWordIndex}"]`
+                );
+                if (wordElement) {
+                  // Only scroll if the element is outside the viewport
+                  const rect = wordElement.getBoundingClientRect();
+                  const isInViewport =
+                    rect.top >= 0 &&
+                    rect.left >= 0 &&
+                    rect.bottom <=
+                      (window.innerHeight ||
+                        document.documentElement.clientHeight) &&
+                    rect.right <=
+                      (window.innerWidth || document.documentElement.clientWidth);
+
+                  if (!isInViewport) {
+                    wordElement.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                      inline: "nearest",
+                    });
+                  }
+                }
+              }, 100);
+            }
           }
         }
       }
@@ -1645,6 +1690,10 @@ const Article = () => {
     const seekTime = clickPosition * (audioRef.current.duration || 0);
 
     audioRef.current.currentTime = seekTime;
+    
+    // Manually update the progress bar immediately for better UX
+    setCurrentTime(seekTime);
+    setAudioProgress(clickPosition * 100);
   };
 
   // Change playback speed
@@ -2217,6 +2266,8 @@ const Article = () => {
   useEffect(() => {
     if (!article?.content?.english || !article?.audio?.timestamps) return;
 
+    console.log("Processing audio timestamps, count:", article.audio.timestamps.length);
+
     // Process the timestamps to ensure they're in chronological order
     const orderedTimestamps = [...article.audio.timestamps].sort(
       (a, b) => a.start - b.start
@@ -2231,15 +2282,18 @@ const Article = () => {
 
     // Build a flat list of all words with their positions
     article.content.english.forEach((paragraph, paragraphIndex) => {
+      // Use a better word splitting approach that matches the one in prepareParagraphText
       const words = paragraph.split(/\s+/);
-      words.forEach((word, wordIndex) => {
+      let wordIndex = 0;
+
+      words.forEach((wordWithPunctuation) => {
         // Clean the word (remove punctuation) for matching
-        const cleanWord = word.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
+        const cleanWord = wordWithPunctuation.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
         if (cleanWord) {
           wordPositions.push({
             word: cleanWord.toLowerCase(),
             paragraphIndex,
-            wordIndex,
+            wordIndex: wordIndex++
           });
         }
       });
@@ -2288,7 +2342,7 @@ const Article = () => {
     // Sort the sequential array by timestamp start time to ensure proper order
     sequential.sort((a, b) => a.start - b.start);
 
-    // Save the sequential word data
+    console.log("Sequential words processed:", sequential.length);
     setSequentialWords(sequential);
   }, [article]);
 
@@ -2350,6 +2404,20 @@ const Article = () => {
             ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오 모드에서는 단어 뜻풀이 기능이 비활성화됩니다."
             : "단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을 클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다."}
         </CalloutBox>
+
+        {/* Display article image if available */}
+        {article.image_url && (
+          <>
+            <ArticleImage 
+              src={article.image_url} 
+              alt={article.title.english} 
+              loading="lazy"
+            />
+            <ImageCaption>
+              이 이미지는 기사 이해를 돕기 위한 이미지로, AI에 의해 생성되었으며 실제와 다를 수 있습니다.
+            </ImageCaption>
+          </>
+        )}
 
         {content.english?.length > 0 && (
           <ContentSection>
@@ -2693,25 +2761,13 @@ const Article = () => {
               onClick={() => changePlaybackSpeed(0.75)}
               active={playbackSpeed === 0.75}
             >
-              0.75x
+              Slower
             </SpeedButton>
             <SpeedButton
               onClick={() => changePlaybackSpeed(1)}
               active={playbackSpeed === 1}
             >
-              1x
-            </SpeedButton>
-            <SpeedButton
-              onClick={() => changePlaybackSpeed(1.25)}
-              active={playbackSpeed === 1.25}
-            >
-              1.25x
-            </SpeedButton>
-            <SpeedButton
-              onClick={() => changePlaybackSpeed(1.5)}
-              active={playbackSpeed === 1.5}
-            >
-              1.5x
+              Normal
             </SpeedButton>
           </AudioControls>
         </AudioPlayerContainer>
