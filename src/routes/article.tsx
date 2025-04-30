@@ -18,7 +18,7 @@ import React from "react";
 interface AudioTimestamp {
   start: number;
   end: number;
-  word: string;
+  character: string;
 }
 
 interface ArticleData {
@@ -37,6 +37,9 @@ interface ArticleData {
   audio?: {
     url: string;
     timestamps: AudioTimestamp[];
+    characters?: string[];
+    character_start_times_seconds?: number[];
+    character_end_times_seconds?: number[];
   };
 }
 
@@ -422,7 +425,7 @@ const SliderButton = styled.button`
 
   @media (max-width: 768px) {
     width: 32px;
-    height: 32px;
+    height: 36px;
   }
 
   &:hover {
@@ -1273,6 +1276,44 @@ const ImageCaption = styled.p`
   }
 `;
 
+// Add a debug toggle button
+const DebugToggleButton = styled.button`
+  position: fixed;
+  bottom: 80px;
+  right: 10px;
+  background: ${colors.primary};
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 110;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+`;
+
+// Change the debug display positioning
+const DebugDisplay = styled.div`
+  position: fixed;
+  bottom: 130px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  max-width: 300px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 100;
+  font-family: monospace;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+`;
+
 const Article = () => {
   const { articleId } = useParams<{ articleId: string }>();
   const { currentUser } = useAuth(); // Get the current user from auth context
@@ -1307,7 +1348,7 @@ const Article = () => {
     isLoading: false,
   });
 
-  // Add new states for audio feature
+  // Audio player states
   const [isAudioMode, setIsAudioMode] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -1315,24 +1356,39 @@ const Article = () => {
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioTimestampsRef = useRef<AudioTimestamp[]>([]);
   const audioTimeUpdateRef = useRef<number | null>(null);
-
-  // Replace the complex wordTimestampMap with a simpler sequential approach
-  // Track the sequential order of words and their timestamps
-  const [sequentialWords, setSequentialWords] = useState<
-    {
-      index: number;
-      word: string;
-      start: number;
-      end: number;
-      paragraphIndex: number;
-      wordPosition: number;
-    }[]
-  >([]);
-
-  // Current word index in the sequential array (not timestamp index)
-  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  
+  // Character-word mapping for highlighting
+  const [characterWordMap, setCharacterWordMap] = useState<{[charKey: string]: {paragraphIndex: number, wordIndex: number}}>({});
+  
+  // Track active words for debugging
+  const [activeWords, setActiveWords] = useState<{word: string, paraIndex: number, wordIndex: number}[]>([]);
+  
+  // Debug mode toggle
+  const [showDebug, setShowDebug] = useState(true);
+  
+  // Helper function to render active characters safely
+  const renderActiveChars = (): string => {
+    if (!article?.audio?.characters || 
+        !article.audio.character_start_times_seconds || 
+        !article.audio.character_end_times_seconds) {
+      return 'none';
+    }
+    
+    const { characters, character_start_times_seconds, character_end_times_seconds } = article.audio;
+    const activeChars: string[] = [];
+    
+    for (let i = 0; i < characters.length; i++) {
+      const start = character_start_times_seconds[i];
+      const end = character_end_times_seconds[i];
+      
+      if (start <= currentTime && end >= currentTime) {
+        activeChars.push(characters[i]);
+      }
+    }
+    
+    return activeChars.length > 0 ? activeChars.join(', ') : 'none';
+  };
 
   // SVG components for play/pause
   const PlayIcon = () => (
@@ -1369,100 +1425,144 @@ const Article = () => {
     </svg>
   );
 
-  // Simplify the prepareParagraphText function to use sequential word data
+  // Highlight words based on audio playback time
   const prepareParagraphText = (paragraph: string, paragraphIndex: number) => {
-    if (!isAudioMode || sequentialWords.length === 0) {
+    if (!isAudioMode || !article?.audio) {
       return paragraph;
     }
-
-    // Get all the words in this paragraph and their positions
-    // Using a more precise regex to match words, spaces, and punctuation
-    const words = paragraph.split(/(\s+|[.,!?;:'"()[\]{}])/);
-    let result = [];
-    let wordIndex = 0;
-
-    for (let i = 0; i < words.length; i++) {
-      const content = words[i];
-      const isWhitespace = /^\s+$/.test(content);
-      const isPunctuation = /^[.,!?;:'"()[\]{}]$/.test(content);
-
-      if (!isWhitespace && !isPunctuation) {
-        // Check if this word should be highlighted
-        const cleanWord = content
-          .replace(/[.,!?;:'"()[\]{}]|…/g, "")
-          .trim()
-          .toLowerCase();
-
-        if (cleanWord) {
-          // Find this word in the sequential array by position
-          const sequentialIndex = sequentialWords.findIndex(
-            (seq) =>
-              seq.paragraphIndex === paragraphIndex &&
-              seq.wordPosition === wordIndex
-          );
-
-          const isCurrentWord = sequentialIndex === currentWordIndex;
-
-          if (sequentialIndex >= 0) {
-            // This word has a timestamp
-            result.push(
-              <span
-                key={`word-${i}`}
-                style={{
-                  ...(isCurrentWord
-                    ? {
-                        backgroundColor: "#FFF2CC", // Subtle yellow highlight
-                        color: colors.text.dark,
-                        padding: "0 0.1rem",
-                        borderRadius: "2px",
-                        display: "inline",
-                        lineHeight: "1",
-                      }
-                    : {
-                        cursor: "pointer",
-                      }),
-                }}
-                data-sequential-index={sequentialIndex}
-                onClick={() => {
-                  if (audioRef.current) {
-                    audioRef.current.currentTime =
-                      sequentialWords[sequentialIndex].start;
-                    if (!isPlaying) {
-                      audioRef.current.play();
-                      setIsPlaying(true);
-                    }
-                  }
-                }}
-              >
-                {content}
-              </span>
-            );
-          } else {
-            // Regular word without a timestamp
-            result.push(
-              <React.Fragment key={`word-${i}`}>{content}</React.Fragment>
-            );
-          }
-
-          wordIndex++;
-        } else {
-          // Non-word content (like punctuation alone)
-          result.push(
-            <React.Fragment key={`word-${i}`}>{content}</React.Fragment>
-          );
-        }
-      } else {
-        // Whitespace or punctuation
-        result.push(
-          <React.Fragment key={`space-${i}`}>{content}</React.Fragment>
-        );
-      }
+    
+    // Simple approach: Split paragraph into words
+    const result = [];
+    const words = paragraph.split(/(\s+)/); // Split by whitespace, keeping the separators
+    
+    // Get current audio time and progress percentage
+    const currentTime = audioRef.current?.currentTime || 0;
+    const totalDuration = audioRef.current?.duration || 1;
+    const progressPercent = (currentTime / totalDuration) * 100;
+    
+    // Calculate this paragraph's approximate position in the article
+    const totalParagraphs = article.content.english.length;
+    
+    // Adjust paragraph timing to improve sync with audio
+    // Instead of using paragraph midpoint, use paragraph start with slight overlap
+    const paragraphSize = 100 / totalParagraphs;
+    const paragraphStartPercent = (paragraphIndex / totalParagraphs) * 100;
+    const paragraphEndPercent = ((paragraphIndex + 1) / totalParagraphs) * 100;
+    
+    // Determine if we're currently in this paragraph's timeframe with improved timing
+    // Add a small overlap between paragraphs for smoother transitions
+    const isActiveParagraph = 
+      progressPercent >= paragraphStartPercent - (paragraphSize * 0.1) && 
+      progressPercent < paragraphEndPercent + (paragraphSize * 0.1);
+    
+    // Calculate which word to highlight if this is the active paragraph
+    let highlightWordIndex = -1;
+    
+    if (isActiveParagraph) {
+      // Get only real words (not whitespace)
+      const realWords = words.filter(w => w.trim() !== '');
+      
+      // Calculate relative position within paragraph with improved timing
+      const paragraphProgress = (progressPercent - paragraphStartPercent) / (paragraphEndPercent - paragraphStartPercent);
+      const normalizedProgress = Math.max(0, Math.min(1, paragraphProgress));
+      
+      // Map progress to word index, with speed adjustment based on playback rate
+      const adjustedSpeed = playbackSpeed || 1;
+      const wordOffset = 0.1 / adjustedSpeed; // Slight offset for better sync
+      
+      // Calculate word index with adjustment
+      highlightWordIndex = Math.floor((normalizedProgress + wordOffset) * realWords.length);
+      
+      // Keep index within bounds
+      highlightWordIndex = Math.max(0, Math.min(highlightWordIndex, realWords.length - 1));
     }
-
+    
+    // For each word, check if it should be highlighted
+    let realWordCount = 0;
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      
+      // Skip whitespace - just add it without changing
+      if (word.trim() === '') {
+        result.push(<React.Fragment key={`space-${i}`}>{word}</React.Fragment>);
+        continue;
+      }
+      
+      // Check if this is the word to highlight
+      const shouldHighlight = isActiveParagraph && realWordCount === highlightWordIndex;
+      
+      // Add word with highlighting if needed using absolute positioning to avoid affecting text layout
+      result.push(
+        <span
+          key={`word-${i}`}
+          data-word-index={realWordCount}
+          data-paragraph-index={paragraphIndex}
+          style={{
+            position: 'relative',
+            display: 'inline-block'
+          }}
+        >
+          {shouldHighlight ? (
+            <>
+              <span 
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "#FFF2CC",
+                  borderRadius: "2px",
+                  zIndex: -1,
+                  padding: "0 0.1rem",
+                  margin: "0 -0.1rem"
+                }}
+              />
+              <span style={{ position: 'relative', color: colors.text.dark }}>
+                {word}
+              </span>
+            </>
+          ) : word}
+        </span>
+      );
+      
+      // Increment real word counter
+      realWordCount++;
+    }
+    
     return <>{result}</>;
   };
 
-  // ... rest of the component code ...
+  // Helper function to scroll to highlighted word
+  const scrollToHighlightedWord = (paragraphIndex: number, wordIndex: number) => {
+    setTimeout(() => {
+      // Find highlighted word by data attributes
+      const highlightedElement = document.querySelector(
+        `span[data-paragraph-index="${paragraphIndex}"][data-word-index="${wordIndex}"]`
+      ) as HTMLElement;
+      
+      if (highlightedElement) {
+        // Only scroll if the element is outside the viewport
+        const rect = highlightedElement.getBoundingClientRect();
+        const isInViewport =
+          rect.top >= 0 &&
+          rect.left >= 0 &&
+          rect.bottom <=
+            (window.innerHeight || document.documentElement.clientHeight) &&
+          rect.right <=
+            (window.innerWidth || document.documentElement.clientWidth);
+
+        if (!isInViewport) {
+          highlightedElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        }
+      }
+    }, 100);
+  };
 
   // Define the time update handler before it's used
   const handleTimeUpdate = () => {
@@ -1470,69 +1570,117 @@ const Article = () => {
       cancelAnimationFrame(audioTimeUpdateRef.current);
     }
 
+    audioTimeUpdate();
+  };
+  
+  // Separate function for audio updates to allow it to be called more frequently
+  const audioTimeUpdate = () => {
     audioTimeUpdateRef.current = requestAnimationFrame(() => {
       if (audioRef.current) {
         const currentTime = audioRef.current.currentTime;
+        // Update time display and progress bar
         setCurrentTime(currentTime);
-
+        
         // Update progress percentage
         const progress = (currentTime / audioRef.current.duration) * 100;
         setAudioProgress(isNaN(progress) ? 0 : progress);
-
-        // If we have timestamps, find and highlight the current word
-        if (sequentialWords.length > 0) {
-          // Find the current word being spoken in the sequential array
-          let newWordIndex = -1;
-          
-          // First check for exact matches where time is between start and end
-          newWordIndex = sequentialWords.findIndex(
-            (item) => currentTime >= item.start && currentTime <= item.end
-          );
-          
-          // If no exact match, find the closest word that starts before current time
-          if (newWordIndex === -1) {
-            // Find the last word that starts before current time
-            for (let i = sequentialWords.length - 1; i >= 0; i--) {
-              if (sequentialWords[i].start <= currentTime) {
-                newWordIndex = i;
-                break;
+        
+        // Find active characters and words for debugging
+        if (isAudioMode && article?.audio?.characters) {
+          const { characters, character_start_times_seconds, character_end_times_seconds } = article.audio;
+          if (characters && character_start_times_seconds && character_end_times_seconds) {
+            // Track active character indices
+            const activeCharIndices: number[] = [];
+            
+            // Find active characters based on timestamp
+            for (let i = 0; i < characters.length; i++) {
+              const start = character_start_times_seconds[i];
+              const end = character_end_times_seconds[i];
+              if (start <= currentTime && end >= currentTime) {
+                activeCharIndices.push(i);
               }
             }
-          }
-
-          if (newWordIndex !== currentWordIndex) {
-            console.log(`Updating word index from ${currentWordIndex} to ${newWordIndex} at time ${currentTime.toFixed(2)}`);
-            setCurrentWordIndex(newWordIndex);
-
-            // If a word is active, scroll to it
-            if (newWordIndex >= 0) {
-              setTimeout(() => {
-                const wordElement = document.querySelector(
-                  `[data-sequential-index="${newWordIndex}"]`
-                );
-                if (wordElement) {
-                  // Only scroll if the element is outside the viewport
-                  const rect = wordElement.getBoundingClientRect();
-                  const isInViewport =
-                    rect.top >= 0 &&
-                    rect.left >= 0 &&
-                    rect.bottom <=
-                      (window.innerHeight ||
-                        document.documentElement.clientHeight) &&
-                    rect.right <=
-                      (window.innerWidth || document.documentElement.clientWidth);
-
-                  if (!isInViewport) {
-                    wordElement.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                      inline: "nearest",
+            
+            // Find words corresponding to active characters
+            const highlightedWords: {word: string, paraIndex: number, wordIndex: number}[] = [];
+            
+            // Process each paragraph to find words with active characters
+            article.content.english.forEach((paragraph, paragraphIndex) => {
+              const words = paragraph.split(/\s+/);
+              
+              // Create a temporary lookup for this paragraph's words
+              const wordLookup = new Map<number, string>();
+              
+              // Fill the word lookup
+              words.forEach((word, idx) => {
+                wordLookup.set(idx, word);
+              });
+              
+              // Find active words based on character mapping
+              Object.keys(characterWordMap).forEach(charKey => {
+                const keyParts = charKey.split('-');
+                const charFromKey = keyParts[0];
+                
+                // Check if this character is active and in the current paragraph
+                if (activeCharIndices.some(idx => characters[idx] === charFromKey) &&
+                    characterWordMap[charKey].paragraphIndex === paragraphIndex) {
+                  
+                  const wordIdx = characterWordMap[charKey].wordIndex;
+                  const word = wordLookup.get(wordIdx) || '';
+                  
+                  // Avoid duplicates
+                  if (word && !highlightedWords.some(item => 
+                    item.paraIndex === paragraphIndex && item.wordIndex === wordIdx)) {
+                    highlightedWords.push({
+                      word,
+                      paraIndex: paragraphIndex,
+                      wordIndex: wordIdx
                     });
                   }
                 }
-              }, 100);
+              });
+            });
+            
+            // Update the state with active words
+            setActiveWords(highlightedWords);
+            
+            // Find the first active word and scroll to it when needed
+            if (highlightedWords.length > 0 && isPlaying) {
+              const activeWord = highlightedWords[0];
+              scrollToHighlightedWord(activeWord.paraIndex, activeWord.wordIndex);
             }
           }
+        } else if (isAudioMode && article?.content?.english) {
+          // For articles without character data, use paragraph-based timing
+          const totalDuration = audioRef.current.duration || 1;
+          const totalParagraphs = article.content.english.length || 1;
+          
+          // Determine current paragraph based on time
+          const progressPercent = currentTime / totalDuration;
+          const currentParagraphIndex = Math.floor(progressPercent * totalParagraphs);
+          
+          if (currentParagraphIndex >= 0 && currentParagraphIndex < totalParagraphs) {
+            // Calculate progress within paragraph
+            const paragraphStartPercent = currentParagraphIndex / totalParagraphs;
+            const paragraphEndPercent = (currentParagraphIndex + 1) / totalParagraphs;
+            const paragraphProgress = (progressPercent - paragraphStartPercent) / 
+                                     (paragraphEndPercent - paragraphStartPercent);
+            
+            // Get words in paragraph
+            const words = article.content.english[currentParagraphIndex].split(/\s+/);
+            if (words.length > 0) {
+              // Determine current word
+              const currentWordIndex = Math.floor(paragraphProgress * words.length);
+              if (currentWordIndex >= 0 && currentWordIndex < words.length && isPlaying) {
+                scrollToHighlightedWord(currentParagraphIndex, currentWordIndex);
+              }
+            }
+          }
+        }
+        
+        // Continue updating if playing
+        if (isPlaying) {
+          audioTimeUpdate();
         }
       }
     });
@@ -1589,11 +1737,6 @@ const Article = () => {
         if (articleSnap.exists()) {
           const data = articleSnap.data() as ArticleData;
           setArticle(data);
-
-          // Store audio timestamps in ref for performance
-          if (data.audio?.timestamps) {
-            audioTimestampsRef.current = data.audio.timestamps;
-          }
 
           // Prefetch word details for all keywords
           if (data.keywords && data.keywords.length > 0) {
@@ -2069,22 +2212,108 @@ const Article = () => {
     }
   };
 
-  // Handle word click for definition lookup
+  // Handle word click for definition lookup or audio jumping
   const handleWordClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // If in audio mode, don't show word definitions
-    if (isAudioMode) {
+    // Get the clicked element - handle nested span structure from our new highlighting
+    let target = e.target as HTMLElement;
+    
+    // If we clicked on a highlight or inner span, find the parent word container
+    if (target.parentElement && 
+        (target.parentElement.style.position === 'relative' || 
+         target.parentElement.style.display === 'inline-block')) {
+      target = target.parentElement;
+    }
+    
+    const paragraphElement = target.closest(".article-text") as HTMLElement | null;
+    if (!paragraphElement) return;
+
+    // If in audio mode, jump to the word's position
+    if (isAudioMode && audioRef.current) {
+      // If clicked on a word with data attributes (directly or parent)
+      if (target.dataset.wordIndex !== undefined && target.dataset.paragraphIndex !== undefined) {
+        const paragraphIndex = parseInt(target.dataset.paragraphIndex);
+        const wordIndex = parseInt(target.dataset.wordIndex);
+        
+        // Calculate the position in the audio based on paragraph and word index
+        const totalDuration = audioRef.current.duration || 1;
+        const totalParagraphs = article?.content.english.length || 1;
+        
+        // Calculate the paragraph's time position
+        const paragraphStartPercent = paragraphIndex / totalParagraphs;
+        const paragraphEndPercent = (paragraphIndex + 1) / totalParagraphs;
+        const paragraphDuration = (paragraphEndPercent - paragraphStartPercent) * totalDuration;
+        
+        // Calculate word position within paragraph
+        const totalWords = article?.content.english[paragraphIndex]?.split(/\s+/).length || 1;
+        const wordPositionPercent = wordIndex / totalWords;
+        
+        // Calculate final audio position
+        const targetTime = (paragraphStartPercent * totalDuration) + (wordPositionPercent * paragraphDuration);
+        
+        console.log(`Jumping to paragraph ${paragraphIndex}, word ${wordIndex}, time: ${targetTime.toFixed(2)}s`);
+        
+        // Set the audio time
+        audioRef.current.currentTime = targetTime;
+        
+        // Start playing if not already playing
+        if (!isPlaying) {
+          audioRef.current.play()
+            .then(() => {
+              setIsPlaying(true);
+            })
+            .catch(err => {
+              console.error("Failed to play audio:", err);
+            });
+        }
+        
+        return;
+      }
+      
+      // If we're in audio mode but didn't click directly on a word with data attributes,
+      // use the extraction function to get the word and find its position
+      const { word } = extractFullWordFromBionicText(
+        paragraphElement,
+        e.clientX,
+        e.clientY
+      );
+      
+      if (word) {
+        // Find the paragraph index
+        const paragraphIndex = article?.content.english.findIndex(p => p.includes(word)) || 0;
+        if (paragraphIndex >= 0) {
+          // Calculate approximate position based on paragraph
+          const totalDuration = audioRef.current.duration || 1;
+          const totalParagraphs = article?.content.english.length || 1;
+          
+          // Calculate paragraph position (slightly after start of paragraph)
+          const paragraphPercent = (paragraphIndex + 0.1) / totalParagraphs;
+          const targetTime = paragraphPercent * totalDuration;
+          
+          console.log(`Jumping to word "${word}" in paragraph ${paragraphIndex}, time: ${targetTime.toFixed(2)}s`);
+          
+          // Set the audio time
+          audioRef.current.currentTime = targetTime;
+          
+          // Start playing if not already playing
+          if (!isPlaying) {
+            audioRef.current.play()
+              .then(() => {
+                setIsPlaying(true);
+              })
+              .catch(err => {
+                console.error("Failed to play audio:", err);
+              });
+          }
+        }
+      }
+      
       return;
     }
 
-    // Get the paragraph element that contains the clicked text
-    const paragraphElement = (e.target as HTMLElement).closest(
-      ".article-text"
-    ) as HTMLElement | null;
-    if (!paragraphElement) return;
-
+    // If NOT in audio mode, continue with the word definition lookup
     // Always work with the original text rather than the HTML with highlights
     const originalText =
       paragraphElement.getAttribute("data-original-text") || "";
@@ -2188,162 +2417,86 @@ const Article = () => {
   // Add this effect to process and map all timestamps when article loads
   useEffect(() => {
     if (!article?.content?.english || !article.audio?.timestamps) return;
-
-    const words: {
-      text: string;
-      originalText: string;
-      paragraphIndex: number;
-      wordIndexInParagraph: number;
-      globalIndex: number;
-    }[] = [];
-
-    // Flatten all paragraphs and create a global word index
-    let globalWordIndex = 0;
-
-    article.content.english.forEach((paragraph, paragraphIndex) => {
-      // Split paragraph into words
-      const wordPattern = /(\S+)(\s*)/g;
-      let match;
-      let wordIndexInParagraph = 0;
-
-      while ((match = wordPattern.exec(paragraph)) !== null) {
-        const word = match[1];
-        // Clean the word (remove punctuation, lowercase)
-        const cleanWord = word
-          .replace(/[.,!?;:'"()[\]{}]|…/g, "")
-          .trim()
-          .toLowerCase();
-
-        if (cleanWord) {
-          words.push({
-            text: cleanWord,
-            originalText: word,
-            paragraphIndex,
-            wordIndexInParagraph,
-            globalIndex: globalWordIndex,
-          });
-
-          wordIndexInParagraph++;
-          globalWordIndex++;
-        }
-      }
-    });
-
-    // Save the array of all words
-
-    // Create a map from word index to timestamp
-    const timestampMap: {
-      [wordIndex: number]: {
-        start: number;
-        end: number;
-        timestampIndex: number;
-      };
-    } = {};
-
-    // For each timestamp, find the closest matching word
-    article.audio.timestamps.forEach((timestamp, timestampIndex) => {
-      const timestampWord = timestamp.word.trim().toLowerCase();
-
-      // Find all instances of this word in the article
-      const matchingWordIndices = words
-        .map((word, index) => (word.text === timestampWord ? index : -1))
-        .filter((index) => index !== -1);
-
-      if (matchingWordIndices.length > 0) {
-        // For each match, store the timestamp data
-        matchingWordIndices.forEach((wordIndex) => {
-          timestampMap[wordIndex] = {
-            start: timestamp.start,
-            end: timestamp.end,
-            timestampIndex,
-          };
-        });
-      }
-    });
+    
+    // Store timestamps in ref for performance - this is still useful for other purposes
+    if (article.audio?.timestamps) {
+      // We don't need to process timestamps for highlighting anymore
+      console.log(`Article has ${article.audio.timestamps.length} timestamps`);
+    }
   }, [article]);
 
   // Add this effect to process article content and timestamps sequentially
   useEffect(() => {
     if (!article?.content?.english || !article?.audio?.timestamps) return;
 
-    console.log("Processing audio timestamps, count:", article.audio.timestamps.length);
+    // We don't need sequential word processing anymore
+    console.log("Audio content loaded");
+  }, [article]);
 
-    // Process the timestamps to ensure they're in chronological order
-    const orderedTimestamps = [...article.audio.timestamps].sort(
-      (a, b) => a.start - b.start
-    );
-
-    // Map words in the article to their positions (paragraph and word index)
-    const wordPositions: {
-      word: string;
-      paragraphIndex: number;
-      wordIndex: number;
-    }[] = [];
-
-    // Build a flat list of all words with their positions
+  // Process article content and build character-to-word mapping
+  useEffect(() => {
+    // Handle articles with missing or partial timestamp data (for backward compatibility)
+    if (!article) return;
+    
+    // Safely initialize audio data even if some fields are missing
+    if (article.audio) {
+      // Initialize missing audio fields for backward compatibility
+      article.audio.characters = article.audio.characters || [];
+      article.audio.character_start_times_seconds = article.audio.character_start_times_seconds || [];
+      article.audio.character_end_times_seconds = article.audio.character_end_times_seconds || [];
+    }
+    
+    // Only proceed with character mapping if we have content and characters
+    if (!article?.content?.english || !article?.audio?.characters || article.audio.characters.length === 0) return;
+    
+    console.log("Building character-to-word mapping");
+    const charToWordMap: {[charKey: string]: {paragraphIndex: number, wordIndex: number}} = {};
+    
+    // Process each paragraph to map characters to words
+    let globalCharIndex = 0;
+    
     article.content.english.forEach((paragraph, paragraphIndex) => {
-      // Use a better word splitting approach that matches the one in prepareParagraphText
-      const words = paragraph.split(/\s+/);
+      // Split paragraph into words with their positions
+      const words = paragraph.split(/(\s+)/); // Split by whitespace, keeping separators
+      let wordStart = 0;
       let wordIndex = 0;
-
-      words.forEach((wordWithPunctuation) => {
-        // Clean the word (remove punctuation) for matching
-        const cleanWord = wordWithPunctuation.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
-        if (cleanWord) {
-          wordPositions.push({
-            word: cleanWord.toLowerCase(),
-            paragraphIndex,
-            wordIndex: wordIndex++
-          });
+      
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        
+        // Skip whitespace
+        if (word.trim() === '') {
+          continue;
         }
-      });
-    });
-
-    // Create a sequential array of words with their timestamps
-    const sequential: {
-      index: number;
-      word: string;
-      start: number;
-      end: number;
-      paragraphIndex: number;
-      wordPosition: number;
-    }[] = [];
-
-    // For each timestamp, find its position in the article content
-    orderedTimestamps.forEach((timestamp, index) => {
-      const timestampWord = timestamp.word.trim().toLowerCase();
-
-      // Find this word in our positions array (if we haven't used it yet)
-      // This ensures we match words in the order they appear in the text
-      const unusedPositions = wordPositions.filter(
-        (pos) =>
-          pos.word === timestampWord &&
-          !sequential.some(
-            (seq) =>
-              seq.paragraphIndex === pos.paragraphIndex &&
-              seq.wordPosition === pos.wordIndex
-          )
-      );
-
-      if (unusedPositions.length > 0) {
-        // Use the first unused instance of this word
-        const position = unusedPositions[0];
-        sequential.push({
-          index,
-          word: timestampWord,
-          start: timestamp.start,
-          end: timestamp.end,
-          paragraphIndex: position.paragraphIndex,
-          wordPosition: position.wordIndex,
-        });
+        
+        // Find the word's start position in the paragraph
+        const wordStartInParagraph = paragraph.indexOf(word, wordStart);
+        if (wordStartInParagraph === -1) continue; // Word not found (shouldn't happen)
+        
+        wordStart = wordStartInParagraph + word.length;
+        
+        // Map each character in the word to this word's position
+        for (let j = 0; j < word.length; j++) {
+          const charGlobalIndex = globalCharIndex + wordStartInParagraph + j;
+          
+          // Create a key that includes the character itself for easier lookup
+          const charKey = `${article?.audio?.characters?.[charGlobalIndex] || word[j]}-${charGlobalIndex}`;
+          
+          charToWordMap[charKey] = {
+            paragraphIndex,
+            wordIndex
+          };
+        }
+        
+        wordIndex++;
       }
+      
+      globalCharIndex += paragraph.length + 1; // +1 for paragraph break
     });
-
-    // Sort the sequential array by timestamp start time to ensure proper order
-    sequential.sort((a, b) => a.start - b.start);
-
-    console.log("Sequential words processed:", sequential.length);
-    setSequentialWords(sequential);
+    
+    // Set the map in state for use during playback
+    setCharacterWordMap(charToWordMap);
+    console.log(`Built character-to-word mapping with ${Object.keys(charToWordMap).length} characters`);
   }, [article]);
 
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
@@ -2401,7 +2554,7 @@ const Article = () => {
         </InfoContainer>
         <CalloutBox>
           {isAudioMode
-            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오 모드에서는 단어 뜻풀이 기능이 비활성화됩니다."
+            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 강조 표시가 해당 위치로 이동합니다."
             : "단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을 클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다."}
         </CalloutBox>
 
@@ -2426,7 +2579,7 @@ const Article = () => {
                 <Paragraph
                   className="article-text"
                   data-original-text={paragraph}
-                  onClick={isAudioMode ? undefined : handleWordClick}
+                  onClick={handleWordClick}
                 >
                   {isAudioMode
                     ? prepareParagraphText(paragraph, index)
@@ -2771,6 +2924,58 @@ const Article = () => {
             </SpeedButton>
           </AudioControls>
         </AudioPlayerContainer>
+
+        {/* Debug Toggle Button */}
+        {isAudioMode && (
+          <DebugToggleButton onClick={() => setShowDebug(!showDebug)}>
+            {showDebug ? "×" : "D"}
+          </DebugToggleButton>
+        )}
+
+        {/* Debug Display */}
+        {isAudioMode && showDebug && (
+          <DebugDisplay>
+            <div style={{ borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
+              <strong>Audio Debug</strong>
+            </div>
+            <div>Current Time: {currentTime.toFixed(2)}s</div>
+            <div>Duration: {duration.toFixed(2)}s</div>
+            <div>Progress: {((currentTime / (duration || 1)) * 100).toFixed(1)}%</div>
+            <div>Speed: {playbackSpeed}x</div>
+            
+            <div style={{ marginTop: 10, borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
+              <strong>Active Content</strong>
+            </div>
+            <div>Active Chars: {renderActiveChars()}</div>
+            <div>Current Paragraph: {Math.floor((currentTime / (duration || 1)) * article?.content?.english?.length || 0)}</div>
+            <div>Para Progress: {(((currentTime / (duration || 1)) * article?.content?.english?.length || 0) % 1).toFixed(2)}</div>
+            
+            <div style={{ marginTop: 10, borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
+              <strong>Highlighted Words</strong>
+            </div>
+            {activeWords.length > 0 ? (
+              activeWords.map((word, idx) => (
+                <div key={idx} style={{ 
+                  backgroundColor: 'rgba(255, 242, 204, 0.3)', 
+                  padding: '3px 5px', 
+                  marginBottom: '2px',
+                  borderRadius: '3px' 
+                }}>
+                  "{word.word}" (P{word.paraIndex+1}:W{word.wordIndex+1})
+                </div>
+              ))
+            ) : (
+              <div style={{ color: '#999' }}>No words currently highlighted</div>
+            )}
+            
+            <div style={{ marginTop: 10, borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
+              <strong>Mapping Info</strong>
+            </div>
+            <div>Character Count: {article?.audio?.characters?.length || 0}</div>
+            <div>Mapping Size: {Object.keys(characterWordMap).length}</div>
+            <div>Playing: {isPlaying ? 'Yes' : 'No'}</div>
+          </DebugDisplay>
+        )}
       </ArticleContainer>
     </ArticlePageWrapper>
   );
