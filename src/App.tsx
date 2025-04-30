@@ -21,6 +21,8 @@ import PaymentResult from "./routes/payment-result.tsx";
 import Meetup from "./routes/meetup.tsx";
 import Guide from "./routes/guide.tsx";
 import Community from "./routes/community.tsx";
+import NewTopic from "./routes/community-new-topic.tsx";
+import TopicDetail from "./routes/community-topic-detail.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -30,9 +32,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: (
-      <Layout />
-    ),
+    element: <Layout />,
     children: [
       {
         path: "policy/:type",
@@ -50,6 +50,10 @@ const router = createBrowserRouter([
       {
         path: "community",
         element: <Community />,
+      },
+      {
+        path: "community/topic/:topicId",
+        element: <TopicDetail />,
       },
       // Add the payment result page to the public routes
       {
@@ -82,6 +86,10 @@ const router = createBrowserRouter([
         path: "payment",
         element: <Payment />,
       },
+      {
+        path: "community/new-topic",
+        element: <NewTopic />,
+      },
       // Redirect old subscription path to profile
       {
         path: "subscription",
@@ -97,7 +105,6 @@ const router = createBrowserRouter([
       </AuthLayout>
     ),
   },
-  
 ]);
 
 const GlobalStyles = createGlobalStyle`
