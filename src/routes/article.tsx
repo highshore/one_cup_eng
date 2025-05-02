@@ -1427,55 +1427,35 @@ const Article = () => {
 
   // Highlight words based on audio playback time
   const prepareParagraphText = (paragraph: string, paragraphIndex: number) => {
-    if (!isAudioMode || !article?.audio) {
+    if (!isAudioMode || !article?.audio?.timestamps) {
       return paragraph;
     }
     
-    // Simple approach: Split paragraph into words
     const result = [];
     const words = paragraph.split(/(\s+)/); // Split by whitespace, keeping the separators
     
-    // Get current audio time and progress percentage
+    // Get current audio time
     const currentTime = audioRef.current?.currentTime || 0;
-    const totalDuration = audioRef.current?.duration || 1;
-    const progressPercent = (currentTime / totalDuration) * 100;
     
-    // Calculate this paragraph's approximate position in the article
-    const totalParagraphs = article.content.english.length;
+    // Group timestamps by word (assuming format "paragraphIndex_wordIndex_characterIndex")
+    const wordTimestamps = new Map<number, {start: number, end: number}>();
     
-    // Adjust paragraph timing to improve sync with audio
-    // Instead of using paragraph midpoint, use paragraph start with slight overlap
-    const paragraphSize = 100 / totalParagraphs;
-    const paragraphStartPercent = (paragraphIndex / totalParagraphs) * 100;
-    const paragraphEndPercent = ((paragraphIndex + 1) / totalParagraphs) * 100;
-    
-    // Determine if we're currently in this paragraph's timeframe with improved timing
-    // Add a small overlap between paragraphs for smoother transitions
-    const isActiveParagraph = 
-      progressPercent >= paragraphStartPercent - (paragraphSize * 0.1) && 
-      progressPercent < paragraphEndPercent + (paragraphSize * 0.1);
-    
-    // Calculate which word to highlight if this is the active paragraph
-    let highlightWordIndex = -1;
-    
-    if (isActiveParagraph) {
-      // Get only real words (not whitespace)
-      const realWords = words.filter(w => w.trim() !== '');
+    article.audio.timestamps.forEach(ts => {
+      if (!ts.character) return;
       
-      // Calculate relative position within paragraph with improved timing
-      const paragraphProgress = (progressPercent - paragraphStartPercent) / (paragraphEndPercent - paragraphStartPercent);
-      const normalizedProgress = Math.max(0, Math.min(1, paragraphProgress));
+      const parts = ts.character.split('_');
+      if (parts.length < 2) return;
       
-      // Map progress to word index, with speed adjustment based on playback rate
-      const adjustedSpeed = playbackSpeed || 1;
-      const wordOffset = 0.1 / adjustedSpeed; // Slight offset for better sync
+      const wordIndex = parseInt(parts[1]);
+      if (isNaN(wordIndex)) return;
       
-      // Calculate word index with adjustment
-      highlightWordIndex = Math.floor((normalizedProgress + wordOffset) * realWords.length);
-      
-      // Keep index within bounds
-      highlightWordIndex = Math.max(0, Math.min(highlightWordIndex, realWords.length - 1));
-    }
+      // Update word's time range to include this character's timestamp
+      const existing = wordTimestamps.get(wordIndex) || {start: Infinity, end: -Infinity};
+      wordTimestamps.set(wordIndex, {
+        start: Math.min(existing.start, ts.start),
+        end: Math.max(existing.end, ts.end)
+      });
+    });
     
     // For each word, check if it should be highlighted
     let realWordCount = 0;
@@ -1489,10 +1469,10 @@ const Article = () => {
         continue;
       }
       
-      // Check if this is the word to highlight
-      const shouldHighlight = isActiveParagraph && realWordCount === highlightWordIndex;
+      // Check if this word should be highlighted
+      const wordTime = wordTimestamps.get(realWordCount);
+      const shouldHighlight = wordTime && currentTime >= wordTime.start && currentTime <= wordTime.end;
       
-      // Add word with highlighting if needed using absolute positioning to avoid affecting text layout
       result.push(
         <span
           key={`word-${i}`}
@@ -1515,8 +1495,6 @@ const Article = () => {
                   backgroundColor: "#FFF2CC",
                   borderRadius: "2px",
                   zIndex: -1,
-                  padding: "0 0.1rem",
-                  margin: "0 -0.1rem"
                 }}
               />
               <span style={{ position: 'relative', color: colors.text.dark }}>
@@ -1527,7 +1505,6 @@ const Article = () => {
         </span>
       );
       
-      // Increment real word counter
       realWordCount++;
     }
     
@@ -1780,20 +1757,25 @@ const Article = () => {
 
         audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
         audioRef.current.addEventListener("ended", handleAudioEnded);
-      }
 
-      return () => {
-        if (audioRef.current) {
-          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-          audioRef.current.removeEventListener("ended", handleAudioEnded);
-          audioRef.current.pause();
-          audioRef.current = null;
-        }
-        if (audioTimeUpdateRef.current) {
-          cancelAnimationFrame(audioTimeUpdateRef.current);
-        }
-      };
+        // Preload audio
+        audioRef.current.load();
+      }
+    } else if (isAudioMode) {
+      setIsAudioMode(false);
     }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+        audioRef.current.removeEventListener("ended", handleAudioEnded);
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (audioTimeUpdateRef.current) {
+        cancelAnimationFrame(audioTimeUpdateRef.current);
+      }
+    };
   }, [article?.audio?.url]); // Only depend on the audio URL
 
   // Toggle audio playback

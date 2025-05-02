@@ -399,6 +399,24 @@ const ProblemSection = styled.section`
   }
 `;
 
+const ProblemCaption = styled.div`
+   text-align: center;
+   font-size: 1.2rem;
+   color: ${colors.text.medium};
+   font-weight: 500;
+   margin-bottom: 2rem;
+   font-family: "Noto Sans KR", sans-serif;
+ 
+   letter-spacing: -0.02em;
+   line-height: 1.5;
+   position: relative;
+   
+   @media (max-width: 768px) {
+     font-size: 1rem;
+     margin-bottom: 1.5rem;
+   }
+ `;
+
 const ProblemImageContainer = styled.div`
   position: relative;
   width: 100%;
@@ -1226,7 +1244,12 @@ export default function Home() {
 
       {/* Problem Section */}
       <ProblemSection ref={problemSectionRef}>
-        <SectionTitle>전세계 상위 1%가 가장 주목하는 토픽</SectionTitle>
+      <SectionTitle>전세계 상위 1%<span style={{ fontWeight: 600 }}>가 가장 주목하는 토픽</span></SectionTitle>
+        <ProblemCaption>
+          글로벌 임원들이 주목하는 핵심 토픽을 매일 엄선해
+          <br />
+          5분 만에 영어 실력과 시야를 함께 키워드립니다
+        </ProblemCaption>
         <ProblemImageContainer>
           <ProblemImage
             src={ceosImage}
