@@ -164,17 +164,11 @@ const SubscriptionTitle = styled.h3`
   margin-bottom: 10px;
 `;
 
-const SubscriptionPrice = styled.div`
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 15px;
-  color: #2c1810;
-`;
 
 const SubscriptionDescription = styled.p`
   font-size: 14px;
   color: #666;
-  margin-bottom: 20px;
+  margin: 10px 0;
   line-height: 1.5;
 `;
 
@@ -185,7 +179,7 @@ const Button = styled.button`
   border-radius: 8px;
   padding: 12px 24px;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 800;
   cursor: pointer;
   transition: background-color 0.2s;
   width: 100%;
@@ -229,12 +223,84 @@ const LoadingSpinner = styled.div`
   }
 `;
 
+// --- NEW Policy Info Box --- 
+const PolicyInfoBox = styled.div`
+  background-color: #f9f9f9; // Restore light grey background
+  border: none;
+  border-radius: 6px; // Slightly smaller radius
+  padding: 12px 15px; // Adjusted padding
+  margin-top: 20px; // Add margin-top for spacing within card
+  width: auto; // Remove fixed width
+  font-size: 12px; // Smaller font size
+  line-height: 1.5; // Tighter line height
+  color: #666;
+
+  h4 {
+    font-size: 12px; // Smaller heading
+    font-weight: 600;
+    color: #444;
+    margin-top: 10px; // Adjusted spacing
+    margin-bottom: 6px;
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  p {
+    margin-bottom: 6px;
+  }
+
+  strong {
+      font-weight: 600;
+      color: #444;
+  }
+
+  a {
+      color: #2c1810; 
+      text-decoration: underline;
+      font-weight: 500;
+  }
+`;
+// --- END Policy Info Box ---
+
 interface UserData {
   hasActiveSubscription?: boolean;
   subscriptionStartDate?: Date;
   subscriptionEndDate?: Date;
   billingKey?: string;
 }
+
+// Add styled components for checkboxes and labels
+const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  margin: 8px 0;
+`;
+
+const CheckboxInput = styled.input`
+  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+`;
+
+const PriceDetail = styled.span`
+  font-size: 14px;
+  color: #555;
+  margin-left: auto; // Push price to the right
+`;
+
+const TotalAmountDisplay = styled.div`
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  text-align: right;
+  color: #2c1810;
+`;
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -243,6 +309,14 @@ export default function Payment() {
   const [error, setError] = useState<string | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
+
+  // --- NEW STATE ---
+  const [selectTech, setSelectTech] = useState(false);
+  const [selectBusiness, setSelectBusiness] = useState(false);
+  const [selectMeetup, setSelectMeetup] = useState(false);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [selectedProductName, setSelectedProductName] = useState("");
+  // --- END NEW STATE ---
 
   // Check authentication and fetch user data
   useEffect(() => {
@@ -258,6 +332,38 @@ export default function Payment() {
 
     return () => unsubscribe();
   }, [navigate]);
+
+  // --- NEW useEffect for Calculation ---
+  useEffect(() => {
+    let amount = 0;
+    let nameParts: string[] = [];
+    const techPrice = 4700;
+    const businessPrice = 4700;
+
+    if (selectTech) {
+      amount += techPrice;
+      nameParts.push("Tech");
+    }
+    if (selectBusiness) {
+      amount += businessPrice;
+      nameParts.push("Business");
+    }
+
+    // Apply 20% discount if both are selected
+    if (selectTech && selectBusiness) {
+      amount = Math.round(amount * 0.8); // 9400 * 0.8 = 7520 KRW
+    }
+
+    if (selectMeetup) {
+      nameParts.push("Meetup Ticket");
+      // Meetup is free for now, no price change
+    }
+
+    setTotalAmount(amount);
+    setSelectedProductName(nameParts.join(" + ") || "항목 선택 필요");
+
+  }, [selectTech, selectBusiness, selectMeetup]);
+  // --- END NEW useEffect ---
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -288,24 +394,46 @@ export default function Payment() {
       return;
     }
 
+    // --- VALIDATION ---
+    if (!selectTech && !selectBusiness) {
+        setError("최소 하나 이상의 카테고리(Tech 또는 Business)를 선택해야 합니다.");
+        return;
+    }
+    if (totalAmount <= 0 && (selectTech || selectBusiness)) {
+        setError("결제 금액을 계산하는 중 오류가 발생했습니다. 다시 시도해주세요.");
+        console.error("Calculated amount is zero despite selection", {selectTech, selectBusiness, totalAmount});
+        return;
+    }
+    // --- END VALIDATION ---
+
     setIsProcessing(true);
     setError(null);
 
     try {
-      // Simple user info with minimal data
+      // --- UPDATE User Info for Payment ---
       const userInfo = {
         userId: currentUser.uid,
         userEmail: currentUser.email || "hello@1cupenglish.com",
         userName: currentUser.displayName || "사용자",
-        userPhone: currentUser.phoneNumber?.slice(-8) || Date.now().toString().slice(-8)
+        userPhone: currentUser.phoneNumber?.slice(-8) || Date.now().toString().slice(-8),
+        pcd_amount: totalAmount, // Pass calculated amount
+        pcd_good_name: selectedProductName, // Pass selected items description
+        selected_categories: { // Pass detailed selection
+            tech: selectTech,
+            business: selectBusiness,
+            meetup: selectMeetup,
+        }
       };
-      
+      // --- END UPDATE ---
+
       // Store session info for result page
       sessionStorage.setItem(
         "paymentSessionInfo",
         JSON.stringify({
           userId: currentUser.uid,
           timestamp: Date.now(),
+          amount: totalAmount, // Store amount in session too
+          productName: selectedProductName,
         })
       );
 
@@ -318,6 +446,7 @@ export default function Payment() {
 
       // Get payment window data
       const getPaymentWindow = httpsCallable(functions, "getPaymentWindow");
+      console.log("Calling getPaymentWindow with userInfo:", userInfo); // Log the data being sent
       const result = await getPaymentWindow(userInfo);
       const paymentData = result.data as any;
 
@@ -333,7 +462,9 @@ export default function Payment() {
 
       // Call Payple with debug info
       console.log("Opening payment window with params:", {
-        PCD_RST_URL: paymentData.paymentParams.PCD_RST_URL || 'Not set'
+        PCD_RST_URL: paymentData.paymentParams.PCD_RST_URL || 'Not set',
+        PCD_AMOUNT: paymentData.paymentParams.PCD_AMOUNT, // Log amount from response
+        PCD_GOOD_NAME: paymentData.paymentParams.PCD_GOOD_NAME // Log name from response
       });
       
       // Add explanation about the data flow between Payple, our HTTP function, and the frontend
@@ -420,26 +551,93 @@ export default function Payment() {
   return (
     <Wrapper>
       <Card>
-        <Title>One Cup English 구독</Title>
-        <Subtitle>원컵 잉글리시 프리미엄 멤버십을 시작하세요</Subtitle>
+        <Title>One Cup English 멤버십</Title>
+        <Subtitle>원하는 카테고리를 선택하고 멤버십을 시작하세요</Subtitle>
 
+        {/* --- UPDATED Subscription Card --- */}
         <SubscriptionCard>
-          <SubscriptionTitle>프리미엄 멤버십</SubscriptionTitle>
-          <SubscriptionPrice>₩9,900/월</SubscriptionPrice>
+          <SubscriptionTitle>멤버십 옵션 선택</SubscriptionTitle>
+          {/* --- NEW Discount Info Text --- */}
+          <InfoText style={{ marginBottom: '15px', color: '#555' }}>
+            Tech와 Business 카테고리를 모두 선택하시면 <strong>20% 할인</strong>이 적용됩니다.
+          </InfoText>
+          {/* --- END Discount Info Text --- */}
+
+          <CheckboxLabel>
+            <CheckboxInput
+              type="checkbox"
+              checked={selectTech}
+              onChange={() => setSelectTech(!selectTech)}
+            />
+            기술 분야 (Tech) 아티클 구독
+            <PriceDetail>월 4700원</PriceDetail>
+          </CheckboxLabel>
+
+          <CheckboxLabel>
+            <CheckboxInput
+              type="checkbox"
+              checked={selectBusiness}
+              onChange={() => setSelectBusiness(!selectBusiness)}
+            />
+            비즈니스 분야 (Business) 아티클 구독
+            <PriceDetail>월 4700원</PriceDetail>
+          </CheckboxLabel>
+
+          {selectTech && selectBusiness && (
+            <InfoText style={{ color: '#990033', fontWeight: '500' }}>
+              20% 할인 적용 완료!
+            </InfoText>
+          )}
+
+          <CheckboxLabel>
+            <CheckboxInput
+              type="checkbox"
+              checked={selectMeetup}
+              onChange={() => setSelectMeetup(!selectMeetup)}
+            />
+            밋업 (Meetup) 참여 티켓 🎫
+            <PriceDetail>멤버 한정 무료</PriceDetail>
+          </CheckboxLabel>
+
           <SubscriptionDescription>
-            • 매일 새로운 기술/비즈니스 영어 아티클
+            • 매일 새로운 영어 아티클 (선택 카테고리)
             <br />
             • 단어장 무제한 저장
             <br />
-            • 아티클 전체 내용 확인 및 오디오 청취
-            <br />• 프리미엄 기능 모두 이용 가능
+            • 아티클 속독 모드 및 음성 모드
+            <br />
+            • 추후 추가되는 프리미엄 기능 모두 이용 가능
+            {(selectTech || selectBusiness) && selectMeetup && <><br/>• 밋업 우선 참여 기회</>}
           </SubscriptionDescription>
+
+          {/* --- MOVED Policy Info Box Content --- */}
+          <PolicyInfoBox>
+            <h4>자동 결제 안내</h4>
+            <p>요금제에 가입하시면 결제 시점을 기준으로 자동 결제가 진행됩니다.</p>
+
+            <h4>청약철회 (전액 환불) 가능 기간</h4>
+            <p>신규 결제(생애 최초 결제) 또는 매월 반복 결제 모두 결제일로부터 7일 이내에는 <strong>청약철회(전액 환불)</strong>가 가능합니다.</p>
+            
+            <h4>7일 이후 환불 규정</h4>
+            <p>결제일로부터 7일이 지난 경우에는 청약철회가 아닌 해지 및 부분 환불 규정이 적용됩니다.</p>
+            
+            <h4>부분 환불 기준</h4>
+            <p>예) 월 멤버십을 20일 사용 후 해지한 경우, 남은 10일분(30일 기준)에 해당하는 금액을 다음과 같이 환불해드립니다:<br/>
+            <strong>환불 금액 = (정가) × (남은 일수) ÷ 30</strong></p>
+
+            <h4>멤버십 정지 및 환불 요청 방법</h4>
+            <p>멤버십 해지 및 환불은 <a href="/profile" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>프로필 페이지</a>에서 직접 신청하실 수 있습니다.</p>
+          </PolicyInfoBox>
+          {/* --- END MOVED Policy Info Box Content --- */}
+
+          <TotalAmountDisplay>
+            총 결제 금액: 월 {totalAmount}원
+          </TotalAmountDisplay>
 
           {userData?.hasActiveSubscription ? (
             <>
-              <InfoText>
-                이미 구독 중입니다. 구독 시작일:{" "}
-                {userData.subscriptionStartDate?.toLocaleDateString()}
+              <InfoText style={{marginTop: '20px'}}>
+                이미 멤버십 이용 중입니다. 현재 멤버십 플랜은 프로필 페이지에서 확인 가능합니다.
               </InfoText>
               <Button onClick={() => navigate("/profile")}>
                 프로필로 돌아가기
@@ -447,16 +645,24 @@ export default function Payment() {
             </>
           ) : (
             <>
-              <Button onClick={handlePaymentClick} disabled={isProcessing}>
-                {isProcessing ? <LoadingSpinner /> : "구독 시작하기"}
+              <Button
+                 onClick={handlePaymentClick}
+                 disabled={isProcessing || (!selectTech && !selectBusiness)} // Disable if no category selected
+                 style={{ marginTop: '20px' }}
+               >
+                 {isProcessing ? <LoadingSpinner /> : '멤버십 시작하기'}
               </Button>
               {error && <ErrorText>{error}</ErrorText>}
               <InfoText>
-                구독은 매월 자동으로 갱신되며, 언제든지 취소할 수 있습니다.
+                멤버십은 매월 자동으로 갱신되며, 언제든지 취소할 수 있습니다.
               </InfoText>
             </>
           )}
         </SubscriptionCard>
+
+        {/* --- Policy Info Box Content MOVED INSIDE SubscriptionCard --- */}
+        {/* <PolicyInfoBox> ... </PolicyInfoBox> */} 
+
       </Card>
     </Wrapper>
   );

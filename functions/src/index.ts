@@ -9,8 +9,8 @@ import {
   verifyPaymentResult,
   cancelSubscription,
   processRecurringPayments,
-  logCredentials,
-  paymentCallback
+  logCredentials,       // <<< Make sure this export line exists
+  paymentCallback  
 } from "./payment";
 
 // Export the payment functions
@@ -19,8 +19,8 @@ export {
   verifyPaymentResult,
   cancelSubscription,
   processRecurringPayments,
-  logCredentials,
-  paymentCallback
+  logCredentials,       // <<< Make sure this export line exists
+  paymentCallback  
 };
 
 admin.initializeApp();

@@ -136,6 +136,9 @@ interface PaymentWindowData {
   userEmail: string;
   userName: string;
   userPhone?: string;
+  pcd_amount: number;
+  pcd_good_name: string;
+  selected_categories: string[];
 }
 
 // Function to get payment window parameters
@@ -162,13 +165,24 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
       }
 
       // Extract user data from request with more detailed validation
-      const { userId, userEmail, userName, userPhone } = request.data || {};
+      const { 
+          userId, 
+          userEmail, 
+          userName, 
+          userPhone, 
+          pcd_amount, 
+          pcd_good_name,
+          selected_categories 
+      } = request.data || {};
 
       // Log each field individually for debugging
       logger.info(`userId: ${userId || "missing"}`);
       logger.info(`userEmail: ${userEmail || "missing"}`);
       logger.info(`userName: ${userName || "missing"}`);
       logger.info(`userPhone: ${userPhone || "missing"}`);
+      logger.info(`pcd_amount: ${pcd_amount || "missing"}`);
+      logger.info(`pcd_good_name: ${pcd_good_name || "missing"}`);
+      logger.info(`selected_categories: ${JSON.stringify(selected_categories || {})}`);
 
       // Validate user information with specific error messages
       if (!userId) {
@@ -282,8 +296,8 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         PCD_CARD_VER: "01",
         
         // Required parameters
-        PCD_PAY_GOODS: "One Cup English 프리미엄 멤버십",
-        PCD_PAY_TOTAL: SUBSCRIPTION_PRICE,
+        PCD_PAY_GOODS: pcd_good_name || "영어 한잔 멤버십",
+        PCD_PAY_TOTAL: pcd_amount,
         
         // Billing-specific parameters
         PCD_REGULER_FLAG: "Y",
@@ -308,25 +322,27 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         PCD_USER_DEFINE1: request.auth.uid,
         
         // Add a fallback URL for when Payple redirects the user after payment
-        PCD_SIMPLE_FNAME: "payment-result"
+        PCD_SIMPLE_FNAME: "payment-result",
+
+        // Store selected categories in define2 (define1 used for userId)
+        PCD_USER_DEFINE2: JSON.stringify(selected_categories || {})
       };
 
-      // Store the order in Firestore for later verification
+      // Store the order in Firestore for later verification - Log initial attempt
       await admin
         .firestore()
         .collection("payment_orders")
         .doc(orderNumber)
         .set({
           userId: request.auth.uid,
-          userEmail: email,
-          userName: displayName,
-          userPhone: payerPhoneNumber,
           orderNumber,
-          amount: SUBSCRIPTION_PRICE,
+          amount: pcd_amount, // Use amount from frontend
           orderDate: Timestamp.fromDate(orderDate),
-          status: "pending",
+          status: "pending_auth", // Indicate waiting for Payple auth/callback
           type: "subscription_init",
-          paypleParams: paymentParams,
+          paypleParamsAttempted: paymentParams, // Log the params we tried to use
+          selectedCategories: selected_categories || {},
+          createdAt: Timestamp.now(),
         });
 
       logger.info(
@@ -465,33 +481,48 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
         paymentTime,
       });
 
-      // Update user with billing key information
-      await admin.firestore().doc(`users/${userId}`).update({
-        billingKey: billingKey,
-        paymentMethod: "card",
-        billingUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      // --- Fetch the original order to get dynamic amount and categories ---
+      let originalAmount = SUBSCRIPTION_PRICE; // Default fallback
+      let selectedCategories: { [key: string]: boolean } = {};
+      let productName = "One Cup English 멤버십 (정기결제)"; // Default fallback
 
-      // Create a payment order record if we have an order ID
       if (paymentOrderId) {
-        await admin
-          .firestore()
-          .collection("payment_orders")
-          .doc(paymentOrderId)
-          .set(
-            {
-              userId,
-              orderNumber: paymentOrderId,
-              status: "auth_completed",
-              type: "subscription_init",
-              billingKey: billingKey,
-              paymentMethod: "card",
-              authResult: paymentParams,
-              completedAt: admin.firestore.FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          );
+        try {
+          const originalOrderRef = admin.firestore().collection("payment_orders").doc(paymentOrderId);
+          const originalOrderDoc = await originalOrderRef.get();
+          
+          if (!originalOrderDoc.exists) {
+            logger.error(`Original payment order ${paymentOrderId} not found! Falling back to default amount/name.`);
+            // Potentially throw an error here if this is critical
+          } else {
+            const orderData = originalOrderDoc.data();
+            if (orderData?.amount && orderData.amount > 0) {
+              originalAmount = orderData.amount;
+              logger.info(`Retrieved dynamic amount ${originalAmount} from original order ${paymentOrderId}`);
+            } else {
+               logger.warn(`Original order ${paymentOrderId} has invalid amount: ${orderData?.amount}. Falling back to default.`);
+            }
+            if (orderData?.selectedCategories) {
+               selectedCategories = orderData.selectedCategories;
+               // Construct product name from categories
+               let nameParts: string[] = [];
+               if (selectedCategories.tech) nameParts.push("Tech");
+               if (selectedCategories.business) nameParts.push("Business");
+               if (selectedCategories.meetup) nameParts.push("Meetup");
+               if (nameParts.length > 0) {
+                   productName = `One Cup English (${nameParts.join(' + ')}) 멤버십`;
+               }
+               logger.info(`Constructed product name: ${productName}`);
+            } else {
+                logger.warn(`Original order ${paymentOrderId} missing selectedCategories.`);
+            }
+          }
+        } catch (fetchError) {
+          logger.error(`Error fetching original order ${paymentOrderId}:`, fetchError);
+          // Fallback to defaults if fetch fails
+        }
       }
+      // --- End Fetch original order --- 
 
       logger.info("Successfully stored billing key for user:", userId);
 
@@ -523,9 +554,9 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
           // Payment details (required)
           PCD_PAY_TYPE: "card", // 결제 방법 (card)
           PCD_PAYER_ID: billingKey, // 빌링키 (callback response의 PCD_PAYER_ID)
-          PCD_PAY_GOODS: "One Cup English 프리미엄 멤버십 (정기결제)", // 상품명
+          PCD_PAY_GOODS: productName, // << USE DYNAMIC NAME
           PCD_SIMPLE_FLAG: "Y", // 간편결제 여부 (빌링키는 Y로 설정)
-          PCD_PAY_TOTAL: SUBSCRIPTION_PRICE, // 결제 금액
+          PCD_PAY_TOTAL: originalAmount, // << USE DYNAMIC AMOUNT
           PCD_PAY_OID: orderNumber, // 주문번호
 
           // Optional parameters for better tracking
@@ -535,13 +566,13 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
             .toString()
             .padStart(2, "0"), // 결제 월
           PCD_PAY_ISTAX: "Y", // 과세여부 (Y: 과세, N: 비과세)
-          PCD_PAY_TAXTOTAL: Math.floor(SUBSCRIPTION_PRICE / 11).toString(), // 부가세 (자동계산)
+          PCD_PAY_TAXTOTAL: Math.floor(originalAmount / 11).toString(), // 부가세 (자동계산)
         };
 
         logger.info("Making initial payment with billing key:", {
           billingKey,
           orderNumber,
-          amount: SUBSCRIPTION_PRICE,
+          amount: originalAmount, // << Log dynamic amount
         });
 
         // Build the payment URL from the auth response
@@ -575,43 +606,44 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
 
         // Check if payment was successful
         if (paymentResponse.data.PCD_PAY_RST === "success") {
-          // Update order status
+          // --- Log SUCCESSFUL initial payment in payment_orders ---
           await admin
             .firestore()
             .collection("payment_orders")
-            .doc(orderNumber)
+            .doc(orderNumber) // Use the NEW orderNumber for this payment action
             .set({
               userId,
               orderNumber,
-              amount: SUBSCRIPTION_PRICE,
+              amount: paymentResponse.data.PCD_PAY_TOTAL || originalAmount, // Log actual amount paid
               status: "completed",
               type: "subscription_initial_payment",
-              paymentResult: paymentResponse.data,
-              billingKey: billingKey,
+              paymentResult: paymentResponse.data, // Full Payple response
+              billingKeyUsed: billingKey,
               paymentMethod: "card",
-              completedAt: admin.firestore.FieldValue.serverTimestamp(),
+              completedAt: Timestamp.now(),
+              relatedAuthOrder: paymentOrderId || null, // Link to the initial CERT order
+              createdAt: Timestamp.now(), // Add creation timestamp
             });
 
-          // Update user subscription status
+          // --- Update user subscription status in Firestore --- 
           const subscriptionStartDate = new Date();
+          // Calculate end date (handle potential month rollover correctly)
+          const subscriptionEndDate = new Date(subscriptionStartDate); 
+          subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+          
           await admin
             .firestore()
             .doc(`users/${userId}`)
             .update({
               hasActiveSubscription: true,
-              subscriptionStartDate: admin.firestore.Timestamp.fromDate(
-                subscriptionStartDate
-              ),
-              subscriptionEndDate: admin.firestore.Timestamp.fromDate(
-                new Date(
-                  subscriptionStartDate.setMonth(
-                    subscriptionStartDate.getMonth() + 1
-                  )
-                )
-              ),
-              billingKey: billingKey,
-              paymentMethod: "card",
-              billingUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              subscriptionStartDate: Timestamp.fromDate(subscriptionStartDate),
+              subscriptionEndDate: Timestamp.fromDate(subscriptionEndDate),
+              billingKey: billingKey, // Store/confirm the billing key
+              paymentMethod: "card", // Store/confirm payment method
+              billingUpdatedAt: Timestamp.now(), // Timestamp for this billing key update
+              cat_tech: selectedCategories.tech ?? false, // Set based on fetched categories
+              cat_business: selectedCategories.business ?? false, // Set based on fetched categories
+              // meetup status can also be stored if needed: cat_meetup: selectedCategories.meetup ?? false
             });
 
           logger.info("User subscription activated:", { userId });
@@ -622,40 +654,31 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
             data: paymentResponse.data,
           };
         } else {
-          // Payment failed, log the error with detailed information
-          const errorCode = paymentResponse.data.PCD_PAY_CODE || "unknown";
-          const errorMsg =
-            paymentResponse.data.PCD_PAY_MSG || "알 수 없는 오류";
-
-          logger.error("Initial payment failed:", {
-            code: errorCode,
-            message: errorMsg,
-            data: JSON.stringify(paymentResponse.data),
-          });
-
-          // Store the failed payment attempt for tracking
+          // --- Log FAILED initial payment in payment_orders ---
           await admin
             .firestore()
             .collection("payment_orders")
-            .doc(orderNumber)
-            .set(
-              {
+            .doc(orderNumber) // Use the NEW orderNumber for this payment action
+            .set({
                 userId,
                 orderNumber,
-                amount: SUBSCRIPTION_PRICE,
+                amount: originalAmount, // << Use dynamic amount attempted
                 status: "failed",
                 type: "subscription_initial_payment",
-                errorCode: errorCode,
-                errorMessage: errorMsg,
-                paymentResult: paymentResponse.data,
-                failedAt: admin.firestore.FieldValue.serverTimestamp(),
-              },
-              { merge: true }
+                errorCode: paymentResponse.data.PCD_PAY_CODE || "unknown",
+                errorMessage: paymentResponse.data.PCD_PAY_MSG || "알 수 없는 오류",
+                paymentResult: paymentResponse.data, // Full Payple response
+                billingKeyUsed: billingKey,
+                failedAt: Timestamp.now(),
+                relatedAuthOrder: paymentOrderId || null, // Link to the initial CERT order
+                createdAt: Timestamp.now(), // Add creation timestamp
+              }
+              // No merge needed as this is a new document for the payment attempt
             );
 
           throw new HttpsError(
             "aborted",
-            `결제 실패: ${errorMsg} (코드: ${errorCode})`
+            `결제 실패: ${paymentResponse.data.PCD_PAY_MSG || "알 수 없는 오류"} (코드: ${paymentResponse.data.PCD_PAY_CODE || "unknown"})`
           );
         }
       } catch (paymentError) {
@@ -798,27 +821,27 @@ export const processRecurringPayments = onSchedule(
               newStartDate.setMonth(newStartDate.getMonth() + 1)
             );
 
-            // Record the payment
+            // --- Log SUCCESSFUL recurring payment in payment_orders ---
             await db.collection("payment_orders").doc(orderNumber).set({
               userId,
               orderNumber,
-              amount: SUBSCRIPTION_PRICE,
-              orderDate: admin.firestore.FieldValue.serverTimestamp(),
+              amount: paymentResponse.data.PCD_PAY_TOTAL || SUBSCRIPTION_PRICE, // Log actual amount paid
+              orderDate: Timestamp.fromDate(orderDate),
               status: "completed",
               type: "subscription_recurring",
               paymentResult: paymentResponse.data,
-              billingKey: userData.billingKey,
+              billingKeyUsed: userData.billingKey,
               paymentMethod: "card",
+              completedAt: Timestamp.now(), // Use consistent field name
+              createdAt: Timestamp.now(), // Add creation timestamp
             });
 
-            // Update user subscription
+            // --- Update user subscription dates --- 
             await db.doc(`users/${userId}`).update({
-              subscriptionStartDate: admin.firestore.Timestamp.fromDate(
-                new Date()
-              ),
-              subscriptionEndDate:
-                admin.firestore.Timestamp.fromDate(newEndDate),
-              lastBillingDate: admin.firestore.FieldValue.serverTimestamp(),
+              subscriptionStartDate: Timestamp.fromDate(new Date()), // Set start to today
+              subscriptionEndDate: Timestamp.fromDate(newEndDate), // Set end to one month from today
+              lastBillingDate: Timestamp.now(), // Timestamp of this successful billing
+              billingUpdatedAt: Timestamp.now(), // Billing key was just used successfully
             });
 
             logger.info(`Successfully renewed subscription for user ${userId}`);
@@ -837,26 +860,20 @@ export const processRecurringPayments = onSchedule(
               }
             );
 
-            // Record the failed payment
+            // --- Log FAILED recurring payment in payment_orders ---
             await db.collection("payment_orders").doc(orderNumber).set({
               userId,
               orderNumber,
-              amount: SUBSCRIPTION_PRICE,
-              orderDate: admin.firestore.FieldValue.serverTimestamp(),
+              amount: SUBSCRIPTION_PRICE, // Log attempted amount
+              orderDate: Timestamp.fromDate(orderDate),
               status: "failed",
               type: "subscription_recurring",
-              paymentResult: paymentResponse.data,
+              paymentResult: paymentResponse.data, // Full Payple response
+              billingKeyUsed: userData.billingKey,
               errorCode: errorCode,
               errorMessage: errorMsg,
-              error: errorMsg,
-            });
-
-            // Update user with failed billing status
-            await db.doc(`users/${userId}`).update({
-              lastBillingAttemptStatus: "failed",
-              lastBillingAttemptError: errorMsg,
-              lastBillingAttemptAt:
-                admin.firestore.FieldValue.serverTimestamp(),
+              failedAt: Timestamp.now(), // Use consistent field name
+              createdAt: Timestamp.now(), // Add creation timestamp
             });
 
             // TODO: Notify user about failed payment (e.g., email notification)
@@ -925,22 +942,26 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
         .doc(`users/${userId}`)
         .update({
           hasActiveSubscription: false,
-          subscriptionCancelledDate:
-            admin.firestore.FieldValue.serverTimestamp(),
-          cancellationReason:
-            request.data.reason || "User requested cancellation",
+          subscriptionEndDate: Timestamp.fromDate(new Date()),
+          billingKey: null,
+          paymentMethod: null,
+          billingUpdatedAt: Timestamp.now(),
+          cat_tech: false,
+          cat_business: false,
         });
+
+      logger.info("Subscription cancelled for user:", userId);
 
       return {
         success: true,
-        message: "Subscription cancelled successfully",
+        message: "구독이 성공적으로 취소되었습니다.",
       };
     } catch (error: any) {
       logger.error("Error cancelling subscription:", error);
-      return {
-        success: false,
-        message: error.message || "Failed to cancel subscription",
-      };
+      throw new HttpsError(
+        "internal",
+        error.message || "Failed to cancel subscription"
+      );
     }
   }
 );
@@ -1006,17 +1027,6 @@ export const paymentCallback = onRequest(
       // Store the payment data in Firestore
       const paymentId = paymentData.PCD_PAY_OID || `payment_${Date.now()}`;
       
-      await admin.firestore().collection("payment_callbacks").doc(paymentId).set({
-        userId,
-        paymentData,
-        receivedAt: admin.firestore.FieldValue.serverTimestamp(),
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'] || 'unknown',
-        method: req.method
-      });
-
-      logger.info(`Stored payment callback data with ID: ${paymentId} for user: ${userId}`);
-      
       // Process the payment result if this is a successful payment
       if (paymentData.PCD_PAY_RST === 'success') {
         try {
@@ -1048,6 +1058,19 @@ export const paymentCallback = onRequest(
           // Continue with redirection even if processing fails
         }
       }
+      // <<< START REVERT COMMENT OUT
+      /* <<< REMOVE
+      await admin.firestore().collection("payment_callbacks").doc(paymentId).set({
+        userId,
+        paymentData,
+        receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || 'unknown',
+        method: req.method
+      });
+      logger.info(`Stored payment callback data with ID: ${paymentId} for user: ${userId}`);
+      */ // <<< REMOVE
+      // <<< END REVERT COMMENT OUT
       
       // Create URL parameters to pass to the frontend
       const redirectParams = new URLSearchParams();

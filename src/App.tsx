@@ -20,9 +20,9 @@ import Payment from "./routes/payment.tsx";
 import PaymentResult from "./routes/payment-result.tsx";
 import Meetup from "./routes/meetup.tsx";
 import Guide from "./routes/guide.tsx";
-import Community from "./routes/community.tsx";
-import NewTopic from "./routes/community-new-topic.tsx";
-import TopicDetail from "./routes/community-topic-detail.tsx";
+import Community from "./community/index.tsx";
+import NewTopic from "./community/new-topic.tsx";
+import TopicDetail from "./community/topic-detail.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
