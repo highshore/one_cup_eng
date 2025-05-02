@@ -1276,43 +1276,6 @@ const ImageCaption = styled.p`
   }
 `;
 
-// Add a debug toggle button
-const DebugToggleButton = styled.button`
-  position: fixed;
-  bottom: 80px;
-  right: 10px;
-  background: ${colors.primary};
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 110;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-`;
-
-// Change the debug display positioning
-const DebugDisplay = styled.div`
-  position: fixed;
-  bottom: 130px;
-  right: 10px;
-  background-color: rgba(0, 0, 0, 0.85);
-  color: white;
-  padding: 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  max-width: 300px;
-  max-height: 300px;
-  overflow-y: auto;
-  z-index: 100;
-  font-family: monospace;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-`;
 
 const Article = () => {
   const { articleId } = useParams<{ articleId: string }>();
@@ -1357,38 +1320,19 @@ const Article = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioTimeUpdateRef = useRef<number | null>(null);
-  
+
   // Character-word mapping for highlighting
   const [characterWordMap, setCharacterWordMap] = useState<{[charKey: string]: {paragraphIndex: number, wordIndex: number}}>({});
   
-  // Track active words for debugging
-  const [activeWords, setActiveWords] = useState<{word: string, paraIndex: number, wordIndex: number}[]>([]);
+  // State for active character index
+  const [activeCharIndex, setActiveCharIndex] = useState<number | null>(null);
   
-  // Debug mode toggle
-  const [showDebug, setShowDebug] = useState(true);
+  // Refs to store timestamps and paragraph character offsets
+  const timestampsRef = useRef<AudioTimestamp[]>([]);
+  const paragraphCharOffsetRef = useRef<number[]>([]);
   
-  // Helper function to render active characters safely
-  const renderActiveChars = (): string => {
-    if (!article?.audio?.characters || 
-        !article.audio.character_start_times_seconds || 
-        !article.audio.character_end_times_seconds) {
-      return 'none';
-    }
-    
-    const { characters, character_start_times_seconds, character_end_times_seconds } = article.audio;
-    const activeChars: string[] = [];
-    
-    for (let i = 0; i < characters.length; i++) {
-      const start = character_start_times_seconds[i];
-      const end = character_end_times_seconds[i];
-      
-      if (start <= currentTime && end >= currentTime) {
-        activeChars.push(characters[i]);
-      }
-    }
-    
-    return activeChars.length > 0 ? activeChars.join(', ') : 'none';
-  };
+  // Refs to store word ranges (global indices) per paragraph
+  const paragraphWordRangesRef = useRef<Array<[number, number]>[]>([]);
 
   // SVG components for play/pause
   const PlayIcon = () => (
@@ -1427,88 +1371,39 @@ const Article = () => {
 
   // Highlight words based on audio playback time
   const prepareParagraphText = (paragraph: string, paragraphIndex: number) => {
-    if (!isAudioMode || !article?.audio?.timestamps) {
+    if (!isAudioMode || timestampsRef.current.length === 0) {
       return paragraph;
     }
-    
-    const result = [];
-    const words = paragraph.split(/(\s+)/); // Split by whitespace, keeping the separators
-    
-    // Get current audio time
-    const currentTime = audioRef.current?.currentTime || 0;
-    
-    // Group timestamps by word (assuming format "paragraphIndex_wordIndex_characterIndex")
-    const wordTimestamps = new Map<number, {start: number, end: number}>();
-    
-    article.audio.timestamps.forEach(ts => {
-      if (!ts.character) return;
-      
-      const parts = ts.character.split('_');
-      if (parts.length < 2) return;
-      
-      const wordIndex = parseInt(parts[1]);
-      if (isNaN(wordIndex)) return;
-      
-      // Update word's time range to include this character's timestamp
-      const existing = wordTimestamps.get(wordIndex) || {start: Infinity, end: -Infinity};
-      wordTimestamps.set(wordIndex, {
-        start: Math.min(existing.start, ts.start),
-        end: Math.max(existing.end, ts.end)
-      });
-    });
-    
-    // For each word, check if it should be highlighted
-    let realWordCount = 0;
-    
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      
-      // Skip whitespace - just add it without changing
-      if (word.trim() === '') {
-        result.push(<React.Fragment key={`space-${i}`}>{word}</React.Fragment>);
-        continue;
-      }
-      
-      // Check if this word should be highlighted
-      const wordTime = wordTimestamps.get(realWordCount);
-      const shouldHighlight = wordTime && currentTime >= wordTime.start && currentTime <= wordTime.end;
-      
-      result.push(
-        <span
-          key={`word-${i}`}
-          data-word-index={realWordCount}
-          data-paragraph-index={paragraphIndex}
-          style={{
-            position: 'relative',
-            display: 'inline-block'
-          }}
-        >
-          {shouldHighlight ? (
-            <>
-              <span 
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: "#FFF2CC",
-                  borderRadius: "2px",
-                  zIndex: -1,
-                }}
-              />
-              <span style={{ position: 'relative', color: colors.text.dark }}>
-                {word}
-              </span>
-            </>
-          ) : word}
-        </span>
-      );
-      
-      realWordCount++;
-    }
-    
-    return <>{result}</>;
+    const chars = paragraph.split('');
+    const offset = paragraphCharOffsetRef.current[paragraphIndex] || 0;
+    // Determine active word range for this paragraph
+    const ranges = paragraphWordRangesRef.current[paragraphIndex] || [];
+    const activeRange = ranges.find(([s, e]) =>
+      activeCharIndex !== null && activeCharIndex >= s && activeCharIndex <= e
+    );
+    return (
+      <>
+        {chars.map((char, i) => {
+          const globalIdx = offset + i;
+          // Highlight if within active word's range
+          const shouldHighlight = activeRange
+            ? globalIdx >= activeRange[0] && globalIdx <= activeRange[1]
+            : false;
+          // Highlight color applies to all chars in word; bold active char
+          return (
+            <span
+              key={`char-${globalIdx}`}
+              id={`char-${globalIdx}`}
+              style={{
+                backgroundColor: shouldHighlight ? '#FFF2CC' : 'transparent',
+              }}
+            >
+              {char}
+            </span>
+          );
+        })}
+      </>
+    );
   };
 
   // Helper function to scroll to highlighted word
@@ -1557,9 +1452,9 @@ const Article = () => {
         const currentTime = audioRef.current.currentTime;
         // Update time display and progress bar
         setCurrentTime(currentTime);
-        
+
         // Update progress percentage
-        const progress = (currentTime / audioRef.current.duration) * 100;
+        const progress = (currentTime / (audioRef.current.duration || 1)) * 100;
         setAudioProgress(isNaN(progress) ? 0 : progress);
         
         // Find active characters and words for debugging
@@ -1612,15 +1507,11 @@ const Article = () => {
                       word,
                       paraIndex: paragraphIndex,
                       wordIndex: wordIdx
-                    });
-                  }
+                  });
                 }
+              }
               });
             });
-            
-            // Update the state with active words
-            setActiveWords(highlightedWords);
-            
             // Find the first active word and scroll to it when needed
             if (highlightedWords.length > 0 && isPlaying) {
               const activeWord = highlightedWords[0];
@@ -1657,6 +1548,7 @@ const Article = () => {
         
         // Continue updating if playing
         if (isPlaying) {
+          // Request the next frame for continuous updates
           audioTimeUpdate();
         }
       }
@@ -1763,19 +1655,19 @@ const Article = () => {
       }
     } else if (isAudioMode) {
       setIsAudioMode(false);
-    }
+      }
 
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-        audioRef.current.removeEventListener("ended", handleAudioEnded);
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (audioTimeUpdateRef.current) {
-        cancelAnimationFrame(audioTimeUpdateRef.current);
-      }
-    };
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
+          audioRef.current.removeEventListener("ended", handleAudioEnded);
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        if (audioTimeUpdateRef.current) {
+          cancelAnimationFrame(audioTimeUpdateRef.current);
+        }
+      };
   }, [article?.audio?.url]); // Only depend on the audio URL
 
   // Toggle audio playback
@@ -2199,99 +2091,33 @@ const Article = () => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Get the clicked element - handle nested span structure from our new highlighting
+    // Get the clicked element - handle nested span structure
     let target = e.target as HTMLElement;
-    
-    // If we clicked on a highlight or inner span, find the parent word container
-    if (target.parentElement && 
-        (target.parentElement.style.position === 'relative' || 
-         target.parentElement.style.display === 'inline-block')) {
-      target = target.parentElement;
+    if (target.parentElement && target.id.startsWith('char-') && target.parentElement.closest("[id^='char-']")) {
+      target = target.parentElement.closest("[id^='char-']") as HTMLElement;
     }
-    
+
     const paragraphElement = target.closest(".article-text") as HTMLElement | null;
     if (!paragraphElement) return;
 
-    // If in audio mode, jump to the word's position
+    // If in audio mode, jump to the character's position
     if (isAudioMode && audioRef.current) {
-      // If clicked on a word with data attributes (directly or parent)
-      if (target.dataset.wordIndex !== undefined && target.dataset.paragraphIndex !== undefined) {
-        const paragraphIndex = parseInt(target.dataset.paragraphIndex);
-        const wordIndex = parseInt(target.dataset.wordIndex);
-        
-        // Calculate the position in the audio based on paragraph and word index
-        const totalDuration = audioRef.current.duration || 1;
-        const totalParagraphs = article?.content.english.length || 1;
-        
-        // Calculate the paragraph's time position
-        const paragraphStartPercent = paragraphIndex / totalParagraphs;
-        const paragraphEndPercent = (paragraphIndex + 1) / totalParagraphs;
-        const paragraphDuration = (paragraphEndPercent - paragraphStartPercent) * totalDuration;
-        
-        // Calculate word position within paragraph
-        const totalWords = article?.content.english[paragraphIndex]?.split(/\s+/).length || 1;
-        const wordPositionPercent = wordIndex / totalWords;
-        
-        // Calculate final audio position
-        const targetTime = (paragraphStartPercent * totalDuration) + (wordPositionPercent * paragraphDuration);
-        
-        console.log(`Jumping to paragraph ${paragraphIndex}, word ${wordIndex}, time: ${targetTime.toFixed(2)}s`);
-        
-        // Set the audio time
-        audioRef.current.currentTime = targetTime;
-        
-        // Start playing if not already playing
-        if (!isPlaying) {
-          audioRef.current.play()
-            .then(() => {
-              setIsPlaying(true);
-            })
-            .catch(err => {
-              console.error("Failed to play audio:", err);
-            });
-        }
-        
-        return;
-      }
-      
-      // If we're in audio mode but didn't click directly on a word with data attributes,
-      // use the extraction function to get the word and find its position
-      const { word } = extractFullWordFromBionicText(
-        paragraphElement,
-        e.clientX,
-        e.clientY
-      );
-      
-      if (word) {
-        // Find the paragraph index
-        const paragraphIndex = article?.content.english.findIndex(p => p.includes(word)) || 0;
-        if (paragraphIndex >= 0) {
-          // Calculate approximate position based on paragraph
-          const totalDuration = audioRef.current.duration || 1;
-          const totalParagraphs = article?.content.english.length || 1;
-          
-          // Calculate paragraph position (slightly after start of paragraph)
-          const paragraphPercent = (paragraphIndex + 0.1) / totalParagraphs;
-          const targetTime = paragraphPercent * totalDuration;
-          
-          console.log(`Jumping to word "${word}" in paragraph ${paragraphIndex}, time: ${targetTime.toFixed(2)}s`);
-          
-          // Set the audio time
-          audioRef.current.currentTime = targetTime;
-          
-          // Start playing if not already playing
+      // CHAR-LEVEL CLICK: if we clicked on a char-<index> span, jump exactly to its timestamp
+      const charEl = target.closest("[id^='char-']") as HTMLElement;
+      if (charEl && charEl.id.startsWith("char-")) {
+        const idx = parseInt(charEl.id.replace("char-", ""), 10);
+        const timestamp = timestampsRef.current[idx];
+        if (timestamp?.start !== undefined) {
+          audioRef.current.currentTime = timestamp.start;
           if (!isPlaying) {
-            audioRef.current.play()
-              .then(() => {
-                setIsPlaying(true);
-              })
-              .catch(err => {
-                console.error("Failed to play audio:", err);
-              });
+            const p = audioRef.current.play();
+            if (p) p.then(() => setIsPlaying(true)).catch(err => console.error("Audio play error:", err));
           }
         }
+        return; // Handled character click
       }
-      
+      // Fallback: If somehow a char-<id> span wasn't clicked, do nothing for now in audio mode.
+      // We could add word-level jump fallback here if needed later.
       return;
     }
 
@@ -2399,7 +2225,7 @@ const Article = () => {
   // Add this effect to process and map all timestamps when article loads
   useEffect(() => {
     if (!article?.content?.english || !article.audio?.timestamps) return;
-    
+
     // Store timestamps in ref for performance - this is still useful for other purposes
     if (article.audio?.timestamps) {
       // We don't need to process timestamps for highlighting anymore
@@ -2480,6 +2306,54 @@ const Article = () => {
     setCharacterWordMap(charToWordMap);
     console.log(`Built character-to-word mapping with ${Object.keys(charToWordMap).length} characters`);
   }, [article]);
+
+  // Initialize timestamps and calculate paragraph character offsets once article data is available
+  useEffect(() => {
+    if (article && article.audio?.timestamps && article.content.english) {
+      // Store timestamps
+      timestampsRef.current = article.audio.timestamps;
+      // Compute character offsets for each paragraph
+      const offsets: number[] = [];
+      let offset = 0;
+      article.content.english.forEach((para) => {
+        offsets.push(offset);
+        offset += para.length;
+      });
+      paragraphCharOffsetRef.current = offsets;
+      // Compute word ranges (global char index) per paragraph
+      const allRanges: Array<[number, number]>[] = [];
+      article.content.english.forEach((para, pIdx) => {
+        const ranges: [number, number][] = [];
+        let i = 0;
+        while (i < para.length) {
+          // skip spaces/newlines
+          if (para[i].trim() === '') { i++; continue; }
+          const localStart = i;
+          while (i < para.length && para[i].trim() !== '') { i++; }
+          const localEnd = i - 1;
+          const globalStart = offsets[pIdx] + localStart;
+          const globalEnd = offsets[pIdx] + localEnd;
+          ranges.push([globalStart, globalEnd]);
+        }
+        allRanges[pIdx] = ranges;
+      });
+      paragraphWordRangesRef.current = allRanges;
+    }
+  }, [article]);
+
+  // Update active character index based on current audio time and scroll into view
+  useEffect(() => {
+    if (audioRef.current && timestampsRef.current.length > 0) {
+      const idx = timestampsRef.current.findIndex(ts =>
+        currentTime >= ts.start && currentTime <= ts.end
+      );
+      if (idx !== -1 && idx !== activeCharIndex) {
+        setActiveCharIndex(idx);
+        const el = document.getElementById(`char-${idx}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [currentTime]);
 
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
   if (error) return <ErrorContainer>Error: {error}</ErrorContainer>;
@@ -2907,56 +2781,16 @@ const Article = () => {
           </AudioControls>
         </AudioPlayerContainer>
 
-        {/* Debug Toggle Button */}
-        {isAudioMode && (
-          <DebugToggleButton onClick={() => setShowDebug(!showDebug)}>
-            {showDebug ? "×" : "D"}
-          </DebugToggleButton>
-        )}
-
-        {/* Debug Display */}
-        {isAudioMode && showDebug && (
-          <DebugDisplay>
-            <div style={{ borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
-              <strong>Audio Debug</strong>
-            </div>
-            <div>Current Time: {currentTime.toFixed(2)}s</div>
-            <div>Duration: {duration.toFixed(2)}s</div>
-            <div>Progress: {((currentTime / (duration || 1)) * 100).toFixed(1)}%</div>
-            <div>Speed: {playbackSpeed}x</div>
-            
-            <div style={{ marginTop: 10, borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
-              <strong>Active Content</strong>
-            </div>
-            <div>Active Chars: {renderActiveChars()}</div>
-            <div>Current Paragraph: {Math.floor((currentTime / (duration || 1)) * article?.content?.english?.length || 0)}</div>
-            <div>Para Progress: {(((currentTime / (duration || 1)) * article?.content?.english?.length || 0) % 1).toFixed(2)}</div>
-            
-            <div style={{ marginTop: 10, borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
-              <strong>Highlighted Words</strong>
-            </div>
-            {activeWords.length > 0 ? (
-              activeWords.map((word, idx) => (
-                <div key={idx} style={{ 
-                  backgroundColor: 'rgba(255, 242, 204, 0.3)', 
-                  padding: '3px 5px', 
-                  marginBottom: '2px',
-                  borderRadius: '3px' 
-                }}>
-                  "{word.word}" (P{word.paraIndex+1}:W{word.wordIndex+1})
-                </div>
-              ))
-            ) : (
-              <div style={{ color: '#999' }}>No words currently highlighted</div>
-            )}
-            
-            <div style={{ marginTop: 10, borderBottom: '1px solid #444', marginBottom: 5, paddingBottom: 5 }}>
-              <strong>Mapping Info</strong>
-            </div>
-            <div>Character Count: {article?.audio?.characters?.length || 0}</div>
-            <div>Mapping Size: {Object.keys(characterWordMap).length}</div>
-            <div>Playing: {isPlaying ? 'Yes' : 'No'}</div>
-          </DebugDisplay>
+        {/* Hidden audio element to drive time updates */}
+        {article.audio?.url && (
+          <audio
+            ref={audioRef}
+            src={article.audio.url}
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={handleAudioEnded}
+            preload="metadata"
+            style={{ display: 'none' }}
+          />
         )}
       </ArticleContainer>
     </ArticlePageWrapper>
