@@ -1,5 +1,5 @@
 import { styled } from "styled-components";
-import { auth, storage, db } from "../firebase";
+import { auth, storage, db, functions } from "../firebase";
 import { useState, useEffect } from "react";
 import {
   getDownloadURL,
@@ -13,6 +13,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale/ko";
 import defaultUserImage from "../assets/default_user.jpg";
+import { httpsCallable } from "firebase/functions";
 
 // Updated Wrapper to use full width and follow layout guidelines
 const Wrapper = styled.div`
@@ -724,29 +725,36 @@ export default function Profile() {
     try {
       setCancelInProgress(true);
       setError("");
+      setSuccessMessage(null); // Clear previous success message
 
       if (!user) {
         throw new Error("로그인 정보를 찾을 수 없습니다.");
       }
 
-      // Call the backend API to cancel subscription
-      const response = await fetch("/api/subscription/cancel", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-        }),
+      // Call the backend Firebase Function to cancel subscription
+      const cancelSubscriptionFunction = httpsCallable(
+        functions,
+        "cancelSubscription"
+      );
+      console.log(`Calling cancelSubscription function for user ${user.uid}`);
+
+      const result = await cancelSubscriptionFunction({
+        // Optional: pass reason if you collect it
+        // reason: "User requested cancellation via profile"
       });
 
-      const data = await response.json();
+      const data = result.data as {
+        success: boolean;
+        message?: string;
+        refundAmount?: number;
+      };
+      console.log("cancelSubscription function result:", data);
 
       if (!data.success) {
         throw new Error(data.message || "구독 취소 중 오류가 발생했습니다.");
       }
 
-      // Update subscription data
+      // Update local state AFTER successful backend confirmation
       setSubscriptionData((prev) => ({
         ...prev,
         status: "canceled",
@@ -764,10 +772,11 @@ export default function Profile() {
         });
       }
 
-      setSuccessMessage("구독이 성공적으로 취소되었습니다.");
+      setSuccessMessage(data.message || "구독이 성공적으로 취소되었습니다.");
       setShowCancelDialog(false);
     } catch (error: any) {
       console.error("Error cancelling subscription:", error);
+      // Display the error message from the HttpsError
       setError(
         error.message ||
           "구독 취소 중 오류가 발생했습니다. 나중에 다시 시도해주세요."

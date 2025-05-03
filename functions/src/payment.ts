@@ -4,16 +4,25 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import axios from "axios";
 import { Timestamp } from "firebase-admin/firestore";
+import { format } from "date-fns";
 
 // Payple configuration from environment variables
 // For v2 functions, config values are available as process.env.PAYPLE_CST_ID etc.
 const PAYPLE_CST_ID = process.env.PAYPLE_CST_ID || "eklass";
-const PAYPLE_CUST_KEY = process.env.PAYPLE_CUST_KEY || "152ca21974f01290cb85d75279313e9fc7f7846d90f92af3ac2fd9a552d3cc06";
-const PAYPLE_CLIENT_KEY = process.env.PAYPLE_CLIENT_KEY || "87D77596FABD4476364691DCE189C90B";
-const PAYPLE_AUTH_URL = process.env.PAYPLE_AUTH_URL || "https://cpay.payple.kr/php/auth.php";
-const PAYPLE_HOSTNAME = process.env.PAYPLE_HOSTNAME || "https://1cupenglish.com";
-const PAYPLE_REMOTE_HOSTNAME = process.env.PAYPLE_REMOTE_HOSTNAME || "https://1cupenglish.com";
-const PAYPLE_REFUND_KEY = process.env.PAYPLE_REFUND_KEY || "196dddada23664e2d7f8d29dec674fc17c2f7d430213659bccf8f1b2940ae95f";
+const PAYPLE_CUST_KEY =
+  process.env.PAYPLE_CUST_KEY ||
+  "152ca21974f01290cb85d75279313e9fc7f7846d90f92af3ac2fd9a552d3cc06";
+const PAYPLE_CLIENT_KEY =
+  process.env.PAYPLE_CLIENT_KEY || "87D77596FABD4476364691DCE189C90B";
+const PAYPLE_AUTH_URL =
+  process.env.PAYPLE_AUTH_URL || "https://cpay.payple.kr/php/auth.php";
+const PAYPLE_HOSTNAME =
+  process.env.PAYPLE_HOSTNAME || "https://1cupenglish.com";
+const PAYPLE_REMOTE_HOSTNAME =
+  process.env.PAYPLE_REMOTE_HOSTNAME || "https://1cupenglish.com";
+const PAYPLE_REFUND_KEY =
+  process.env.PAYPLE_REFUND_KEY ||
+  "196dddada23664e2d7f8d29dec674fc17c2f7d430213659bccf8f1b2940ae95f";
 
 // Log config for debugging
 logger.info("Payple configuration:", {
@@ -23,12 +32,14 @@ logger.info("Payple configuration:", {
   auth_url: PAYPLE_AUTH_URL,
   hostname: PAYPLE_HOSTNAME,
   remote_hostname: PAYPLE_REMOTE_HOSTNAME,
-  refund_key_exists: !!PAYPLE_REFUND_KEY
+  refund_key_exists: !!PAYPLE_REFUND_KEY,
 });
 
 // Check if required credentials are available
 if (!PAYPLE_CST_ID || !PAYPLE_CUST_KEY || !PAYPLE_CLIENT_KEY) {
-  logger.warn("Missing Payple credentials in environment. This will cause issues in production but may be expected during local testing.");
+  logger.warn(
+    "Missing Payple credentials in environment. This will cause issues in production but may be expected during local testing."
+  );
 }
 
 // Subscription price in KRW
@@ -53,7 +64,9 @@ interface PaypleAuthResponse {
 }
 
 // Get Payple Auth Token
-async function getPaypleAuthToken(): Promise<PaypleAuthResponse> {
+async function getPaypleAuthToken(
+  isCancel = false
+): Promise<PaypleAuthResponse> {
   try {
     // Log full details of the auth request for debugging
     const requestData = {
@@ -62,7 +75,7 @@ async function getPaypleAuthToken(): Promise<PaypleAuthResponse> {
       PCD_PAY_TYPE: "card",
       PCD_SIMPLE_FLAG: "Y",
       PCD_PAY_WORK: "CERT",
-      PCD_PAYCANCEL_FLAG: "N",
+      PCD_PAYCANCEL_FLAG: isCancel ? "Y" : "N",
     };
 
     logger.info("Payple auth request details:", {
@@ -78,8 +91,8 @@ async function getPaypleAuthToken(): Promise<PaypleAuthResponse> {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "no-cache",
-        "referer": PAYPLE_HOSTNAME
-      }
+        referer: PAYPLE_HOSTNAME,
+      },
     });
 
     // Log full response for debugging
@@ -149,8 +162,8 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
       "PAYPLE_CLIENT_KEY",
-      "PAYPLE_REFUND_KEY"
-    ]
+      "PAYPLE_REFUND_KEY",
+    ],
   },
   async (request) => {
     try {
@@ -165,14 +178,14 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
       }
 
       // Extract user data from request with more detailed validation
-      const { 
-          userId, 
-          userEmail, 
-          userName, 
-          userPhone, 
-          pcd_amount, 
-          pcd_good_name,
-          selected_categories 
+      const {
+        userId,
+        userEmail,
+        userName,
+        userPhone,
+        pcd_amount,
+        pcd_good_name,
+        selected_categories,
       } = request.data || {};
 
       // Log each field individually for debugging
@@ -182,7 +195,9 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
       logger.info(`userPhone: ${userPhone || "missing"}`);
       logger.info(`pcd_amount: ${pcd_amount || "missing"}`);
       logger.info(`pcd_good_name: ${pcd_good_name || "missing"}`);
-      logger.info(`selected_categories: ${JSON.stringify(selected_categories || {})}`);
+      logger.info(
+        `selected_categories: ${JSON.stringify(selected_categories || {})}`
+      );
 
       // Validate user information with specific error messages
       if (!userId) {
@@ -237,10 +252,12 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
             payerPhoneNumber = authUser.phoneNumber
               .replace(/^\+82/, "0")
               .replace(/\D/g, "");
-            
+
             // Get just the last 8 digits
             payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
-            logger.debug(`Using phone from Auth (last 8 digits): ${payerPhoneNumber}`);
+            logger.debug(
+              `Using phone from Auth (last 8 digits): ${payerPhoneNumber}`
+            );
           }
 
           if (authUser.displayName && authUser.displayName.trim() !== "") {
@@ -254,31 +271,41 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
           );
           // If auth data retrieval fails, fall back to userData from Firestore
           if (userData?.phone) {
-            payerPhoneNumber = userData.phone.replace(/^\+82/, "0").replace(/\D/g, "");
+            payerPhoneNumber = userData.phone
+              .replace(/^\+82/, "0")
+              .replace(/\D/g, "");
             payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
-            logger.debug(`Using phone from Firestore as fallback (last 8 digits): ${payerPhoneNumber}`);
+            logger.debug(
+              `Using phone from Firestore as fallback (last 8 digits): ${payerPhoneNumber}`
+            );
           }
 
           if (userData?.name) {
             displayName = userData.name;
-            logger.debug(`Using name from Firestore as fallback: ${displayName}`);
+            logger.debug(
+              `Using name from Firestore as fallback: ${displayName}`
+            );
           }
         }
       } else {
         // Format the provided phone number and take last 8 digits
         payerPhoneNumber = payerPhoneNumber.replace(/\D/g, "");
         payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
-        logger.debug(`Using phone from request data (last 8 digits): ${payerPhoneNumber}`);
+        logger.debug(
+          `Using phone from request data (last 8 digits): ${payerPhoneNumber}`
+        );
       }
 
       // Last resort fallback for phone number - generate a numeric value based on timestamp
       if (!payerPhoneNumber) {
         payerPhoneNumber = Date.now().toString().slice(-8);
-        logger.warn(`No phone number found, using timestamp-based number: ${payerPhoneNumber}`);
+        logger.warn(
+          `No phone number found, using timestamp-based number: ${payerPhoneNumber}`
+        );
       }
 
       // No need for auth token here, we're just opening the card registration window
-      
+
       const orderDate = new Date();
       const orderMonth = (orderDate.getMonth() + 1).toString().padStart(2, "0");
       const orderDay = orderDate.getDate().toString().padStart(2, "0");
@@ -294,38 +321,39 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         PCD_PAY_TYPE: "card",
         PCD_PAY_WORK: "CERT",
         PCD_CARD_VER: "01",
-        
+
         // Required parameters
         PCD_PAY_GOODS: pcd_good_name || "영어 한잔 멤버십",
         PCD_PAY_TOTAL: pcd_amount,
-        
+
         // Billing-specific parameters
         PCD_REGULER_FLAG: "Y",
         PCD_SIMPLE_FLAG: "Y",
-        
+
         // Order details
         PCD_PAY_OID: orderNumber,
         PCD_PAY_YEAR: orderDate.getFullYear().toString(),
         PCD_PAY_MONTH: orderMonth,
-        
+
         // Customer details
         PCD_PAYER_NO: payerPhoneNumber,
         PCD_PAYER_NAME: displayName,
         PCD_PAYER_EMAIL: email,
         PCD_PAYER_HP: payerPhoneNumber,
-        
+
         // Use our server-side Firebase Function endpoint to handle the POST
-        PCD_RST_URL: "https://us-central1-one-cup-eng.cloudfunctions.net/paymentCallback",
+        PCD_RST_URL:
+          "https://us-central1-one-cup-eng.cloudfunctions.net/paymentCallback",
         PCD_PAYER_AUTHTYPE: "sms",
-        
+
         // Store user ID in USER_DEFINE for the callback to access
         PCD_USER_DEFINE1: request.auth.uid,
-        
+
         // Add a fallback URL for when Payple redirects the user after payment
         PCD_SIMPLE_FNAME: "payment-result",
 
         // Store selected categories in define2 (define1 used for userId)
-        PCD_USER_DEFINE2: JSON.stringify(selected_categories || {})
+        PCD_USER_DEFINE2: JSON.stringify(selected_categories || {}),
       };
 
       // Store the order in Firestore for later verification - Log initial attempt
@@ -378,8 +406,8 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
       "PAYPLE_CLIENT_KEY",
-      "PAYPLE_REFUND_KEY"
-    ]
+      "PAYPLE_REFUND_KEY",
+    ],
   },
   async (request) => {
     try {
@@ -488,41 +516,57 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
 
       if (paymentOrderId) {
         try {
-          const originalOrderRef = admin.firestore().collection("payment_orders").doc(paymentOrderId);
+          const originalOrderRef = admin
+            .firestore()
+            .collection("payment_orders")
+            .doc(paymentOrderId);
           const originalOrderDoc = await originalOrderRef.get();
-          
+
           if (!originalOrderDoc.exists) {
-            logger.error(`Original payment order ${paymentOrderId} not found! Falling back to default amount/name.`);
+            logger.error(
+              `Original payment order ${paymentOrderId} not found! Falling back to default amount/name.`
+            );
             // Potentially throw an error here if this is critical
           } else {
             const orderData = originalOrderDoc.data();
             if (orderData?.amount && orderData.amount > 0) {
               originalAmount = orderData.amount;
-              logger.info(`Retrieved dynamic amount ${originalAmount} from original order ${paymentOrderId}`);
+              logger.info(
+                `Retrieved dynamic amount ${originalAmount} from original order ${paymentOrderId}`
+              );
             } else {
-               logger.warn(`Original order ${paymentOrderId} has invalid amount: ${orderData?.amount}. Falling back to default.`);
+              logger.warn(
+                `Original order ${paymentOrderId} has invalid amount: ${orderData?.amount}. Falling back to default.`
+              );
             }
             if (orderData?.selectedCategories) {
-               selectedCategories = orderData.selectedCategories;
-               // Construct product name from categories
-               let nameParts: string[] = [];
-               if (selectedCategories.tech) nameParts.push("Tech");
-               if (selectedCategories.business) nameParts.push("Business");
-               if (selectedCategories.meetup) nameParts.push("Meetup");
-               if (nameParts.length > 0) {
-                   productName = `One Cup English (${nameParts.join(' + ')}) 멤버십`;
-               }
-               logger.info(`Constructed product name: ${productName}`);
+              selectedCategories = orderData.selectedCategories;
+              // Construct product name from categories
+              let nameParts: string[] = [];
+              if (selectedCategories.tech) nameParts.push("Tech");
+              if (selectedCategories.business) nameParts.push("Business");
+              if (selectedCategories.meetup) nameParts.push("Meetup");
+              if (nameParts.length > 0) {
+                productName = `One Cup English (${nameParts.join(
+                  " + "
+                )}) 멤버십`;
+              }
+              logger.info(`Constructed product name: ${productName}`);
             } else {
-                logger.warn(`Original order ${paymentOrderId} missing selectedCategories.`);
+              logger.warn(
+                `Original order ${paymentOrderId} missing selectedCategories.`
+              );
             }
           }
         } catch (fetchError) {
-          logger.error(`Error fetching original order ${paymentOrderId}:`, fetchError);
+          logger.error(
+            `Error fetching original order ${paymentOrderId}:`,
+            fetchError
+          );
           // Fallback to defaults if fetch fails
         }
       }
-      // --- End Fetch original order --- 
+      // --- End Fetch original order ---
 
       logger.info("Successfully stored billing key for user:", userId);
 
@@ -560,7 +604,8 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
           PCD_PAY_OID: orderNumber, // 주문번호
 
           // Optional parameters for better tracking
-          PCD_PAYER_NO: paymentParams.PCD_PAYER_NO || Date.now().toString().slice(-8), // Use same payer number or generate
+          PCD_PAYER_NO:
+            paymentParams.PCD_PAYER_NO || Date.now().toString().slice(-8), // Use same payer number or generate
           PCD_PAY_YEAR: new Date().getFullYear().toString(), // 결제 년도
           PCD_PAY_MONTH: (new Date().getMonth() + 1)
             .toString()
@@ -577,14 +622,15 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
 
         // Build the payment URL from the auth response
         let paymentURL = "";
-        
+
         if (authResponse.PCD_PAY_HOST && authResponse.PCD_PAY_URL) {
           // If host is provided, use it with the URL path
           paymentURL = `${authResponse.PCD_PAY_HOST}${authResponse.PCD_PAY_URL}`;
           logger.info(`Using payment URL from auth response: ${paymentURL}`);
         } else {
           // Fallback to default URL - this is the actual payment endpoint
-          paymentURL = "https://cpay.payple.kr/php/SimplePayCardAct.php?ACT_=PAYM";
+          paymentURL =
+            "https://cpay.payple.kr/php/SimplePayCardAct.php?ACT_=PAYM";
           logger.info(`Using default payment URL: ${paymentURL}`);
         }
 
@@ -625,12 +671,12 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
               createdAt: Timestamp.now(), // Add creation timestamp
             });
 
-          // --- Update user subscription status in Firestore --- 
+          // --- Update user subscription status in Firestore ---
           const subscriptionStartDate = new Date();
           // Calculate end date (handle potential month rollover correctly)
-          const subscriptionEndDate = new Date(subscriptionStartDate); 
+          const subscriptionEndDate = new Date(subscriptionStartDate);
           subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
-          
+
           await admin
             .firestore()
             .doc(`users/${userId}`)
@@ -659,14 +705,16 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
             .firestore()
             .collection("payment_orders")
             .doc(orderNumber) // Use the NEW orderNumber for this payment action
-            .set({
+            .set(
+              {
                 userId,
                 orderNumber,
                 amount: originalAmount, // << Use dynamic amount attempted
                 status: "failed",
                 type: "subscription_initial_payment",
                 errorCode: paymentResponse.data.PCD_PAY_CODE || "unknown",
-                errorMessage: paymentResponse.data.PCD_PAY_MSG || "알 수 없는 오류",
+                errorMessage:
+                  paymentResponse.data.PCD_PAY_MSG || "알 수 없는 오류",
                 paymentResult: paymentResponse.data, // Full Payple response
                 billingKeyUsed: billingKey,
                 failedAt: Timestamp.now(),
@@ -678,7 +726,9 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
 
           throw new HttpsError(
             "aborted",
-            `결제 실패: ${paymentResponse.data.PCD_PAY_MSG || "알 수 없는 오류"} (코드: ${paymentResponse.data.PCD_PAY_CODE || "unknown"})`
+            `결제 실패: ${
+              paymentResponse.data.PCD_PAY_MSG || "알 수 없는 오류"
+            } (코드: ${paymentResponse.data.PCD_PAY_CODE || "unknown"})`
           );
         }
       } catch (paymentError) {
@@ -715,8 +765,8 @@ export const processRecurringPayments = onSchedule(
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
       "PAYPLE_CLIENT_KEY",
-      "PAYPLE_REFUND_KEY"
-    ]
+      "PAYPLE_REFUND_KEY",
+    ],
   },
   async (event) => {
     const db = admin.firestore();
@@ -764,6 +814,46 @@ export const processRecurringPayments = onSchedule(
             .toString()
             .padStart(6, "0")}`;
 
+          // --- Calculate user-specific price and product name ---
+          let userSpecificPrice = 0;
+          let nameParts: string[] = [];
+          const techPrice = 4700;
+          const businessPrice = 4700;
+
+          if (userData.cat_tech) {
+            userSpecificPrice += techPrice;
+            nameParts.push("Tech");
+          }
+          if (userData.cat_business) {
+            userSpecificPrice += businessPrice;
+            nameParts.push("Business");
+          }
+
+          // Apply 20% discount if both are selected
+          if (userData.cat_tech && userData.cat_business) {
+            userSpecificPrice = Math.round(userSpecificPrice * 0.8);
+            logger.info(
+              `Applying 20% discount for user ${userId}, price: ${userSpecificPrice}`
+            );
+          }
+
+          // Fallback if price calculation fails (shouldn't happen for active sub)
+          if (userSpecificPrice <= 0) {
+            logger.warn(
+              `Calculated price for user ${userId} is ${userSpecificPrice}. Falling back to default price ${SUBSCRIPTION_PRICE}. Check cat_tech/cat_business flags.`
+            );
+            userSpecificPrice = SUBSCRIPTION_PRICE; // Fallback to default
+            nameParts = ["프리미엄 멤버십"]; // Default name part
+          }
+
+          const productName = `One Cup English (${nameParts.join(
+            " + "
+          )}) 멤버십 (정기결제)`;
+          logger.info(
+            `Calculated recurring payment for user ${userId}: Price=${userSpecificPrice}, Name=${productName}`
+          );
+          // --- End Calculation ---
+
           // Create payment request for recurring payment - according to Payple documentation
           const paymentRequest = {
             // Payple credentials (required) - use values from auth response
@@ -774,9 +864,9 @@ export const processRecurringPayments = onSchedule(
             // Payment details (required)
             PCD_PAY_TYPE: "card", // 결제 방법 (card)
             PCD_PAYER_ID: userData.billingKey, // 빌링키 (이전 응답의 PCD_PAYER_ID)
-            PCD_PAY_GOODS: "One Cup English 프리미엄 멤버십 (정기결제)", // 상품명
+            PCD_PAY_GOODS: productName, // << USE DYNAMIC NAME
             PCD_SIMPLE_FLAG: "Y", // 간편결제 여부 (빌링키는 Y로 설정)
-            PCD_PAY_TOTAL: SUBSCRIPTION_PRICE, // 결제 금액
+            PCD_PAY_TOTAL: userSpecificPrice, // << USE DYNAMIC PRICE
             PCD_PAY_OID: orderNumber, // 주문번호
 
             // Optional parameters for better tracking - using numeric values for required fields
@@ -786,7 +876,7 @@ export const processRecurringPayments = onSchedule(
               .toString()
               .padStart(2, "0"), // 결제 월
             PCD_PAY_ISTAX: "Y", // 과세여부 (Y: 과세, N: 비과세)
-            PCD_PAY_TAXTOTAL: Math.floor(SUBSCRIPTION_PRICE / 11).toString(), // 부가세 (자동계산)
+            PCD_PAY_TAXTOTAL: Math.floor(userSpecificPrice / 11).toString(), // << USE DYNAMIC PRICE for tax
           };
 
           // Call Payple API to process the recurring payment
@@ -799,7 +889,8 @@ export const processRecurringPayments = onSchedule(
             logger.info(`Using payment URL from auth response: ${paymentURL}`);
           } else {
             // Fallback to default URL
-            paymentURL = "https://cpay.payple.kr/php/SimplePayCardAct.php?ACT_=PAYM";
+            paymentURL =
+              "https://cpay.payple.kr/php/SimplePayCardAct.php?ACT_=PAYM";
             logger.info(`Using default payment URL: ${paymentURL}`);
           }
 
@@ -822,21 +913,24 @@ export const processRecurringPayments = onSchedule(
             );
 
             // --- Log SUCCESSFUL recurring payment in payment_orders ---
-            await db.collection("payment_orders").doc(orderNumber).set({
-              userId,
-              orderNumber,
-              amount: paymentResponse.data.PCD_PAY_TOTAL || SUBSCRIPTION_PRICE, // Log actual amount paid
-              orderDate: Timestamp.fromDate(orderDate),
-              status: "completed",
-              type: "subscription_recurring",
-              paymentResult: paymentResponse.data,
-              billingKeyUsed: userData.billingKey,
-              paymentMethod: "card",
-              completedAt: Timestamp.now(), // Use consistent field name
-              createdAt: Timestamp.now(), // Add creation timestamp
-            });
+            await db
+              .collection("payment_orders")
+              .doc(orderNumber)
+              .set({
+                userId,
+                orderNumber,
+                amount: paymentResponse.data.PCD_PAY_TOTAL || userSpecificPrice, // << Log actual amount paid or attempted dynamic price
+                orderDate: Timestamp.fromDate(orderDate),
+                status: "completed",
+                type: "subscription_recurring",
+                paymentResult: paymentResponse.data,
+                billingKeyUsed: userData.billingKey,
+                paymentMethod: "card",
+                completedAt: Timestamp.now(), // Use consistent field name
+                createdAt: Timestamp.now(), // Add creation timestamp
+              });
 
-            // --- Update user subscription dates --- 
+            // --- Update user subscription dates ---
             await db.doc(`users/${userId}`).update({
               subscriptionStartDate: Timestamp.fromDate(new Date()), // Set start to today
               subscriptionEndDate: Timestamp.fromDate(newEndDate), // Set end to one month from today
@@ -861,20 +955,23 @@ export const processRecurringPayments = onSchedule(
             );
 
             // --- Log FAILED recurring payment in payment_orders ---
-            await db.collection("payment_orders").doc(orderNumber).set({
-              userId,
-              orderNumber,
-              amount: SUBSCRIPTION_PRICE, // Log attempted amount
-              orderDate: Timestamp.fromDate(orderDate),
-              status: "failed",
-              type: "subscription_recurring",
-              paymentResult: paymentResponse.data, // Full Payple response
-              billingKeyUsed: userData.billingKey,
-              errorCode: errorCode,
-              errorMessage: errorMsg,
-              failedAt: Timestamp.now(), // Use consistent field name
-              createdAt: Timestamp.now(), // Add creation timestamp
-            });
+            await db
+              .collection("payment_orders")
+              .doc(orderNumber)
+              .set({
+                userId,
+                orderNumber,
+                amount: userSpecificPrice, // << Log attempted dynamic amount
+                orderDate: Timestamp.fromDate(orderDate),
+                status: "failed",
+                type: "subscription_recurring",
+                paymentResult: paymentResponse.data, // Full Payple response
+                billingKeyUsed: userData.billingKey,
+                errorCode: errorCode,
+                errorMessage: errorMsg,
+                failedAt: Timestamp.now(), // Use consistent field name
+                createdAt: Timestamp.now(), // Add creation timestamp
+              });
 
             // TODO: Notify user about failed payment (e.g., email notification)
           }
@@ -908,10 +1005,11 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
       "PAYPLE_CLIENT_KEY",
-      "PAYPLE_REFUND_KEY"
-    ]
+      "PAYPLE_REFUND_KEY",
+    ],
   },
   async (request) => {
+    const db = admin.firestore();
     try {
       // Ensure the user is authenticated
       if (!request.auth) {
@@ -919,9 +1017,11 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
       }
 
       const userId = request.auth.uid;
+      const cancellationReason = request.data?.reason || "User requested";
 
       // Get user data
-      const userDoc = await admin.firestore().doc(`users/${userId}`).get();
+      const userDocRef = db.doc(`users/${userId}`);
+      const userDoc = await userDocRef.get();
       if (!userDoc.exists) {
         throw new HttpsError("not-found", "User not found");
       }
@@ -936,31 +1036,269 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
         );
       }
 
-      // Update user subscription status
-      await admin
-        .firestore()
-        .doc(`users/${userId}`)
-        .update({
-          hasActiveSubscription: false,
-          subscriptionEndDate: Timestamp.fromDate(new Date()),
-          billingKey: null,
-          paymentMethod: null,
-          billingUpdatedAt: Timestamp.now(),
-          cat_tech: false,
-          cat_business: false,
-        });
+      // --- Find the last successful payment to refund ---
+      const lastPaymentQuery = await db
+        .collection("payment_orders")
+        .where("userId", "==", userId)
+        .where("status", "==", "completed") // Only successful payments
+        .orderBy("completedAt", "desc") // Get the most recent
+        .limit(1)
+        .get();
 
-      logger.info("Subscription cancelled for user:", userId);
+      if (lastPaymentQuery.empty) {
+        logger.error(
+          `No successful payment found for user ${userId} to refund.`
+        );
+        // If no payment found, maybe just deactivate locally?
+        // For now, let's throw an error, as refund is expected.
+        throw new HttpsError(
+          "not-found",
+          "취소할 결제 내역을 찾을 수 없습니다."
+        );
+      }
+
+      const lastPaymentDoc = lastPaymentQuery.docs[0];
+      const lastPaymentData = lastPaymentDoc.data();
+      const originalOrderId = lastPaymentData.orderNumber; // PCD_PAY_OID for refund
+      const originalPaymentAmount = lastPaymentData.amount; // PCD_REFUND_TOTAL basis
+
+      if (!originalOrderId || !originalPaymentAmount) {
+        logger.error(
+          `Missing critical data from last payment order ${lastPaymentDoc.id} for user ${userId}.`
+        );
+        throw new HttpsError(
+          "internal",
+          "마지막 결제 정보가 불완전하여 환불을 진행할 수 없습니다."
+        );
+      }
+      logger.info(
+        `Found last payment for refund: OrderID=${originalOrderId}, Amount=${originalPaymentAmount}`
+      );
+
+      // --- Calculate Refund Amount ---
+      const today = new Date();
+      const timeDiff =
+        today.getTime() - lastPaymentData.completedAt.toDate().getTime();
+      const daysPassed = Math.ceil(timeDiff / (1000 * 3600 * 24)); // Calculate days passed
+
+      let refundAmount = 0;
+      if (daysPassed < 7) {
+        refundAmount = originalPaymentAmount; // Full refund
+        logger.info(
+          `User ${userId}: ${daysPassed} days passed. Processing full refund: ${refundAmount}`
+        );
+      } else {
+        // Assuming a 30-day month for proration as per policy
+        const proratedAmount = Math.round(
+          (originalPaymentAmount * (30 - daysPassed)) / 30
+        );
+        refundAmount = Math.max(0, proratedAmount); // Ensure refund is not negative
+        logger.info(
+          `User ${userId}: ${daysPassed} days passed. Processing prorated refund: ${refundAmount}`
+        );
+      }
+
+      // --- Call Payple Refund API ---
+      if (refundAmount > 0) {
+        try {
+          // 1. Get Auth Token for Cancellation
+          const authResponse = await getPaypleAuthToken(true); // Pass true for cancel flag
+          logger.info(
+            `Auth token obtained for cancellation for user ${userId}`
+          );
+
+          // --- Extract date from Order ID ---
+          let payDateFromOID = "";
+          // Extract YYYYMMDD from the order ID (assuming format like OCEPAYYYYYMMDD... or OCERECYYYYMMDD...)
+          const match = originalOrderId.match(/(?:OCEPAY|OCEREC|OCE)(\d{8})/); // Look for 8 digits after prefixes
+          if (match && match[1]) {
+            payDateFromOID = match[1];
+            logger.info(
+              `Extracted date ${payDateFromOID} from Order ID ${originalOrderId}`
+            );
+          } else {
+            // Fallback or error if format is unexpected
+            logger.error(
+              `Could not extract YYYYMMDD date from Order ID: ${originalOrderId}. Falling back to using completedAt date.`
+            );
+            // Fallback to previous method, though likely incorrect based on the error
+            const originalPaymentDate = lastPaymentData.completedAt.toDate();
+            payDateFromOID = format(originalPaymentDate, "yyyyMMdd");
+          }
+          // --- End Extract date ---
+
+          // 2. Prepare Cancellation Request
+          const refundApiUrl =
+            "https://cpay.payple.kr/php/account/api/cPayCAct.php"; // Use production URL
+          const cancellationRequest = {
+            PCD_CST_ID: authResponse.cst_id,
+            PCD_CUST_KEY: authResponse.custKey,
+            PCD_AUTH_KEY: authResponse.AuthKey,
+            PCD_REFUND_KEY: PAYPLE_REFUND_KEY, // The specific key for refunds
+            PCD_PAYCANCEL_FLAG: "Y",
+            PCD_PAY_OID: originalOrderId, // Original Order ID
+            PCD_PAY_DATE: payDateFromOID, // << USE DATE EXTRACTED FROM OID
+            PCD_REFUND_TOTAL: refundAmount.toString(), // Amount to refund
+            // Optional: PCD_REFUND_REASON: cancellationReason
+          };
+
+          // Log the exact parameters being sent for cancellation
+          logger.info(
+            `Sending Payple cancellation request with: OID=${cancellationRequest.PCD_PAY_OID}, Date=${cancellationRequest.PCD_PAY_DATE}, Amount=${cancellationRequest.PCD_REFUND_TOTAL}`
+          );
+
+          logger.info(
+            `Attempting Payple refund for user ${userId}, OrderID: ${originalOrderId}, Amount: ${refundAmount}`,
+            { request: cancellationRequest }
+          );
+
+          // 3. Make Cancellation Request
+          const cancelResponse = await axios.post(
+            refundApiUrl,
+            cancellationRequest,
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-cache",
+                referer: PAYPLE_HOSTNAME,
+              },
+            }
+          );
+
+          logger.info(
+            `Payple refund response for user ${userId}:`,
+            JSON.stringify(cancelResponse.data)
+          );
+
+          // 4. Check Response
+          if (cancelResponse.data?.PCD_PAY_RST !== "success") {
+            const errorCode = cancelResponse.data?.PCD_PAY_CODE || "unknown";
+            const errorMsg =
+              cancelResponse.data?.PCD_PAY_MSG ||
+              "환불 처리 중 페이플 오류 발생";
+            logger.error(
+              `Payple refund failed for user ${userId}, OrderID: ${originalOrderId}: ${errorMsg} (Code: ${errorCode})`
+            );
+            // Log this failed refund attempt
+            await db.collection("payment_cancellations").add({
+              userId,
+              originalOrderId,
+              requestedAt: Timestamp.now(),
+              status: "failed",
+              refundAmountAttempted: refundAmount,
+              reason: cancellationReason,
+              paypleErrorCode: errorCode,
+              paypleErrorMessage: errorMsg,
+              paypleResponse: cancelResponse.data,
+            });
+            throw new HttpsError(
+              "aborted",
+              `환불 실패: ${errorMsg} (코드: ${errorCode})`
+            );
+          }
+
+          // --- Log Successful Refund ---
+          await db.collection("payment_cancellations").add({
+            userId,
+            originalOrderId,
+            requestedAt: Timestamp.now(),
+            status: "completed",
+            refundAmountProcessed: refundAmount,
+            reason: cancellationReason,
+            paypleResponse: cancelResponse.data,
+          });
+          logger.info(
+            `Successfully processed Payple refund for user ${userId}, OrderID: ${originalOrderId}, Amount: ${refundAmount}`
+          );
+        } catch (refundError: any) {
+          logger.error(
+            `Error during Payple refund process for user ${userId}:`,
+            refundError
+          );
+          if (axios.isAxiosError(refundError)) {
+            logger.error("Axios error details:", {
+              status: refundError.response?.status,
+              data: refundError.response?.data,
+            });
+          }
+          // Throw error to prevent Firestore update if refund fails
+          throw new HttpsError(
+            "internal",
+            "페이플 환불 요청 중 오류 발생: " +
+              (refundError.message || refundError)
+          );
+        }
+      } else {
+        logger.info(
+          `User ${userId}: Refund amount calculated is 0. Skipping Payple refund call.`
+        );
+        logger.info(
+          `Attempting to log 'completed_no_refund' to payment_cancellations for order ${originalOrderId}`
+        );
+        try {
+          await db.collection("payment_cancellations").add({
+            userId,
+            originalOrderId,
+            requestedAt: Timestamp.now(),
+            status: "completed_no_refund",
+            refundAmountProcessed: 0,
+            reason: cancellationReason,
+          });
+          logger.info(
+            `Successfully logged 'completed_no_refund' to payment_cancellations for order ${originalOrderId}`
+          );
+        } catch (logError) {
+          logger.error(
+            `!!! Failed to log 'completed_no_refund' to payment_cancellations for order ${originalOrderId}`,
+            logError
+          );
+          // Decide if we should still proceed or throw here?
+          // For now, let's log the error but allow the user update to proceed,
+          // as the core logic (no refund needed) is sound.
+          // Consider throwing if this logging is critical: throw new HttpsError('internal', 'Failed to log cancellation record');
+        }
+      }
+
+      // --- Update user subscription status in Firestore (ONLY AFTER SUCCESSFUL REFUND or if refundAmount is 0) ---
+      await userDocRef.update({
+        hasActiveSubscription: false,
+        subscriptionEndDate: Timestamp.now(), // Mark end date as now
+        billingKey: admin.firestore.FieldValue.delete(), // Remove billing key
+        paymentMethod: null,
+        billingUpdatedAt: Timestamp.now(),
+        // Keep cat_tech/cat_business as they are? Or clear them?
+        // Clearing them makes sense if subscription is truly ended.
+        cat_tech: false,
+        cat_business: false,
+        cancellationTimestamp: Timestamp.now(), // Add cancellation timestamp
+      });
+
+      logger.info(
+        "Subscription cancelled and Firestore updated for user:",
+        userId
+      );
 
       return {
         success: true,
-        message: "구독이 성공적으로 취소되었습니다.",
+        message: `구독이 성공적으로 취소되었습니다. ${
+          refundAmount > 0
+            ? `환불 처리된 금액: ${refundAmount.toLocaleString()}원.`
+            : "환불 대상 금액이 없습니다."
+        }`,
+        refundAmount: refundAmount,
       };
     } catch (error: any) {
-      logger.error("Error cancelling subscription:", error);
+      logger.error(
+        `Error cancelling subscription for user ${request.auth?.uid}:`,
+        error
+      );
+      // Ensure HttpsError is thrown for frontend handling
+      if (error instanceof HttpsError) {
+        throw error;
+      }
       throw new HttpsError(
         "internal",
-        error.message || "Failed to cancel subscription"
+        error.message || "구독 취소 중 서버 오류가 발생했습니다."
       );
     }
   }
@@ -971,7 +1309,7 @@ export const logCredentials = onCall(
   {
     ...functionConfig,
     enforceAppCheck: false,
-    invoker: "public"
+    invoker: "public",
   },
   async (request) => {
     // This function just logs credential info for debugging
@@ -982,7 +1320,7 @@ export const logCredentials = onCall(
       cust_key_exists: !!PAYPLE_CUST_KEY,
       cust_key_length: PAYPLE_CUST_KEY?.length || 0,
       client_key_exists: !!PAYPLE_CLIENT_KEY,
-      client_key_length: PAYPLE_CLIENT_KEY?.length || 0
+      client_key_length: PAYPLE_CLIENT_KEY?.length || 0,
     };
   }
 );
@@ -996,8 +1334,8 @@ export const paymentCallback = onRequest(
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
       "PAYPLE_CLIENT_KEY",
-      "PAYPLE_REFUND_KEY"
-    ]
+      "PAYPLE_REFUND_KEY",
+    ],
   },
   async (req, res) => {
     // Log the entire request for debugging
@@ -1006,13 +1344,13 @@ export const paymentCallback = onRequest(
       path: req.path,
       headers: req.headers,
       query: req.query,
-      body: req.body
+      body: req.body,
     });
 
     try {
       // Extract payment data from POST body or query parameters
-      const paymentData = req.method === 'POST' ? req.body : req.query;
-      
+      const paymentData = req.method === "POST" ? req.body : req.query;
+
       if (!paymentData || Object.keys(paymentData).length === 0) {
         logger.error("No payment data received in callback");
         res.status(400).send("No payment data received");
@@ -1022,33 +1360,37 @@ export const paymentCallback = onRequest(
       logger.info("Payment data received:", paymentData);
 
       // Get the user ID from the user define field
-      const userId = paymentData.PCD_USER_DEFINE1 || 'unknown_user';
-      
+      const userId = paymentData.PCD_USER_DEFINE1 || "unknown_user";
+
       // Store the payment data in Firestore
       const paymentId = paymentData.PCD_PAY_OID || `payment_${Date.now()}`;
-      
+
       // Process the payment result if this is a successful payment
-      if (paymentData.PCD_PAY_RST === 'success') {
+      if (paymentData.PCD_PAY_RST === "success") {
         try {
           // Update user with billing key if available
           const billingKey = paymentData.PCD_PAYER_ID;
-          
-          if (billingKey && userId !== 'unknown_user') {
+
+          if (billingKey && userId !== "unknown_user") {
             // Update user record with billing key
             await admin.firestore().doc(`users/${userId}`).update({
               billingKey: billingKey,
               paymentMethod: "card",
               billingUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
-            
-            logger.info(`Updated user ${userId} with billing key ${billingKey}`);
-            
+
+            logger.info(
+              `Updated user ${userId} with billing key ${billingKey}`
+            );
+
             // Make initial payment if this is a billing key registration (AUTH/CERT)
-            if (paymentData.PCD_PAY_WORK === 'CERT') {
+            if (paymentData.PCD_PAY_WORK === "CERT") {
               // For now, just log that we would make a payment
               // This avoids unused variable errors while we're debugging
-              logger.info(`Would make initial payment for user ${userId} with billing key ${billingKey}`);
-              
+              logger.info(
+                `Would make initial payment for user ${userId} with billing key ${billingKey}`
+              );
+
               // TODO: Implement actual payment using getPaypleAuthToken() and
               // making a request to Payple's payment endpoint
             }
@@ -1071,19 +1413,19 @@ export const paymentCallback = onRequest(
       logger.info(`Stored payment callback data with ID: ${paymentId} for user: ${userId}`);
       */ // <<< REMOVE
       // <<< END REVERT COMMENT OUT
-      
+
       // Create URL parameters to pass to the frontend
       const redirectParams = new URLSearchParams();
-      Object.keys(paymentData).forEach(key => {
+      Object.keys(paymentData).forEach((key) => {
         redirectParams.append(key, String(paymentData[key]));
       });
-      
+
       // Add payment ID for tracking
-      redirectParams.append('payment_id', paymentId);
-      
+      redirectParams.append("payment_id", paymentId);
+
       // Redirect to the frontend result page with the payment data as query parameters
       const frontendUrl = `https://1cupenglish.com/payment-result?${redirectParams.toString()}`;
-      
+
       logger.info(`Redirecting to: ${frontendUrl}`);
       res.redirect(303, frontendUrl);
       return;
