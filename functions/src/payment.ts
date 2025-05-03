@@ -709,7 +709,7 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
 // Function to process monthly recurring payments
 export const processRecurringPayments = onSchedule(
   {
-    schedule: "every day 00:05",
+    schedule: "0 * * * *",
     timeZone: "Asia/Seoul",
     secrets: [
       "PAYPLE_CST_ID",
