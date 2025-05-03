@@ -1107,23 +1107,28 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
             `Auth token obtained for cancellation for user ${userId}`
           );
 
-          // --- Extract date from Order ID ---
-          let payDateFromOID = "";
-          // Extract YYYYMMDD from the order ID (assuming format like OCEPAYYYYYMMDD... or OCERECYYYYMMDD...)
-          const match = originalOrderId.match(/(?:OCEPAY|OCEREC|OCE)(\d{8})/); // Look for 8 digits after prefixes
-          if (match && match[1]) {
-            payDateFromOID = match[1];
+          // --- Extract date from Payple's PCD_PAY_TIME ---
+          let payDateFromPaypleTime = "";
+          const payplePaymentResult = lastPaymentData.paymentResult; // Get the map
+          const pcdPayTime = payplePaymentResult?.PCD_PAY_TIME; // Get the timestamp string
+
+          if (
+            pcdPayTime &&
+            typeof pcdPayTime === "string" &&
+            pcdPayTime.length >= 8
+          ) {
+            payDateFromPaypleTime = pcdPayTime.substring(0, 8); // Extract YYYYMMDD
             logger.info(
-              `Extracted date ${payDateFromOID} from Order ID ${originalOrderId}`
+              `Extracted date ${payDateFromPaypleTime} from PCD_PAY_TIME (${pcdPayTime}) in paymentResult for Order ID ${originalOrderId}`
             );
           } else {
-            // Fallback or error if format is unexpected
+            // Fallback or error if PCD_PAY_TIME is missing or invalid
             logger.error(
-              `Could not extract YYYYMMDD date from Order ID: ${originalOrderId}. Falling back to using completedAt date.`
+              `Could not extract YYYYMMDD date from PCD_PAY_TIME in paymentResult for Order ID: ${originalOrderId}. Falling back to using completedAt date.`
             );
-            // Fallback to previous method, though likely incorrect based on the error
+            // Fallback to formatting completedAt, though likely incorrect
             const originalPaymentDate = lastPaymentData.completedAt.toDate();
-            payDateFromOID = format(originalPaymentDate, "yyyyMMdd");
+            payDateFromPaypleTime = format(originalPaymentDate, "yyyyMMdd");
           }
           // --- End Extract date ---
 
@@ -1136,8 +1141,8 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
             PCD_AUTH_KEY: authResponse.AuthKey,
             PCD_REFUND_KEY: PAYPLE_REFUND_KEY, // The specific key for refunds
             PCD_PAYCANCEL_FLAG: "Y",
-            PCD_PAY_OID: originalOrderId, // Original Order ID
-            PCD_PAY_DATE: payDateFromOID, // << USE DATE EXTRACTED FROM OID
+            PCD_PAY_OID: originalOrderId, // Original Order ID (Your ID)
+            PCD_PAY_DATE: payDateFromPaypleTime, // << USE DATE EXTRACTED FROM PCD_PAY_TIME
             PCD_REFUND_TOTAL: refundAmount.toString(), // Amount to refund
             // Optional: PCD_REFUND_REASON: cancellationReason
           };
