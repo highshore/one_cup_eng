@@ -22,6 +22,10 @@ const colors = {
     medium: "#4A2F23",
     light: "#8B6B4F",
   },
+  subscription: {
+    active: "#00a000",
+    inactive: "#808080",
+  },
 };
 
 const NavbarContainer = styled.nav`
@@ -157,7 +161,15 @@ const IconSvg = styled.svg`
   height: 40px;
 `;
 
-const ProfileButton = styled(Link)`
+// Wrapper for Profile Button and Status Indicator
+const ProfileWrapper = styled.div`
+  position: relative;
+  display: inline-flex; // Or inline-block
+  vertical-align: middle; // Align with other GNB items if needed
+`;
+
+const ProfileButton = styled(Link)<{ isActiveSubscription: boolean | null }>`
+  // position: relative; // Removed: Wrapper now handles relative positioning
   color: ${colors.primary};
   border: none;
   height: 36px;
@@ -167,7 +179,13 @@ const ProfileButton = styled(Link)`
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid ${colors.accent};
+  border: 2px solid
+    ${(props) =>
+      props.isActiveSubscription === true
+        ? colors.subscription.active
+        : props.isActiveSubscription === false
+        ? colors.subscription.inactive
+        : colors.accent};
   transition: all 0.2s ease;
 
   &:hover {
@@ -183,9 +201,24 @@ const ProfileButton = styled(Link)`
   }
 `;
 
+// New component for the status indicator circle
+const StatusIndicator = styled.div<{ isActive: boolean }>`
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: ${(props) =>
+    props.isActive ? colors.subscription.active : colors.subscription.inactive};
+  border: 1.5px solid white;
+  box-sizing: border-box;
+  z-index: 1;
+`;
+
 const ProfileImage = styled.img`
-  width: 30px;
-  height: 30px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   border-radius: 50%;
 `;
@@ -248,7 +281,7 @@ interface GNBProps {
 
 export default function GNB({}: GNBProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { currentUser } = useAuth();
+  const { currentUser, hasActiveSubscription } = useAuth();
   const [profileImageUrl, setProfileImageUrl] = useState(defaultUser);
 
   // Update profile image only when user logs in or when avatar is explicitly changed
@@ -347,6 +380,11 @@ export default function GNB({}: GNBProps) {
     };
   }, [isMenuOpen]);
 
+  // Display loading indicator or default state while auth is loading
+  // if (authLoading) {
+  //   return <NavbarContainer>Loading...</NavbarContainer>; // Or a skeleton loader
+  // }
+
   return (
     <NavbarContainer>
       <NavbarContent>
@@ -402,18 +440,25 @@ export default function GNB({}: GNBProps) {
         </MenuContainer>
 
         {currentUser ? (
-          <ProfileButton to="/profile">
-            <ProfileImage
-              src={profileImageUrl}
-              alt="사용자 프로필"
-              onError={(e) => {
-                // If image fails to load, fall back to default
-                const target = e.target as HTMLImageElement;
-                target.onerror = null; // Prevent infinite error loop
-                target.src = defaultUser;
-              }}
-            />
-          </ProfileButton>
+          <ProfileWrapper>
+            <ProfileButton
+              to="/profile"
+              isActiveSubscription={hasActiveSubscription}
+            >
+              <ProfileImage
+                src={profileImageUrl}
+                alt="사용자 프로필"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = defaultUser;
+                }}
+              />
+            </ProfileButton>
+            {hasActiveSubscription !== null && (
+              <StatusIndicator isActive={hasActiveSubscription} />
+            )}
+          </ProfileWrapper>
         ) : (
           <AuthButton to="/auth">시작하기</AuthButton>
         )}
@@ -429,17 +474,25 @@ export default function GNB({}: GNBProps) {
             커뮤니티
           </MobileMenuItem>
           {currentUser ? (
-            <ProfileButton to="/profile">
-              <ProfileImage
-                src={profileImageUrl}
-                alt="사용자 프로필"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = defaultUser;
-                }}
-              />
-            </ProfileButton>
+            <ProfileWrapper>
+              <ProfileButton
+                to="/profile"
+                isActiveSubscription={hasActiveSubscription}
+              >
+                <ProfileImage
+                  src={profileImageUrl}
+                  alt="사용자 프로필"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.onerror = null;
+                    target.src = defaultUser;
+                  }}
+                />
+              </ProfileButton>
+              {hasActiveSubscription !== null && (
+                <StatusIndicator isActive={hasActiveSubscription} />
+              )}
+            </ProfileWrapper>
           ) : (
             <MobileAuthButton to="/auth" onClick={() => setIsMenuOpen(false)}>
               시작하기

@@ -206,12 +206,12 @@ const CheckmarkIcon = styled.span`
 // Subscription styles
 const StatusBadge = styled.span<{ active?: boolean }>`
   display: inline-block;
-  background-color: ${(props) => (props.active ? "#800000" : "#007bff")};
+  background-color: ${(props) => (props.active ? "#00a000" : "#808080")};
   color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 16px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 600;
   margin-left: 10px;
 `;
 
@@ -421,9 +421,35 @@ interface UserData {
 const SubscriptionInfo = styled(TransparentCard)``;
 
 const SubscribeAgainButton = styled(Button)`
-  background-color: #3498db;
+  background-color: #2c1810;
+  width: 100%;
   &:hover {
-    background-color: #2980b9;
+    background-color: #4a2d1d;
+  }
+`;
+
+// New style for the cancel subscription link
+const CancelLinkButton = styled.button`
+  background-color: transparent;
+  color: #808080; // Muted gray color
+  padding: 0.5rem; // Minimal padding
+  border: none;
+  border-radius: 4px; // Slight rounding
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+
+  &:hover {
+    color: #c0392b; // Subtle danger color on hover
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    color: #bdbdbd; // Disabled color
+    cursor: not-allowed;
+    text-decoration: none;
   }
 `;
 
@@ -912,17 +938,10 @@ export default function Profile() {
       <SubscriptionInfo>
         <SectionTitle>
           구독 정보
-          <StatusBadge
-            active={
-              subscriptionData.status === "active" ||
-              (userData?.left_count || 0) > 0
-            }
-          >
+          <StatusBadge active={subscriptionData.status === "active"}>
             {subscriptionData.status === "active"
-              ? "활성화"
-              : (userData?.left_count || 0) > 0
-              ? "사용 중"
-              : "비활성화"}
+              ? "상태: 멤버십 이용 중"
+              : "상태: 멤버십 비활성화"}
           </StatusBadge>
         </SectionTitle>
 
@@ -939,12 +958,12 @@ export default function Profile() {
           </InfoRow>
 
           <InfoRow>
-            <InfoLabel>최근 결제</InfoLabel>
+            <InfoLabel>최근 결제일</InfoLabel>
             <InfoValue>{formatDate(subscriptionData.startDate)}</InfoValue>
           </InfoRow>
 
           <InfoRow>
-            <InfoLabel>다음 결제</InfoLabel>
+            <InfoLabel>다음 결제일</InfoLabel>
             <InfoValue>
               {subscriptionData.status === "active"
                 ? formatDate(subscriptionData.nextBillingDate)
@@ -961,20 +980,20 @@ export default function Profile() {
             style={{
               marginTop: "1.5rem",
               display: "flex",
-              justifyContent: "left",
+              justifyContent: "flex-end",
             }}
           >
             {subscriptionData.status === "active" && (
-              <DangerButton onClick={() => setShowCancelDialog(true)}>
-                구독 해지하기
-              </DangerButton>
+              <CancelLinkButton onClick={() => setShowCancelDialog(true)}>
+                멤버십 해지하기
+              </CancelLinkButton>
             )}
 
             {subscriptionData.status === "canceled" && (
               <SubscribeAgainButton
                 onClick={() => (window.location.href = "/payment")}
               >
-                다시 구독하기
+                멤버십 시작하기
               </SubscribeAgainButton>
             )}
           </div>
