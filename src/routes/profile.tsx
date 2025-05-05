@@ -940,8 +940,8 @@ export default function Profile() {
           구독 정보
           <StatusBadge active={subscriptionData.status === "active"}>
             {subscriptionData.status === "active"
-              ? "상태: 멤버십 이용 중"
-              : "상태: 멤버십 비활성화"}
+              ? "상태: 이용 중"
+              : "상태: 비활성화"}
           </StatusBadge>
         </SectionTitle>
 

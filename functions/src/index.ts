@@ -9,8 +9,8 @@ import {
   verifyPaymentResult,
   cancelSubscription,
   processRecurringPayments,
-  logCredentials,       // <<< Make sure this export line exists
-  paymentCallback  
+  logCredentials, // <<< Make sure this export line exists
+  paymentCallback,
 } from "./payment";
 
 // Export the payment functions
@@ -19,8 +19,8 @@ export {
   verifyPaymentResult,
   cancelSubscription,
   processRecurringPayments,
-  logCredentials,       // <<< Make sure this export line exists
-  paymentCallback  
+  logCredentials, // <<< Make sure this export line exists
+  paymentCallback,
 };
 
 admin.initializeApp();
@@ -34,7 +34,8 @@ interface LinkData {
 
 interface UserData {
   name: string;
-  left_count: number;
+  hasActiveSubscription: boolean;
+  subscriptionEndDate?: admin.firestore.Timestamp;
   cat_business: boolean;
   cat_tech: boolean;
   phone: string;
@@ -352,13 +353,13 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data() as UserData;
       logger.debug(
-        `Processing user ${userDoc.id}: left_count=${userData.left_count}, cat_tech=${userData.cat_tech}, cat_business=${userData.cat_business}`
+        `Processing user ${userDoc.id}: hasActiveSubscription=${userData.hasActiveSubscription}, cat_tech=${userData.cat_tech}, cat_business=${userData.cat_business}`
       );
 
-      // Skip users with zero left_count in production mode (in test mode, we process regardless of left_count)
-      if (!TEST_MODE_ENABLED && userData.left_count <= 0) {
+      // Skip users without an active subscription in production mode (in test mode, we process regardless)
+      if (!TEST_MODE_ENABLED && !userData.hasActiveSubscription) {
         logger.debug(
-          `Skipping user ${userDoc.id} because left_count is ${userData.left_count}`
+          `Skipping user ${userDoc.id} because hasActiveSubscription is ${userData.hasActiveSubscription}`
         );
         continue;
       }
@@ -485,16 +486,6 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
           recipientNo: recipientNo,
           templateParameter: templateParameter,
         });
-
-        // Only decrement left_count in production mode
-        if (!TEST_MODE_ENABLED) {
-          // Update left_count code here
-          // ...
-        } else {
-          logger.debug(
-            `Test mode: Not decrementing left_count for user ${userDoc.id}`
-          );
-        }
       }
 
       // Add to business recipients if cat_business is true
@@ -621,135 +612,32 @@ async function processAndSendLinks(testMode: boolean = false): Promise<{
         });
       }
 
-      // Check if user should receive expiry notification
-      if (userData.left_count === 1) {
-        logger.debug(
-          `Adding user ${userDoc.id} to expiry notifications as their left_count is 1`
-        );
-
-        // Get customer name from Firebase Auth first, then fallback to Firestore
-        let customerName = "고객님"; // Default fallback
-        try {
-          logger.debug(
-            `Fetching customer name from Auth for user ${userDoc.id}`
-          );
-          const authUser = await admin.auth().getUser(userDoc.id);
-
-          if (authUser.displayName && authUser.displayName.trim() !== "") {
-            customerName = authUser.displayName;
-            logger.debug(
-              `Using displayName from Auth as customer name: ${customerName}`
-            );
-          } else if (userData.name && userData.name.trim() !== "") {
-            customerName = userData.name;
-            logger.debug(
-              `Using name from Firestore as fallback: ${customerName}`
-            );
-          }
-        } catch (authError) {
-          logger.error(
-            `Error fetching user from Auth for ${userDoc.id}:`,
-            authError
-          );
-          if (userData.name && userData.name.trim() !== "") {
-            customerName = userData.name;
-            logger.debug(
-              `Using name from Firestore after Auth error: ${customerName}`
-            );
-          }
-        }
-
-        // Get phone number only from Firebase Auth
-        let recipientNo = "";
-        try {
-          logger.debug(
-            `Fetching phone number from Auth for user ${userDoc.id}`
-          );
-          const authUser = await admin.auth().getUser(userDoc.id);
-
-          if (authUser.phoneNumber) {
-            // Format phone number from auth (remove country code and any non-digits)
-            recipientNo = authUser.phoneNumber
-              .replace(/^\+82/, "0")
-              .replace(/\D/g, "");
-            logger.debug(
-              `Found phone from Auth: ${authUser.phoneNumber}, formatted: ${recipientNo}`
-            );
-          } else {
-            logger.warn(`No phone number found in Auth for user ${userDoc.id}`);
-            // Fallback to phone field in Firestore as last resort
-            if (userData.phone) {
-              recipientNo = userData.phone
-                .replace(/^\+82/, "0")
-                .replace(/\D/g, "");
-              logger.debug(
-                `Using phone field from Firestore as fallback: ${recipientNo}`
-              );
-            }
-          }
-        } catch (authError) {
-          logger.error(
-            `Error fetching user from Auth for ${userDoc.id}:`,
-            authError
-          );
-          // Fallback to phone field in Firestore as last resort
-          if (userData.phone) {
-            recipientNo = userData.phone
-              .replace(/^\+82/, "0")
-              .replace(/\D/g, "");
-            logger.debug(
-              `Using phone field from Firestore as fallback after Auth error: ${recipientNo}`
-            );
-          }
-        }
-
-        // Skip if we couldn't find a valid phone number
-        if (
-          !recipientNo ||
-          !recipientNo.startsWith("010") ||
-          recipientNo.length < 10
-        ) {
-          logger.warn(
-            `Could not find valid phone number for user ${userDoc.id}, skipping`
-          );
-          continue;
-        }
-
-        expiryNotifications.push({
-          recipientNo: recipientNo,
-          templateParameter: {
-            "customer-name": customerName,
-            "store-link":
-              "https://smartstore.naver.com/one-cup-english/products/10974832954",
-          },
-        });
-      }
-
-      // Update the user's left_count
+      // Update the user's last_received timestamp if they received an article
       logger.debug(
-        `Updating left_count for user ${userDoc.id} from ${
-          userData.left_count
-        } to ${userData.left_count - 1}`
+        `Checking if last_received needs update for user ${userDoc.id}`
       );
       try {
         // Create an update object
-        const updates: any = {
-          left_count: admin.firestore.FieldValue.increment(-1),
-        };
+        const updates: any = {};
 
-        // Add last_received timestamp if user received any article
-        if (
-          (userData.cat_tech && techLink) ||
-          (userData.cat_business && businessLink) ||
-          userData.left_count === 1
-        ) {
+        // Add last_received timestamp if user received any article today
+        const receivedTech = userData.cat_tech && techLink;
+        const receivedBusiness = userData.cat_business && businessLink;
+
+        if (receivedTech || receivedBusiness) {
           updates.last_received = admin.firestore.FieldValue.serverTimestamp();
           logger.debug(`Adding last_received timestamp for user ${userDoc.id}`);
         }
 
-        // Apply the updates
-        await userDoc.ref.update(updates);
-        logger.debug(`Successfully updated user ${userDoc.id}`);
+        // Apply the updates only if there's something to update
+        if (Object.keys(updates).length > 0) {
+          await userDoc.ref.update(updates);
+          logger.debug(
+            `Successfully updated user ${userDoc.id} (last_received)`
+          );
+        } else {
+          logger.debug(`No updates needed for user ${userDoc.id}`);
+        }
       } catch (updateError) {
         logger.error(`Failed to update user ${userDoc.id}:`, updateError);
       }
@@ -1082,11 +970,11 @@ async function processCategoryLinks(
       // Then filter locally by left_count
       const filteredDocs = usersWithCategorySnapshot.docs.filter((doc) => {
         const userData = doc.data();
-        return userData.left_count !== undefined && userData.left_count > 0;
+        return userData.hasActiveSubscription;
       });
 
       logger.debug(
-        `After filtering, found ${filteredDocs.length} ${category} subscribers with left_count > 0`
+        `After filtering, found ${filteredDocs.length} ${category} subscribers with active subscription`
       );
 
       // Create a custom snapshot-like object with the filtered docs
@@ -1115,16 +1003,13 @@ async function processCategoryLinks(
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data() as UserData;
       logger.debug(
-        `Processing user ${userDoc.id}: left_count=${userData.left_count}`
+        `Processing user ${userDoc.id}: hasActiveSubscription=${userData.hasActiveSubscription}`
       );
 
-      // Skip users with zero left_count in production mode (in test mode, we process regardless of left_count)
-      if (
-        !TEST_MODE_ENABLED &&
-        (userData.left_count === undefined || userData.left_count <= 0)
-      ) {
+      // Skip users without an active subscription in production mode (in test mode, we process regardless)
+      if (!TEST_MODE_ENABLED && !userData.hasActiveSubscription) {
         logger.debug(
-          `Skipping user ${userDoc.id} because left_count is ${userData.left_count}`
+          `Skipping user ${userDoc.id} because hasActiveSubscription is ${userData.hasActiveSubscription}`
         );
         continue;
       }
@@ -1218,8 +1103,7 @@ async function processCategoryLinks(
         continue;
       }
 
-      // Add the articleId to the user's received_articles array and update left_count
-      // Only in production mode we actually decrement the left_count
+      // Add the articleId to the user's received_articles array and update last_received
       try {
         logger.debug(
           `Adding article ${articleId} to received_articles for user ${userDoc.id}`
@@ -1229,16 +1113,6 @@ async function processCategoryLinks(
           received_articles: admin.firestore.FieldValue.arrayUnion(articleId),
           last_received: admin.firestore.FieldValue.serverTimestamp(),
         };
-
-        // Only decrement left_count in production mode
-        if (!TEST_MODE_ENABLED) {
-          updates.left_count = admin.firestore.FieldValue.increment(-1);
-          logger.debug(`Decrementing left_count for user ${userDoc.id}`);
-        } else {
-          logger.debug(
-            `Test mode: Not decrementing left_count for user ${userDoc.id}`
-          );
-        }
 
         await userDoc.ref.update(updates);
         logger.debug(`Successfully updated user ${userDoc.id}`);
