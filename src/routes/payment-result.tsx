@@ -211,12 +211,14 @@ export default function PaymentResult() {
         // Get URL search params - parse them more carefully
         const searchParams = new URLSearchParams(location.search);
         const paymentParams: Record<string, string> = {};
-        
+
         // Log all available search parameters for debugging
         console.log("All URL search params:", {
           search: location.search,
-          rawParams: [...searchParams.entries()].map(([key, value]) => `${key}=${value}`).join('&'),
-          paramCount: [...searchParams.entries()].length
+          rawParams: [...searchParams.entries()]
+            .map(([key, value]) => `${key}=${value}`)
+            .join("&"),
+          paramCount: [...searchParams.entries()].length,
         });
 
         // Extract all parameters
@@ -290,7 +292,10 @@ export default function PaymentResult() {
         }
 
         // Store the received parameters for debugging, even if incomplete
-        sessionStorage.setItem("rawPaymentParams", JSON.stringify(paymentParams));
+        sessionStorage.setItem(
+          "rawPaymentParams",
+          JSON.stringify(paymentParams)
+        );
 
         // Final check for necessary payment data
         if (!paymentParams.PCD_PAY_RST) {
@@ -423,16 +428,22 @@ export default function PaymentResult() {
       paymentSessionInfo: sessionStorage.getItem("paymentSessionInfo"),
       paypleCallbackResponse: sessionStorage.getItem("paypleCallbackResponse"),
       rawPaymentParams: sessionStorage.getItem("rawPaymentParams"),
-      paymentVerificationResult: sessionStorage.getItem("paymentVerificationResult"),
-      paymentVerificationError: sessionStorage.getItem("paymentVerificationError"),
-      paymentResultRefreshed: sessionStorage.getItem("payment_result_refreshed"),
+      paymentVerificationResult: sessionStorage.getItem(
+        "paymentVerificationResult"
+      ),
+      paymentVerificationError: sessionStorage.getItem(
+        "paymentVerificationError"
+      ),
+      paymentResultRefreshed: sessionStorage.getItem(
+        "payment_result_refreshed"
+      ),
       rawLocationSearch: location.search,
       rawLocationHash: location.hash,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     setDebugInfo(debugData);
-    
+
     // Log debug info to console
     console.log("Payment result debug info:", debugData);
   }, [location.search, location.hash]);
@@ -474,72 +485,23 @@ export default function PaymentResult() {
                   <InfoValue>{paymentResult.data.PCD_PAY_RST || "-"}</InfoValue>
                 </InfoRow>
                 <InfoRow>
-                  <InfoLabel>응답 코드</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_CODE || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>응답 메시지</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_MSG || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>승인 요청 방식</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_WORK || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>결제 수단</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_TYPE || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>회원 번호</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAYER_NO || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>빌링키</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAYER_ID || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>주문 번호</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_OID || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>구독자 이름</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAYER_NAME || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>구독자 이메일</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAYER_EMAIL || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>구독자 전화번호</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAYER_HP || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>카드사</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_CARDNAME || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>카드번호</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_CARDNUM || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>정기결제 여부</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_REGULER_FLAG === "Y" ? "예" : "아니오"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>결제 년도</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_YEAR || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>결제 월</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_MONTH || "-"}</InfoValue>
-                </InfoRow>
-                <InfoRow>
                   <InfoLabel>상품명</InfoLabel>
-                  <InfoValue>{paymentResult.data.PCD_PAY_GOODS || "One Cup English 프리미엄 멤버십"}</InfoValue>
+                  <InfoValue>
+                    {paymentResult.data.PCD_PAY_GOODS ||
+                      "One Cup English 프리미엄 멤버십"}
+                  </InfoValue>
                 </InfoRow>
                 <InfoRow>
                   <InfoLabel>구독 금액</InfoLabel>
-                  <InfoValue>₩{paymentResult.data.PCD_PAY_TOTAL ? Number(paymentResult.data.PCD_PAY_TOTAL).toLocaleString() : "9,900"}/월</InfoValue>
+                  <InfoValue>
+                    ₩
+                    {paymentResult.data.PCD_PAY_TOTAL
+                      ? Number(
+                          paymentResult.data.PCD_PAY_TOTAL
+                        ).toLocaleString()
+                      : "-"}
+                    /월
+                  </InfoValue>
                 </InfoRow>
                 <InfoRow>
                   <InfoLabel>다음 결제일</InfoLabel>
@@ -549,18 +511,6 @@ export default function PaymentResult() {
                     ).toLocaleDateString()}
                   </InfoValue>
                 </InfoRow>
-                {paymentResult.data.PCD_USER_DEFINE1 && (
-                  <InfoRow>
-                    <InfoLabel>사용자 정의 1</InfoLabel>
-                    <InfoValue>{paymentResult.data.PCD_USER_DEFINE1}</InfoValue>
-                  </InfoRow>
-                )}
-                {paymentResult.data.PCD_USER_DEFINE2 && (
-                  <InfoRow>
-                    <InfoLabel>사용자 정의 2</InfoLabel>
-                    <InfoValue>{paymentResult.data.PCD_USER_DEFINE2}</InfoValue>
-                  </InfoRow>
-                )}
               </ResultInfo>
             )}
 
@@ -595,120 +545,196 @@ export default function PaymentResult() {
         )}
 
         {/* Debug section - only accessible by clicking a hidden button */}
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <button 
-            onClick={() => setShowDebug(!showDebug)} 
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              color: '#999',
-              padding: '10px',
-              cursor: 'pointer'
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#999",
+              padding: "10px",
+              cursor: "pointer",
             }}
           >
-            {showDebug ? 'Hide Debug Info' : '•••'}
+            {showDebug ? "Hide Debug Info" : "•••"}
           </button>
-          
+
           {showDebug && (
-            <div style={{ 
-              textAlign: 'left', 
-              border: '1px solid #ddd', 
-              padding: '10px', 
-              borderRadius: '5px',
-              backgroundColor: '#f9f9f9',
-              marginTop: '10px',
-              fontSize: '12px',
-              whiteSpace: 'pre-wrap',
-              overflow: 'auto',
-              maxHeight: '400px'
-            }}>
+            <div
+              style={{
+                textAlign: "left",
+                border: "1px solid #ddd",
+                padding: "10px",
+                borderRadius: "5px",
+                backgroundColor: "#f9f9f9",
+                marginTop: "10px",
+                fontSize: "12px",
+                whiteSpace: "pre-wrap",
+                overflow: "auto",
+                maxHeight: "400px",
+              }}
+            >
               <h4>Debug Information</h4>
-              
+
               <h5>URL Data</h5>
-              <div>Search: <code>{debugInfo.rawLocationSearch || 'None'}</code></div>
-              <div>Hash: <code>{debugInfo.rawLocationHash || 'None'}</code></div>
-              
+              <div>
+                Search: <code>{debugInfo.rawLocationSearch || "None"}</code>
+              </div>
+              <div>
+                Hash: <code>{debugInfo.rawLocationHash || "None"}</code>
+              </div>
+
               <h5>Raw Payment Parameters</h5>
-              <pre>{debugInfo.rawPaymentParams ? JSON.stringify(JSON.parse(debugInfo.rawPaymentParams), null, 2) : 'None'}</pre>
-              
+              <pre>
+                {debugInfo.rawPaymentParams
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.rawPaymentParams),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
               <h5>Session Info</h5>
-              <pre>{debugInfo.paymentSessionInfo ? JSON.stringify(JSON.parse(debugInfo.paymentSessionInfo), null, 2) : 'None'}</pre>
-              
+              <pre>
+                {debugInfo.paymentSessionInfo
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paymentSessionInfo),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
               <h5>Callback Response</h5>
-              <pre>{debugInfo.paypleCallbackResponse ? JSON.stringify(JSON.parse(debugInfo.paypleCallbackResponse), null, 2) : 'None'}</pre>
-              
+              <pre>
+                {debugInfo.paypleCallbackResponse
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paypleCallbackResponse),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
               <h5>Verification Result</h5>
-              <pre>{debugInfo.paymentVerificationResult ? JSON.stringify(JSON.parse(debugInfo.paymentVerificationResult), null, 2) : 'None'}</pre>
-              
+              <pre>
+                {debugInfo.paymentVerificationResult
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paymentVerificationResult),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
               <h5>Verification Error</h5>
-              <pre>{debugInfo.paymentVerificationError ? JSON.stringify(JSON.parse(debugInfo.paymentVerificationError), null, 2) : 'None'}</pre>
-              
-              <button 
+              <pre>
+                {debugInfo.paymentVerificationError
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paymentVerificationError),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
+              <button
                 onClick={() => {
                   // Call the manual verification if we have raw parameters or callback data
-                  const rawParams = debugInfo.rawPaymentParams ? JSON.parse(debugInfo.rawPaymentParams) : null;
-                  const callbackData = debugInfo.paypleCallbackResponse ? JSON.parse(debugInfo.paypleCallbackResponse) : null;
-                  const dataToVerify = rawParams && Object.keys(rawParams).length > 0 ? rawParams : callbackData;
-                  
+                  const rawParams = debugInfo.rawPaymentParams
+                    ? JSON.parse(debugInfo.rawPaymentParams)
+                    : null;
+                  const callbackData = debugInfo.paypleCallbackResponse
+                    ? JSON.parse(debugInfo.paypleCallbackResponse)
+                    : null;
+                  const dataToVerify =
+                    rawParams && Object.keys(rawParams).length > 0
+                      ? rawParams
+                      : callbackData;
+
                   if (dataToVerify && !debugInfo.paymentVerificationResult) {
                     try {
-                      const sessionInfo = debugInfo.paymentSessionInfo ? JSON.parse(debugInfo.paymentSessionInfo) : null;
-                      
+                      const sessionInfo = debugInfo.paymentSessionInfo
+                        ? JSON.parse(debugInfo.paymentSessionInfo)
+                        : null;
+
                       if (sessionInfo && sessionInfo.userId) {
                         console.log("Manually attempting verification with:", {
                           userId: sessionInfo.userId,
-                          dataToVerify
+                          dataToVerify,
                         });
-                        
-                        const verifyPayment = httpsCallable(functions, "verifyPaymentResult");
+
+                        const verifyPayment = httpsCallable(
+                          functions,
+                          "verifyPaymentResult"
+                        );
                         verifyPayment({
                           userId: sessionInfo.userId,
                           paymentParams: dataToVerify,
-                          timestamp: Date.now()
+                          timestamp: Date.now(),
                         })
-                        .then(result => {
-                          console.log("Manual verification result:", result.data);
-                          sessionStorage.setItem("paymentVerificationResult", JSON.stringify(result.data));
-                          setDebugInfo({
-                            ...debugInfo,
-                            paymentVerificationResult: JSON.stringify(result.data)
+                          .then((result) => {
+                            console.log(
+                              "Manual verification result:",
+                              result.data
+                            );
+                            sessionStorage.setItem(
+                              "paymentVerificationResult",
+                              JSON.stringify(result.data)
+                            );
+                            setDebugInfo({
+                              ...debugInfo,
+                              paymentVerificationResult: JSON.stringify(
+                                result.data
+                              ),
+                            });
+                          })
+                          .catch((error) => {
+                            console.error("Manual verification error:", error);
+                            sessionStorage.setItem(
+                              "paymentVerificationError",
+                              JSON.stringify({
+                                message: error.message,
+                                code: error.code,
+                                details: error.details,
+                                timestamp: new Date().toISOString(),
+                              })
+                            );
+                            setDebugInfo({
+                              ...debugInfo,
+                              paymentVerificationError: JSON.stringify({
+                                message: error.message,
+                                code: error.code,
+                                details: error.details,
+                              }),
+                            });
                           });
-                        })
-                        .catch(error => {
-                          console.error("Manual verification error:", error);
-                          sessionStorage.setItem("paymentVerificationError", JSON.stringify({
-                            message: error.message,
-                            code: error.code,
-                            details: error.details,
-                            timestamp: new Date().toISOString()
-                          }));
-                          setDebugInfo({
-                            ...debugInfo,
-                            paymentVerificationError: JSON.stringify({
-                              message: error.message,
-                              code: error.code,
-                              details: error.details
-                            })
-                          });
-                        });
                       } else {
-                        console.error("No valid session info for manual verification");
+                        console.error(
+                          "No valid session info for manual verification"
+                        );
                       }
                     } catch (e) {
-                      console.error("Error parsing data for manual verification:", e);
+                      console.error(
+                        "Error parsing data for manual verification:",
+                        e
+                      );
                     }
                   } else {
-                    console.log("No data to verify or verification already exists");
+                    console.log(
+                      "No data to verify or verification already exists"
+                    );
                   }
                 }}
                 style={{
-                  background: '#2c1810',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px 12px',
-                  marginTop: '10px',
-                  cursor: 'pointer'
+                  background: "#2c1810",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "8px 12px",
+                  marginTop: "10px",
+                  cursor: "pointer",
                 }}
               >
                 Try Manual Verification

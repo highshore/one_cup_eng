@@ -194,8 +194,8 @@ const ProfileButton = styled(Link)<{ isActiveSubscription: boolean | null }>`
   }
 
   @media (max-width: 768px) {
-    position: absolute;
-    right: 1rem;
+    // position: absolute; // Removed for GNB header mobile view
+    // right: 1rem;        // Removed for GNB header mobile view
     height: 30px;
     width: 30px;
   }
@@ -240,6 +240,22 @@ const MobileMenuContainer = styled.div<{ isOpen: boolean }>`
     transform: ${({ isOpen }) =>
       isOpen ? "translateY(0)" : "translateY(-100%)"};
     z-index: 999;
+
+    // Target ProfileWrapper when it's inside MobileMenuContainer
+    ${ProfileWrapper} {
+      margin: 1.5rem auto; // Center the wrapper in the mobile menu
+      // ProfileWrapper is already display: inline-flex and position: relative.
+
+      // Style the ProfileButton specifically within this context
+      ${ProfileButton} {
+        position: relative; // Override the 'absolute' from general mobile ProfileButton styles
+        right: auto; // Reset 'right' positioning
+        height: 40px; // Make it slightly larger for the mobile menu list
+        width: 40px;
+        // The border and image content will adapt from ProfileButton's own styles.
+      }
+      // StatusIndicator will remain correctly positioned relative to this ProfileWrapper.
+    }
   }
 `;
 
@@ -434,9 +450,9 @@ export default function GNB({}: GNBProps) {
         </LogoContainer>
 
         <MenuContainer>
-          <MenuItem to="/meetup">밋업</MenuItem>
-          <MenuItem to="/community">커뮤니티</MenuItem>
           <MenuItem to="/guide">가이드</MenuItem>
+          {/* <MenuItem to="/meetup">밋업</MenuItem>
+          <MenuItem to="/community">커뮤니티</MenuItem> */}
         </MenuContainer>
 
         {currentUser ? (
@@ -464,15 +480,15 @@ export default function GNB({}: GNBProps) {
         )}
 
         <MobileMenuContainer className="mobile-menu" isOpen={isMenuOpen}>
-          <MobileMenuItem to="/meetup" onClick={() => setIsMenuOpen(false)}>
-            밋업
-          </MobileMenuItem>
           <MobileMenuItem to="/guide" onClick={() => setIsMenuOpen(false)}>
             가이드
           </MobileMenuItem>
+          {/* <MobileMenuItem to="/meetup" onClick={() => setIsMenuOpen(false)}>
+            밋업
+          </MobileMenuItem>
           <MobileMenuItem to="/community" onClick={() => setIsMenuOpen(false)}>
             커뮤니티
-          </MobileMenuItem>
+          </MobileMenuItem> */}
           {currentUser ? (
             <ProfileWrapper>
               <ProfileButton

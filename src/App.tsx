@@ -23,6 +23,7 @@ import Guide from "./routes/guide.tsx";
 import Community from "./community/index.tsx";
 import NewTopic from "./community/new-topic.tsx";
 import TopicDetail from "./community/topic-detail.tsx";
+import SampleArticlePage from "./routes/sample.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -59,6 +60,11 @@ const router = createBrowserRouter([
       {
         path: "payment-result",
         element: <PaymentResult />,
+      },
+      // Add the new sample route
+      {
+        path: "sample",
+        element: <SampleArticlePage />,
       },
     ],
   },

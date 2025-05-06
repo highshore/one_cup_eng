@@ -405,7 +405,6 @@ interface SubscriptionData {
 interface UserData {
   cat_business: boolean;
   cat_tech: boolean;
-  left_count: number;
   last_received: Date;
   received_articles: string[];
   saved_words: string[];
@@ -510,7 +509,6 @@ export default function Profile() {
           const userDataObj = {
             cat_business: data.cat_business || false,
             cat_tech: data.cat_tech || false,
-            left_count: data.left_count || 0,
             last_received: data.last_received?.toDate() || new Date(0),
             received_articles: data.received_articles || [],
             saved_words: data.saved_words || [],
@@ -969,11 +967,6 @@ export default function Profile() {
                 ? formatDate(subscriptionData.nextBillingDate)
                 : "-"}
             </InfoValue>
-          </InfoRow>
-
-          <InfoRow>
-            <InfoLabel>남은 횟수</InfoLabel>
-            <InfoValue>{userData?.left_count || 0}</InfoValue>
           </InfoRow>
 
           <div

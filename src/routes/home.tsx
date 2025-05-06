@@ -400,22 +400,22 @@ const ProblemSection = styled.section`
 `;
 
 const ProblemCaption = styled.div`
-   text-align: center;
-   font-size: 1.2rem;
-   color: ${colors.text.medium};
-   font-weight: 500;
-   margin-bottom: 2rem;
-   font-family: "Noto Sans KR", sans-serif;
- 
-   letter-spacing: -0.02em;
-   line-height: 1.5;
-   position: relative;
-   
-   @media (max-width: 768px) {
-     font-size: 1rem;
-     margin-bottom: 1.5rem;
-   }
- `;
+  text-align: center;
+  font-size: 1.2rem;
+  color: ${colors.text.medium};
+  font-weight: 500;
+  margin-bottom: 2rem;
+  font-family: "Noto Sans KR", sans-serif;
+
+  letter-spacing: -0.02em;
+  line-height: 1.5;
+  position: relative;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+`;
 
 const ProblemImageContainer = styled.div`
   position: relative;
@@ -1132,7 +1132,8 @@ export default function Home() {
         "30일 기준 구독 비용은 4700원으로 네이버 스마트스토어, 혹은 웹사이트 내에서 결제 후 다음날부터 카카오톡을 통해 영어 뉴스를 받아보실 수 있습니다. 자세한 내용은 영어 한잔 가이드를 참조해 주세요!",
     },
     {
-      question: "회원가입 하려니 외국 웹사이트에서 코드인증을 하라는 문자가 날아와요. 괜찮은건가요?",
+      question:
+        "회원가입 하려니 외국 웹사이트에서 코드인증을 하라는 문자가 날아와요. 괜찮은건가요?",
       answer:
         "저희는 구글인증방식을 채택하여, 해당 문자는 구글 시스템을 통해 발송되는 것 입니다. 영어 한잔은 웹사이트 가입 시 휴대폰 번호 외의 어떤 개인정보도 받고 있지 않습니다. 안심하고 가입하셔도 됩니다.",
     },
@@ -1261,11 +1262,11 @@ export default function Home() {
                   isNotification={true}
                 />
                 <KakaoNotificationButton
-                  href="https://1cupenglish.com/article/pK4BueOBgvHckajctRMH"
+                  href="/sample"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  아티클 확인하기
+                  영어 한잔 체험하기
                 </KakaoNotificationButton>
               </KakaoNotificationContainer>
             </KakaoContainer>
@@ -1275,18 +1276,17 @@ export default function Home() {
 
       {/* Problem Section */}
       <ProblemSection ref={problemSectionRef}>
-      <SectionTitle>전세계 상위 1%<span style={{ fontWeight: 600 }}>가 가장 주목하는 토픽</span></SectionTitle>
+        <SectionTitle>
+          전세계 상위 1%
+          <span style={{ fontWeight: 600 }}>가 가장 주목하는 토픽</span>
+        </SectionTitle>
         <ProblemCaption>
           글로벌 임원들이 주목하는 핵심 토픽을 매일 엄선해
           <br />
           5분 만에 영어 실력과 시야를 함께 키워드립니다
         </ProblemCaption>
         <ProblemImageContainer>
-          <ProblemImage
-            src={ceosImage}
-            alt="World's Top CEOs"
-            style={{ transform: "translateY(50px)", opacity: 0 }}
-          />
+          <ProblemImage src={ceosImage} alt="World's Top CEOs" />
         </ProblemImageContainer>
       </ProblemSection>
 

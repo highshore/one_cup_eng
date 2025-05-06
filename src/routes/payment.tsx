@@ -23,9 +23,9 @@ if (!window.PaypleCpayCallback) {
 }
 
 // Add our callback handler to the array
-window.PaypleCpayCallback.push(function(response: any) {
+window.PaypleCpayCallback.push(function (response: any) {
   console.log("Payple callback received through callback array:", response);
-  
+
   // Enhanced debug logging
   try {
     console.log("Payple callback details:", {
@@ -36,73 +36,79 @@ window.PaypleCpayCallback.push(function(response: any) {
       payCode: response?.PCD_PAY_CODE,
       payMsg: response?.PCD_PAY_MSG,
       payerId: response?.PCD_PAYER_ID,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // Store response in sessionStorage
     sessionStorage.setItem("paypleCallbackResponse", JSON.stringify(response));
-    
+
     // Get the session info
     const sessionInfo = sessionStorage.getItem("paymentSessionInfo");
     if (sessionInfo) {
       const parsedSession = JSON.parse(sessionInfo);
       console.log("Session info found:", parsedSession);
-      
+
       // Manually call our Firebase function to verify the payment
       const verifyPayment = httpsCallable(functions, "verifyPaymentResult");
       verifyPayment({
         userId: parsedSession.userId,
         paymentParams: response,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
-      .then(result => {
-        console.log("Payment verification result:", result.data);
-        
-        // Store the verification result
-        sessionStorage.setItem("paymentVerificationResult", JSON.stringify(result.data));
-        
-        // Redirect to the result page - the user stays in the frontend app
-        // Payple handles the server-side POST to our HTTP function separately
-        window.location.href = "/payment-result";
-      })
-      .catch(error => {
-        console.error("Payment verification error:", error);
-        sessionStorage.setItem("paymentVerificationError", JSON.stringify({
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          timestamp: new Date().toISOString()
-        }));
-        
-        // Still redirect to result page to show the error
-        window.location.href = "/payment-result";
-      });
+        .then((result) => {
+          console.log("Payment verification result:", result.data);
+
+          // Store the verification result
+          sessionStorage.setItem(
+            "paymentVerificationResult",
+            JSON.stringify(result.data)
+          );
+
+          // Redirect to the result page - the user stays in the frontend app
+          // Payple handles the server-side POST to our HTTP function separately
+          window.location.href = "/payment-result";
+        })
+        .catch((error) => {
+          console.error("Payment verification error:", error);
+          sessionStorage.setItem(
+            "paymentVerificationError",
+            JSON.stringify({
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              timestamp: new Date().toISOString(),
+            })
+          );
+
+          // Still redirect to result page to show the error
+          window.location.href = "/payment-result";
+        });
     } else {
       console.error("No session info found in sessionStorage");
-      
+
       // Fallback: still redirect but without verification
       window.location.href = "/payment-result";
     }
   } catch (e) {
     console.error("Error in Payple callback handler:", e);
-    
+
     // Log the full error details
     console.error("Error details:", {
       message: e instanceof Error ? e.message : String(e),
       stack: e instanceof Error ? e.stack : null,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // Still redirect to the result page to show the error
     window.location.href = "/payment-result";
   }
-  
+
   // Return true to indicate the callback was handled
   return true;
 });
 
 // Expose a function to check the callback state
-window.checkCallbackState = function() {
+window.checkCallbackState = function () {
   console.log("PaypleCpayCallback state:", {
     exists: !!window.PaypleCpayCallback,
     isArray: Array.isArray(window.PaypleCpayCallback),
@@ -110,7 +116,7 @@ window.checkCallbackState = function() {
     sessionInfo: sessionStorage.getItem("paymentSessionInfo"),
     callbackResponse: sessionStorage.getItem("paypleCallbackResponse"),
     verificationResult: sessionStorage.getItem("paymentVerificationResult"),
-    verificationError: sessionStorage.getItem("paymentVerificationError")
+    verificationError: sessionStorage.getItem("paymentVerificationError"),
   });
 };
 
@@ -163,7 +169,6 @@ const SubscriptionTitle = styled.h3`
   font-weight: 600;
   margin-bottom: 10px;
 `;
-
 
 const SubscriptionDescription = styled.p`
   font-size: 14px;
@@ -223,7 +228,7 @@ const LoadingSpinner = styled.div`
   }
 `;
 
-// --- NEW Policy Info Box --- 
+// --- NEW Policy Info Box ---
 const PolicyInfoBox = styled.div`
   background-color: #f9f9f9; // Restore light grey background
   border: none;
@@ -251,14 +256,14 @@ const PolicyInfoBox = styled.div`
   }
 
   strong {
-      font-weight: 600;
-      color: #444;
+    font-weight: 600;
+    color: #444;
   }
 
   a {
-      color: #2c1810; 
-      text-decoration: underline;
-      font-weight: 500;
+    color: #2c1810;
+    text-decoration: underline;
+    font-weight: 500;
   }
 `;
 // --- END Policy Info Box ---
@@ -361,7 +366,6 @@ export default function Payment() {
 
     setTotalAmount(amount);
     setSelectedProductName(nameParts.join(" + ") || "항목 선택 필요");
-
   }, [selectTech, selectBusiness, selectMeetup]);
   // --- END NEW useEffect ---
 
@@ -382,7 +386,7 @@ export default function Payment() {
   // Make functions available globally for the callback to use
   useEffect(() => {
     window.functionsInstance = functions;
-    
+
     return () => {
       window.functionsInstance = undefined;
     };
@@ -396,13 +400,21 @@ export default function Payment() {
 
     // --- VALIDATION ---
     if (!selectTech && !selectBusiness) {
-        setError("최소 하나 이상의 카테고리(Tech 또는 Business)를 선택해야 합니다.");
-        return;
+      setError(
+        "최소 하나 이상의 카테고리(Tech 또는 Business)를 선택해야 합니다."
+      );
+      return;
     }
     if (totalAmount <= 0 && (selectTech || selectBusiness)) {
-        setError("결제 금액을 계산하는 중 오류가 발생했습니다. 다시 시도해주세요.");
-        console.error("Calculated amount is zero despite selection", {selectTech, selectBusiness, totalAmount});
-        return;
+      setError(
+        "결제 금액을 계산하는 중 오류가 발생했습니다. 다시 시도해주세요."
+      );
+      console.error("Calculated amount is zero despite selection", {
+        selectTech,
+        selectBusiness,
+        totalAmount,
+      });
+      return;
     }
     // --- END VALIDATION ---
 
@@ -413,16 +425,18 @@ export default function Payment() {
       // --- UPDATE User Info for Payment ---
       const userInfo = {
         userId: currentUser.uid,
-        userEmail: currentUser.email || "hello@1cupenglish.com",
+        userEmail: currentUser.email,
         userName: currentUser.displayName || "사용자",
-        userPhone: currentUser.phoneNumber?.slice(-8) || Date.now().toString().slice(-8),
+        userPhone:
+          currentUser.phoneNumber?.slice(-8) || Date.now().toString().slice(-8),
         pcd_amount: totalAmount, // Pass calculated amount
         pcd_good_name: selectedProductName, // Pass selected items description
-        selected_categories: { // Pass detailed selection
-            tech: selectTech,
-            business: selectBusiness,
-            meetup: selectMeetup,
-        }
+        selected_categories: {
+          // Pass detailed selection
+          tech: selectTech,
+          business: selectBusiness,
+          meetup: selectMeetup,
+        },
       };
       // --- END UPDATE ---
 
@@ -441,7 +455,7 @@ export default function Payment() {
       console.log("PaypleCpayCallback array setup:", {
         exists: !!window.PaypleCpayCallback,
         isArray: Array.isArray(window.PaypleCpayCallback),
-        length: window.PaypleCpayCallback?.length || 0
+        length: window.PaypleCpayCallback?.length || 0,
       });
 
       // Get payment window data
@@ -451,31 +465,44 @@ export default function Payment() {
       const paymentData = result.data as any;
 
       if (!paymentData?.success) {
-        throw new Error(paymentData?.message || "결제 정보를 가져오는데 실패했습니다.");
+        throw new Error(
+          paymentData?.message || "결제 정보를 가져오는데 실패했습니다."
+        );
       }
 
       // Verify scripts are loaded
-      if (typeof window.$ === "undefined" || typeof window.PaypleCpayAuthCheck !== "function") {
+      if (
+        typeof window.$ === "undefined" ||
+        typeof window.PaypleCpayAuthCheck !== "function"
+      ) {
         console.error("Payment scripts not loaded");
-        throw new Error("결제 스크립트가 로드되지 않았습니다. 페이지를 새로고침 해주세요.");
+        throw new Error(
+          "결제 스크립트가 로드되지 않았습니다. 페이지를 새로고침 해주세요."
+        );
       }
 
       // Call Payple with debug info
       console.log("Opening payment window with params:", {
-        PCD_RST_URL: paymentData.paymentParams.PCD_RST_URL || 'Not set',
+        PCD_RST_URL: paymentData.paymentParams.PCD_RST_URL || "Not set",
         PCD_AMOUNT: paymentData.paymentParams.PCD_AMOUNT, // Log amount from response
-        PCD_GOOD_NAME: paymentData.paymentParams.PCD_GOOD_NAME // Log name from response
+        PCD_GOOD_NAME: paymentData.paymentParams.PCD_GOOD_NAME, // Log name from response
       });
-      
+
       // Add explanation about the data flow between Payple, our HTTP function, and the frontend
-      console.log("Payment flow: User stays in frontend → Payple opens payment window → " +
-                  "User completes payment → Payple sends POST to our HTTP function → " +
-                  "Our callback array handles the frontend response → Redirect to result page");
-      
+      console.log(
+        "Payment flow: User stays in frontend → Payple opens payment window → " +
+          "User completes payment → Payple sends POST to our HTTP function → " +
+          "Our callback array handles the frontend response → Redirect to result page"
+      );
+
       window.PaypleCpayAuthCheck(paymentData.paymentParams);
     } catch (err) {
       console.error("Payment error:", err);
-      setError(err instanceof Error ? err.message : "결제 초기화 중 오류가 발생했습니다.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "결제 초기화 중 오류가 발생했습니다."
+      );
       setIsProcessing(false);
     }
   };
@@ -558,8 +585,9 @@ export default function Payment() {
         <SubscriptionCard>
           <SubscriptionTitle>멤버십 옵션 선택</SubscriptionTitle>
           {/* --- NEW Discount Info Text --- */}
-          <InfoText style={{ marginBottom: '15px', color: '#555' }}>
-            Tech와 Business 카테고리를 모두 선택하시면 <strong>20% 할인</strong>이 적용됩니다.
+          <InfoText style={{ marginBottom: "15px", color: "#555" }}>
+            Tech와 Business 카테고리를 모두 선택하시면 <strong>20% 할인</strong>
+            이 적용됩니다.
           </InfoText>
           {/* --- END Discount Info Text --- */}
 
@@ -584,7 +612,7 @@ export default function Payment() {
           </CheckboxLabel>
 
           {selectTech && selectBusiness && (
-            <InfoText style={{ color: '#990033', fontWeight: '500' }}>
+            <InfoText style={{ color: "#990033", fontWeight: "500" }}>
               20% 할인 적용 완료!
             </InfoText>
           )}
@@ -605,28 +633,55 @@ export default function Payment() {
             • 단어장 무제한 저장
             <br />
             • 아티클 속독 모드 및 음성 모드
-            <br />
-            • 추후 추가되는 프리미엄 기능 모두 이용 가능
-            {(selectTech || selectBusiness) && selectMeetup && <><br/>• 밋업 우선 참여 기회</>}
+            <br />• 추후 추가되는 프리미엄 기능 모두 이용 가능
+            {(selectTech || selectBusiness) && selectMeetup && (
+              <>
+                <br />• 밋업 우선 참여 기회
+              </>
+            )}
           </SubscriptionDescription>
 
           {/* --- MOVED Policy Info Box Content --- */}
           <PolicyInfoBox>
             <h4>자동 결제 안내</h4>
-            <p>요금제에 가입하시면 결제 시점을 기준으로 자동 결제가 진행됩니다.</p>
+            <p>
+              요금제에 가입하시면 결제 시점을 기준으로 자동 결제가 진행됩니다.
+            </p>
 
             <h4>청약철회 (전액 환불) 가능 기간</h4>
-            <p>신규 결제(생애 최초 결제) 또는 매월 반복 결제 모두 결제일로부터 7일 이내에는 <strong>청약철회(전액 환불)</strong>가 가능합니다.</p>
-            
+            <p>
+              신규 결제(생애 최초 결제) 또는 매월 반복 결제 모두 결제일로부터
+              7일 이내에는 <strong>청약철회(전액 환불)</strong>가 가능합니다.
+            </p>
+
             <h4>7일 이후 환불 규정</h4>
-            <p>결제일로부터 7일이 지난 경우에는 청약철회가 아닌 해지 및 부분 환불 규정이 적용됩니다.</p>
-            
+            <p>
+              결제일로부터 7일이 지난 경우에는 청약철회가 아닌 해지 및 부분 환불
+              규정이 적용됩니다.
+            </p>
+
             <h4>부분 환불 기준</h4>
-            <p>예) 월 멤버십을 20일 사용 후 해지한 경우, 남은 10일분(30일 기준)에 해당하는 금액을 다음과 같이 환불해드립니다:<br/>
-            <strong>환불 금액 = (정가) × (남은 일수) ÷ 30</strong></p>
+            <p>
+              예) 월 멤버십을 20일 사용 후 해지한 경우, 남은 10일분(30일 기준)에
+              해당하는 금액을 다음과 같이 환불해드립니다:
+              <br />
+              <strong>환불 금액 = (정가) × (남은 일수) ÷ 30</strong>
+            </p>
 
             <h4>멤버십 정지 및 환불 요청 방법</h4>
-            <p>멤버십 해지 및 환불은 <a href="/profile" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>프로필 페이지</a>에서 직접 신청하실 수 있습니다.</p>
+            <p>
+              멤버십 해지 및 환불은{" "}
+              <a
+                href="/profile"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/profile");
+                }}
+              >
+                프로필 페이지
+              </a>
+              에서 직접 신청하실 수 있습니다.
+            </p>
           </PolicyInfoBox>
           {/* --- END MOVED Policy Info Box Content --- */}
 
@@ -636,8 +691,9 @@ export default function Payment() {
 
           {userData?.hasActiveSubscription ? (
             <>
-              <InfoText style={{marginTop: '20px'}}>
-                이미 멤버십 이용 중입니다. 현재 멤버십 플랜은 프로필 페이지에서 확인 가능합니다.
+              <InfoText style={{ marginTop: "20px" }}>
+                이미 멤버십 이용 중입니다. 현재 멤버십 플랜은 프로필 페이지에서
+                확인 가능합니다.
               </InfoText>
               <Button onClick={() => navigate("/profile")}>
                 프로필로 돌아가기
@@ -646,11 +702,11 @@ export default function Payment() {
           ) : (
             <>
               <Button
-                 onClick={handlePaymentClick}
-                 disabled={isProcessing || (!selectTech && !selectBusiness)} // Disable if no category selected
-                 style={{ marginTop: '20px' }}
-               >
-                 {isProcessing ? <LoadingSpinner /> : '멤버십 시작하기'}
+                onClick={handlePaymentClick}
+                disabled={isProcessing || (!selectTech && !selectBusiness)} // Disable if no category selected
+                style={{ marginTop: "20px" }}
+              >
+                {isProcessing ? <LoadingSpinner /> : "멤버십 시작하기"}
               </Button>
               {error && <ErrorText>{error}</ErrorText>}
               <InfoText>
@@ -661,8 +717,7 @@ export default function Payment() {
         </SubscriptionCard>
 
         {/* --- Policy Info Box Content MOVED INSIDE SubscriptionCard --- */}
-        {/* <PolicyInfoBox> ... </PolicyInfoBox> */} 
-
+        {/* <PolicyInfoBox> ... </PolicyInfoBox> */}
       </Card>
     </Wrapper>
   );

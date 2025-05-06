@@ -1153,7 +1153,10 @@ async function processCategoryLinks(
   }
 }
 
-async function sendKakaoMessages(recipientList: any[], templateCode: string) {
+export async function sendKakaoMessages(
+  recipientList: any[],
+  templateCode: string
+) {
   logger.debug(
     `Preparing to send Kakao messages with template: ${templateCode}`
   );

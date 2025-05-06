@@ -246,7 +246,6 @@ interface UserData {
   name?: string;
   display_name?: string;
   email?: string;
-  left_count?: number;
   cat_tech?: boolean;
   cat_business?: boolean;
   phone?: string;
@@ -257,7 +256,6 @@ interface UserData {
 interface EditingUser {
   id: string;
   name: string;
-  left_count: number;
   cat_tech: boolean;
   cat_business: boolean;
 }
@@ -453,7 +451,6 @@ export default function Admin() {
     setEditingUser({
       id: user.id,
       name: user.name || "",
-      left_count: user.left_count || 0,
       cat_tech: user.cat_tech || false,
       cat_business: user.cat_business || false,
     });
@@ -476,7 +473,6 @@ export default function Admin() {
 
       await updateDoc(userRef, {
         name: editingUser.name,
-        left_count: editingUser.left_count,
         cat_tech: editingUser.cat_tech,
         cat_business: editingUser.cat_business,
       });
@@ -509,11 +505,6 @@ export default function Admin() {
         return {
           ...prev,
           [name]: checked,
-        };
-      } else if (type === "number") {
-        return {
-          ...prev,
-          [name]: parseInt(value, 10),
         };
       } else {
         return {
@@ -586,10 +577,6 @@ export default function Admin() {
               <p>
                 <strong>Name:</strong> {user.name || "N/A"}
               </p>
-              <p>
-                <strong>Left Count:</strong>{" "}
-                {user.left_count !== undefined ? user.left_count : "N/A"}
-              </p>
               {user.cat_tech && (
                 <p>
                   <strong>Category:</strong> Tech
@@ -626,17 +613,6 @@ export default function Admin() {
                   name="name"
                   value={editingUser.name}
                   onChange={handleInputChange}
-                />
-              </div>
-
-              <div>
-                <label>Left Count:</label>
-                <Input
-                  type="number"
-                  name="left_count"
-                  value={editingUser.left_count}
-                  onChange={handleInputChange}
-                  min="0"
                 />
               </div>
 

@@ -5,6 +5,7 @@ import * as logger from "firebase-functions/logger";
 import axios from "axios";
 import { Timestamp } from "firebase-admin/firestore";
 import { format } from "date-fns";
+import { sendKakaoMessages } from "./index";
 
 // Payple configuration from environment variables
 // For v2 functions, config values are available as process.env.PAYPLE_CST_ID etc.
@@ -190,7 +191,6 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
 
       // Log each field individually for debugging
       logger.info(`userId: ${userId || "missing"}`);
-      logger.info(`userEmail: ${userEmail || "missing"}`);
       logger.info(`userName: ${userName || "missing"}`);
       logger.info(`userPhone: ${userPhone || "missing"}`);
       logger.info(`pcd_amount: ${pcd_amount || "missing"}`);
@@ -205,9 +205,16 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         throw new HttpsError("invalid-argument", "User ID is required");
       }
 
-      // Use default email if missing
-      const email = userEmail || "hello@1cupenglish.com";
-      logger.info(`Using email: ${email} ${!userEmail ? "(default)" : ""}`);
+      // Validate email
+      if (!userEmail || userEmail.trim() === "") {
+        logger.error("Missing userEmail in request data");
+        throw new HttpsError(
+          "invalid-argument",
+          "User email is required for payment."
+        );
+      }
+      const email = userEmail; // Use the validated userEmail
+      logger.info(`Using email: ${email}`);
 
       // Use auth UID as fallback if userId doesn't match
       if (userId !== request.auth.uid) {
@@ -693,6 +700,50 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
             });
 
           logger.info("User subscription activated:", { userId });
+
+          // Send Kakao message
+          try {
+            const authUser = await admin.auth().getUser(userId);
+            let recipientNo = "";
+            if (authUser.phoneNumber) {
+              recipientNo = authUser.phoneNumber
+                .replace(/^\+82/, "0") // Convert +8210... to 010...
+                .replace(/\D/g, ""); // Remove non-digits
+              logger.info(
+                `Formatted phone number for Kakao: ${recipientNo} for user ${userId}`
+              );
+
+              if (recipientNo.startsWith("010") && recipientNo.length >= 10) {
+                const kakaoRecipientList = [
+                  {
+                    recipientNo: recipientNo,
+                    templateParameter: {
+                      "customer-name": "고객",
+                      link: "https://1cupenglish.com/guide",
+                    },
+                  },
+                ];
+                await sendKakaoMessages(kakaoRecipientList, "order-received");
+                logger.info(
+                  `Kakao message 'order-received' sent to user ${userId} at ${recipientNo}`
+                );
+              } else {
+                logger.warn(
+                  `User ${userId} has an invalid phone number for Kakao: ${recipientNo}. Skipping Kakao message.`
+                );
+              }
+            } else {
+              logger.warn(
+                `User ${userId} does not have a phone number in Auth. Skipping Kakao message.`
+              );
+            }
+          } catch (kakaoError) {
+            logger.error(
+              `Failed to send Kakao message to user ${userId}:`,
+              kakaoError
+            );
+            // Do not let Kakao error fail the entire payment verification
+          }
 
           return {
             success: true,
@@ -1282,6 +1333,47 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
         "Subscription cancelled and Firestore updated for user:",
         userId
       );
+
+      // Send Kakao message for cancellation
+      try {
+        const authUser = await admin.auth().getUser(userId);
+        let recipientNo = "";
+        if (authUser.phoneNumber) {
+          recipientNo = authUser.phoneNumber
+            .replace(/^\+82/, "0") // Convert +8210... to 010...
+            .replace(/\D/g, ""); // Remove non-digits
+          logger.info(
+            `Formatted phone number for Kakao (cancel): ${recipientNo} for user ${userId}`
+          );
+
+          if (recipientNo.startsWith("010") && recipientNo.length >= 10) {
+            const kakaoRecipientList = [
+              {
+                recipientNo: recipientNo,
+                templateParameter: {},
+              },
+            ];
+            await sendKakaoMessages(kakaoRecipientList, "membership-cancelled");
+            logger.info(
+              `Kakao message 'membership-cancelled' sent to user ${userId} at ${recipientNo}`
+            );
+          } else {
+            logger.warn(
+              `User ${userId} has an invalid phone number for Kakao (cancel): ${recipientNo}. Skipping Kakao message.`
+            );
+          }
+        } else {
+          logger.warn(
+            `User ${userId} does not have a phone number in Auth (cancel). Skipping Kakao message.`
+          );
+        }
+      } catch (kakaoError) {
+        logger.error(
+          `Failed to send 'membership-cancelled' Kakao message to user ${userId}:`,
+          kakaoError
+        );
+        // Do not let Kakao error fail the entire cancellation process
+      }
 
       return {
         success: true,
