@@ -205,15 +205,15 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         throw new HttpsError("invalid-argument", "User ID is required");
       }
 
-      // Validate email
-      if (!userEmail || userEmail.trim() === "") {
-        logger.error("Missing userEmail in request data");
-        throw new HttpsError(
-          "invalid-argument",
-          "User email is required for payment."
-        );
+      // Validate email - make it optional
+      let email = ""; // Default to empty string
+      if (userEmail && userEmail.trim() !== "") {
+        email = userEmail.trim();
+        logger.info(`Using provided email: ${email}`);
+      } else {
+        logger.info("No userEmail provided, using empty string as fallback.");
       }
-      const email = userEmail; // Use the validated userEmail
+      // const email = userEmail; // Use the validated userEmail
       logger.info(`Using email: ${email}`);
 
       // Use auth UID as fallback if userId doesn't match

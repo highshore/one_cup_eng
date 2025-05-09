@@ -425,7 +425,7 @@ export default function Payment() {
       // --- UPDATE User Info for Payment ---
       const userInfo = {
         userId: currentUser.uid,
-        userEmail: currentUser.email,
+        userEmail: currentUser.email || "",
         userName: currentUser.displayName || "사용자",
         userPhone:
           currentUser.phoneNumber?.slice(-8) || Date.now().toString().slice(-8),
