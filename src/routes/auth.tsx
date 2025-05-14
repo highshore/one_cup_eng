@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, ReactNode } from "react";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { auth, db } from "../firebase";
 import styled from "styled-components";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import kakaoBtnImg from "../assets/kakao_btn.png"; // Import the image
+import logoImage from "../assets/1cup_logo_circular.png"; // Added from auth_components
+import Footer from "../components/footer"; // Added from auth_components - assuming path
 
 console.log("Vite env variables:", import.meta.env); // Temporary log
 
@@ -43,13 +45,304 @@ const colors = {
   },
 };
 
-const AuthContainer = styled.div`
-  max-width: 550px;
-  margin: 0 auto;
-  padding: 3rem 2rem;
+// Original AuthContainer from auth.tsx - will be removed as AuthLayout's ContentContainer will be used.
+// const AuthContainer = styled.div`
+//   max-width: 550px;
+//   margin: 0 auto;
+//   padding: 3rem 2rem;
+// `;
+
+// --- START: Components migrated from auth_components.tsx ---
+
+// Layout Components
+export const PageWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  background-color: ${colors.primaryBg};
 `;
 
-const Header = styled.h1`
+export const ContentContainer = styled.div`
+  width: 100%; /* Take full width within PageWrapper */
+  max-width: 550px; /* Max width from original AuthContainer */
+  margin: 0 auto;
+  padding: 30px 2rem; /* Adjusted vertical padding from 50px to 30px */
+  min-height: calc(
+    100vh - 130px
+  ); /* Adjusted for Header height (70px) + Footer height (60px) */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+`;
+
+export const Header = styled.header`
+  /* This is the Layout Header */
+  /* Original fixed positioning - removed for scrolling */
+  /* position: fixed; */
+  /* top: 0; */
+  /* left: 0; */
+  /* z-index: 100; */
+
+  padding: 20px; /* Re-add padding for spacing from viewport edges */
+
+  display: flex;
+  align-items: center;
+  width: 100%; /* Ensures the header takes up the available width within PageWrapper */
+`;
+
+export const Logo = styled.img`
+  height: 30px;
+  width: 30px;
+  margin-right: 8px;
+`;
+
+export const ServiceName = styled.h1`
+  font-size: 24px;
+  font-weight: 700;
+  color: ${colors.text.dark};
+`;
+
+// Form Components
+export const FormWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 20px 0;
+`;
+
+export const Title = styled.h1`
+  font-size: 32px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  text-align: center;
+  color: ${colors.text.dark};
+`;
+
+export const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+  min-height: 150px;
+`;
+
+export const InputWrapper = styled.div`
+  position: relative;
+  width: 100%;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+  min-height: 60px;
+`;
+
+export const InputField = styled.input`
+  width: 100%;
+  padding: 15px;
+  border-radius: 50px;
+  border: 1.5px solid ${colors.primaryPale};
+  font-size: 16px;
+  outline: none;
+  background-color: white;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+  height: 54px;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+
+  &:focus {
+    border-color: ${colors.primary};
+  }
+
+  &:focus + label {
+    color: ${colors.primary};
+  }
+
+  &:not(:focus):not(:placeholder-shown) + label {
+    transform: translateY(-24px) scale(0.8);
+    color: ${colors.text.light};
+    background-color: white;
+    padding: 0 5px;
+  }
+
+  &:focus + label,
+  &:not(:placeholder-shown) + label {
+    transform: translateY(-24px) scale(0.8);
+    background-color: white;
+    padding: 0 5px;
+  }
+
+  &::placeholder {
+    color: transparent;
+  }
+
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus {
+    -webkit-text-fill-color: inherit;
+    -webkit-box-shadow: 0 0 0px 1000px white inset;
+    transition: background-color 5000s ease-in-out 0s;
+    background-clip: content-box !important;
+  }
+`;
+
+export const InputLabel = styled.label`
+  position: absolute;
+  left: 24px;
+  top: 16px;
+  color: ${colors.text.light};
+  font-size: 16px;
+  pointer-events: none;
+  transition: 0.3s ease all;
+  transform-origin: left top;
+  z-index: 1;
+`;
+
+export const SubmitButton = styled.input`
+  padding: 15px;
+  border-radius: 50px;
+  border: none;
+  background-color: ${colors.primary};
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  height: 54px;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+  transition: background-color 0.3s;
+  position: relative;
+  outline: none;
+
+  &:hover {
+    background-color: ${colors.primaryLight};
+  }
+
+  &:active {
+    transform: translateY(1px);
+    transition: transform 0.1s;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:disabled {
+    background-color: #b0b0b0;
+    cursor: not-allowed;
+  }
+`;
+
+// Utility Components
+export const RecaptchaContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1rem 0;
+`;
+
+export const SwitcherLink = styled.a`
+  display: block;
+  text-align: center;
+  margin-top: 1rem;
+  color: ${colors.text.dark};
+  text-decoration: none;
+  font-size: 0.875rem;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+export const Error = styled.p`
+  color: #d93025;
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: 14px;
+`;
+
+export const Link = styled(RouterLink)`
+  text-decoration: none;
+  color: ${colors.text.dark};
+  font-size: 14px;
+  margin: 4px 0px;
+  text-align: center;
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+export const Divider = styled.div`
+  display: flex;
+  align-items: center;
+  margin: 25px 0;
+  width: 100%;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid #ddd;
+  }
+
+  span {
+    padding: 0 15px;
+    color: #666;
+    font-size: 14px;
+  }
+`;
+
+export const FooterWrapper = styled.div`
+  width: 100%;
+  padding: 15px 0;
+  text-align: center;
+  font-size: 14px;
+  color: ${colors.text.medium};
+  background-color: ${colors.primaryBg};
+  margin-top: 50px;
+`;
+
+// Layout Component
+interface AuthLayoutProps {
+  children: ReactNode;
+}
+
+function AuthLayout({ children }: AuthLayoutProps) {
+  return (
+    <PageWrapper>
+      <Header>
+        {" "}
+        {/* Moved Header outside ContentContainer, directly under PageWrapper */}
+        <Link
+          to="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            textDecoration: "none",
+          }}
+        >
+          <Logo src={logoImage} alt="1 Cup English Logo" />
+          <ServiceName>1 Cup English</ServiceName>
+        </Link>
+      </Header>
+      <ContentContainer>{children}</ContentContainer>
+      <FooterWrapper>
+        <Footer />
+      </FooterWrapper>
+    </PageWrapper>
+  );
+}
+
+// --- END: Components migrated from auth_components.tsx ---
+
+// --- START: Original styled components from auth.tsx that are still in use ---
+const AuthPageHeading = styled.h1`
+  /* Renamed from Header in original auth.tsx */
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 1.8rem;
@@ -68,11 +361,13 @@ const Description = styled.p`
 `;
 
 const FormContainer = styled.div`
+  /* Specific to phone auth part */
   margin-top: 2.5rem;
   width: 100%;
 `;
 
 const Input = styled.input`
+  /* Specific to phone auth part */
   width: 100%;
   padding: 1rem 1.2rem;
   margin-bottom: 1.2rem;
@@ -88,6 +383,7 @@ const Input = styled.input`
 `;
 
 const Button = styled.button`
+  /* Specific to phone auth part */
   width: 100%;
   padding: 1rem;
   background-color: ${colors.primary};
@@ -112,6 +408,7 @@ const Button = styled.button`
 `;
 
 const Message = styled.div`
+  /* Base for Success/Error messages in phone auth */
   margin-top: 1.5rem;
   padding: 1rem;
   border-radius: 8px;
@@ -120,11 +417,13 @@ const Message = styled.div`
 `;
 
 const ErrorMessage = styled(Message)`
+  /* Specific to phone auth part */
   background-color: #fdeded;
   color: #5f2120;
 `;
 
 const SuccessMessage = styled(Message)`
+  /* Specific to phone auth part */
   background-color: #edf7ed;
   color: #1e4620;
 `;
@@ -144,7 +443,7 @@ const ValidationMessage = styled.p`
   margin-bottom: 1.5rem;
 `;
 
-// New Styled Components for Choice Buttons
+// Styled Components for Choice Buttons (from original auth.tsx)
 const ChoiceButtonContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -157,7 +456,7 @@ const ChoiceButton = styled.button`
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: 1rem 4rem;
+  padding: 1rem 3rem;
   border: 1px solid ${colors.primaryPale};
   border-radius: 12px; // Slightly more rounded
   cursor: pointer;
@@ -166,7 +465,8 @@ const ChoiceButton = styled.button`
   transition: all 0.2s ease;
   gap: 0.8rem; // Space between icon and text
 
-  img, svg {
+  img,
+  svg {
     width: 24px; // Control icon size
     height: 24px; // Control icon size
   }
@@ -205,7 +505,7 @@ export default function Auth() {
   const [verificationId, setVerificationId] =
     useState<ConfirmationResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isValidPhoneNumber, setIsValidPhoneNumber] = useState(false);
 
@@ -215,8 +515,8 @@ export default function Auth() {
   };
 
   const handlePhoneAuthClick = () => {
-    setError(null); // Clear any previous errors
-    setMessage(null); // Clear any previous messages
+    setErrorState(null);
+    setMessage(null);
     setShowPhoneAuth(true);
   };
 
@@ -321,9 +621,9 @@ export default function Auth() {
           hl: "ko",
         }
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error("reCAPTCHA 설정 실패:", err);
-      setError(
+      setErrorState(
         "전화번호 인증 설정에 실패했습니다. 새로고침 후 다시 시도해주세요."
       );
     }
@@ -343,7 +643,7 @@ export default function Auth() {
 
   const sendVerificationCode = async () => {
     setLoading(true);
-    setError(null);
+    setErrorState(null);
 
     try {
       // Format the phone number for Firebase
@@ -362,13 +662,22 @@ export default function Auth() {
       console.log("인증번호 전송 성공");
       setVerificationId(confirmationResult);
       setMessage("인증번호가 전송되었습니다!");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("인증번호 전송 오류:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "인증번호 전송에 실패했습니다";
-      setError(errorMessage);
+      // Even more defensive error handling with type assertions
+      let errorMessage = "인증번호 전송에 실패했습니다";
+      // First check if err is an object
+      if (err && typeof err === "object") {
+        // Then check if it has a message property
+        if (
+          "message" in err &&
+          typeof (err as { message: unknown }).message === "string"
+        ) {
+          errorMessage = (err as { message: string }).message;
+        }
+      }
+      setErrorState(errorMessage);
 
-      // Reset the reCAPTCHA on error
       console.log("오류 후 reCAPTCHA 초기화");
       try {
         if (window.recaptchaVerifier) {
@@ -387,7 +696,7 @@ export default function Auth() {
     if (!verificationId) return;
 
     setLoading(true);
-    setError(null);
+    setErrorState(null);
 
     try {
       // Confirm the verification code
@@ -420,10 +729,21 @@ export default function Auth() {
       setTimeout(() => {
         navigate("/profile");
       }, 1500);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "인증코드 확인에 실패했습니다"
-      );
+    } catch (err: unknown) {
+      // Even more defensive error handling with type assertions
+      let errorMessage = "인증코드 확인에 실패했습니다";
+      // First check if err is an object
+      if (err && typeof err === "object") {
+        // Then check if it has a message property
+        if (
+          "message" in err &&
+          typeof (err as { message: unknown }).message === "string"
+        ) {
+          errorMessage = (err as { message: string }).message;
+        }
+      }
+      setErrorState(errorMessage);
+
       console.error("인증코드 확인 오류:", err);
     } finally {
       setLoading(false);
@@ -435,9 +755,9 @@ export default function Auth() {
     if (showPhoneAuth) {
       try {
         setupInvisibleRecaptcha();
-      } catch (err) {
+      } catch (err: any) {
         console.error("reCAPTCHA 설정 오류:", err);
-        setError("전화번호 인증 설정에 실패했습니다. 다시 시도해주세요.");
+        setErrorState("전화번호 인증 설정에 실패했습니다. 다시 시도해주세요.");
       }
     }
 
@@ -454,10 +774,10 @@ export default function Auth() {
   }, [showPhoneAuth]); // Depend on showPhoneAuth
 
   return (
-    <AuthContainer>
-      <Header>{showPhoneAuth
-          ? "휴대폰으로 로그인"
-          : "Welcome! 🥳"}</Header>
+    <AuthLayout>
+      <AuthPageHeading>
+        {showPhoneAuth ? "휴대폰으로 로그인" : "Welcome! 🥳"}
+      </AuthPageHeading>
       <Description>
         {showPhoneAuth
           ? "인증코드를 받으실 휴대폰 번호를 입력해주세요. 인증은 Google의 보안 서비스를 통해 진행합니다."
@@ -467,8 +787,18 @@ export default function Auth() {
       {!showPhoneAuth ? (
         <ChoiceButtonContainer>
           <PhoneButton onClick={handlePhoneAuthClick}>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
+              />
             </svg>
             전화번호로 시작하기
           </PhoneButton>
@@ -509,7 +839,9 @@ export default function Auth() {
                 type="text"
                 placeholder="인증번호 입력"
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setVerificationCode(e.target.value)
+                }
                 disabled={loading}
               />
               <Button
@@ -521,10 +853,10 @@ export default function Auth() {
             </>
           )}
 
-          {error && <ErrorMessage>{error}</ErrorMessage>}
+          {errorState && <ErrorMessage>{errorState}</ErrorMessage>}
           {message && <SuccessMessage>{message}</SuccessMessage>}
         </FormContainer>
       )}
-    </AuthContainer>
+    </AuthLayout>
   );
 }

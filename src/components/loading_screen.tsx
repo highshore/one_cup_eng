@@ -7,7 +7,7 @@ const Wrapper = styled.div`
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: #FDF9F6;
+  background-color: #fdf9f6;
 `;
 
 const defaultOptions = {
@@ -22,7 +22,7 @@ const defaultOptions = {
 export default function LoadingScreen() {
   return (
     <Wrapper>
-      <Lottie options={defaultOptions} height={200} width={200} />
+      <Lottie options={defaultOptions} height={250} width={250} />
     </Wrapper>
   );
 }

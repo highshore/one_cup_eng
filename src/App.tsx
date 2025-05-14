@@ -11,7 +11,6 @@ import reset from "styled-reset";
 import { useEffect, useState } from "react";
 import LoadingScreen from "./components/loading_screen";
 import { auth } from "./firebase";
-import AuthLayout from "./components/auth_components.tsx";
 import Policy from "./routes/policy";
 import ProtectedRoute from "./components/protected_route.tsx";
 import AuthProvider from "./contexts/AuthContext";
@@ -105,11 +104,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/auth",
-    element: (
-      <AuthLayout>
-        <Auth />
-      </AuthLayout>
-    ),
+    element: <Auth />,
   },
   {
     path: "/kakao_callback",
