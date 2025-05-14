@@ -51,12 +51,12 @@ export const Header = styled.header`
 export const Logo = styled.img`
   height: 30px;
   width: 30px;
-  margin-right: 10px;
+  margin-right: 8px;
 `;
 
 export const ServiceName = styled.h1`
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
   color: ${colors.text.dark};
 `;
 

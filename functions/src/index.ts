@@ -13,6 +13,9 @@ import {
   paymentCallback,
 } from "./payment";
 
+// Export Kakao Auth Processor function
+import { resolveKakaoLogin } from "./kakaoAuthProcessor";
+
 // Export the payment functions
 export {
   getPaymentWindow,
@@ -21,6 +24,7 @@ export {
   processRecurringPayments,
   logCredentials, // <<< Make sure this export line exists
   paymentCallback,
+  resolveKakaoLogin, // Add the new function here
 };
 
 admin.initializeApp();

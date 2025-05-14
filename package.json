@@ -13,6 +13,7 @@
     "deploy": "firebase deploy --only functions,hosting"
   },
   "dependencies": {
+    "@types/react-lottie": "^1.2.10",
     "axios": "^1.8.4",
     "date-fns": "^4.1.0",
     "firebase": "^11.5.0",
@@ -20,6 +21,7 @@
     "firebase-functions": "^6.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-lottie": "^1.2.10",
     "react-router-dom": "^7.3.0",
     "reset": "^0.1.0",
     "styled": "^1.0.0",

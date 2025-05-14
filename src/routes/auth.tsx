@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
 import styled from "styled-components";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import kakaoBtnImg from "../assets/kakao_btn.png"; // Import the image
+
+console.log("Vite env variables:", import.meta.env); // Temporary log
 
 // Using direct Firebase Authentication for phone number authentication
 // (FirebaseUI is not compatible with Firebase v11.5.0)
@@ -11,6 +14,12 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult,
 } from "firebase/auth";
+
+// Kakao Auth URL constants - Will be used to construct KAKAO_AUTH_URL
+const KAKAO_CLIENT_ID = import.meta.env.VITE_KAKAO_CLIENT_ID;
+const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI;
+// Removed scope parameter to rely on Kakao app's default consent items
+const KAKAO_AUTH_URL = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${KAKAO_REDIRECT_URI}&response_type=code`;
 
 // Add RecaptchaVerifier to the global Window interface
 declare global {
@@ -44,6 +53,7 @@ const Header = styled.h1`
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 1.8rem;
+  width: 100%;
   text-align: center;
   color: ${colors.text.dark};
 `;
@@ -52,12 +62,14 @@ const Description = styled.p`
   margin-bottom: 2rem;
   text-align: center;
   color: ${colors.text.light};
+  width: 100%;
   font-size: 1.1rem;
   line-height: 1.5;
 `;
 
 const FormContainer = styled.div`
   margin-top: 2.5rem;
+  width: 100%;
 `;
 
 const Input = styled.input`
@@ -132,8 +144,62 @@ const ValidationMessage = styled.p`
   margin-bottom: 1.5rem;
 `;
 
+// New Styled Components for Choice Buttons
+const ChoiceButtonContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 1rem;
+`;
+
+const ChoiceButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 1rem 4rem;
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 12px; // Slightly more rounded
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.05rem; // Slightly smaller than main button
+  transition: all 0.2s ease;
+  gap: 0.8rem; // Space between icon and text
+
+  img, svg {
+    width: 24px; // Control icon size
+    height: 24px; // Control icon size
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+`;
+
+const PhoneButton = styled(ChoiceButton)`
+  background-color: white;
+  color: ${colors.text.dark};
+
+  &:hover {
+    border-color: ${colors.accent};
+  }
+`;
+
+const KakaoButton = styled(ChoiceButton)`
+  background-color: #fee500; // Kakao yellow
+  color: #3c1e1e; // Kakao text color (approximate)
+  border-color: #fee500;
+
+  &:hover {
+    background-color: #fdd800; // Slightly darker yellow on hover
+    border-color: #fdd800;
+  }
+`;
+
 export default function Auth() {
   const navigate = useNavigate();
+  const [showPhoneAuth, setShowPhoneAuth] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationId, setVerificationId] =
@@ -142,6 +208,17 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isValidPhoneNumber, setIsValidPhoneNumber] = useState(false);
+
+  // Handle Kakao Login Click
+  const handleKakaoLoginClick = () => {
+    window.location.href = KAKAO_AUTH_URL;
+  };
+
+  const handlePhoneAuthClick = () => {
+    setError(null); // Clear any previous errors
+    setMessage(null); // Clear any previous messages
+    setShowPhoneAuth(true);
+  };
 
   // Handle phone number input change
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -354,16 +431,18 @@ export default function Auth() {
   };
 
   useEffect(() => {
-    // Setup reCAPTCHA when component mounts
-    try {
-      setupInvisibleRecaptcha();
-    } catch (err) {
-      console.error("reCAPTCHA 설정 오류:", err);
-      setError("전화번호 인증 설정에 실패했습니다. 다시 시도해주세요.");
+    // Setup reCAPTCHA only when the phone auth UI is visible
+    if (showPhoneAuth) {
+      try {
+        setupInvisibleRecaptcha();
+      } catch (err) {
+        console.error("reCAPTCHA 설정 오류:", err);
+        setError("전화번호 인증 설정에 실패했습니다. 다시 시도해주세요.");
+      }
     }
 
+    // Cleanup function remains the same
     return () => {
-      // Clean up reCAPTCHA when component unmounts
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
@@ -372,59 +451,80 @@ export default function Auth() {
         }
       }
     };
-  }, []);
+  }, [showPhoneAuth]); // Depend on showPhoneAuth
 
   return (
     <AuthContainer>
-      <Header>휴대폰으로 로그인</Header>
-      <Description>인증코드를 받으실 휴대폰 번호를 입력해주세요.</Description>
+      <Header>{showPhoneAuth
+          ? "휴대폰으로 로그인"
+          : "Welcome! 🥳"}</Header>
+      <Description>
+        {showPhoneAuth
+          ? "인증코드를 받으실 휴대폰 번호를 입력해주세요. 인증은 Google의 보안 서비스를 통해 진행합니다."
+          : ""}
+      </Description>
 
-      <FormContainer>
-        {!verificationId ? (
-          <>
-            <Input
-              type="tel"
-              placeholder="휴대폰 번호 (예: 01012345678)"
-              value={phoneNumber}
-              onChange={handlePhoneNumberChange}
-              disabled={loading}
-            />
-            {phoneNumber && !isValidPhoneNumber ? (
-              <ValidationMessage>
-                올바른 휴대폰 번호를 입력해주세요 (예: 01012345678)
-              </ValidationMessage>
-            ) : (
-              <HelpText>공백이나 대시(-) 없이 번호만 입력해주세요.</HelpText>
-            )}
-            <Button
-              id="send-code-button"
-              onClick={onSignInSubmit}
-              disabled={!isValidPhoneNumber || loading}
-            >
-              {loading ? "전송 중..." : "인증번호 전송"}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Input
-              type="text"
-              placeholder="인증번호 입력"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              disabled={loading}
-            />
-            <Button
-              onClick={verifyCode}
-              disabled={!verificationCode || loading}
-            >
-              {loading ? "확인 중..." : "인증번호 확인"}
-            </Button>
-          </>
-        )}
+      {!showPhoneAuth ? (
+        <ChoiceButtonContainer>
+          <PhoneButton onClick={handlePhoneAuthClick}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+            </svg>
+            전화번호로 시작하기
+          </PhoneButton>
+          <KakaoButton onClick={handleKakaoLoginClick}>
+            <img src={kakaoBtnImg} alt="Kakao Login" />
+            카카오로 시작하기
+          </KakaoButton>
+        </ChoiceButtonContainer>
+      ) : (
+        <FormContainer>
+          {!verificationId ? (
+            <>
+              <Input
+                type="tel"
+                placeholder="휴대폰 번호 (예: 01012345678)"
+                value={phoneNumber}
+                onChange={handlePhoneNumberChange}
+                disabled={loading}
+              />
+              {phoneNumber && !isValidPhoneNumber ? (
+                <ValidationMessage>
+                  올바른 휴대폰 번호를 입력해주세요 (예: 01012345678)
+                </ValidationMessage>
+              ) : (
+                <HelpText>공백이나 대시(-) 없이 번호만 입력해주세요.</HelpText>
+              )}
+              <Button
+                id="send-code-button"
+                onClick={onSignInSubmit}
+                disabled={!isValidPhoneNumber || loading}
+              >
+                {loading ? "전송 중..." : "인증번호 전송"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Input
+                type="text"
+                placeholder="인증번호 입력"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                disabled={loading}
+              />
+              <Button
+                onClick={verifyCode}
+                disabled={!verificationCode || loading}
+              >
+                {loading ? "확인 중..." : "인증번호 확인"}
+              </Button>
+            </>
+          )}
 
-        {error && <ErrorMessage>{error}</ErrorMessage>}
-        {message && <SuccessMessage>{message}</SuccessMessage>}
-      </FormContainer>
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+          {message && <SuccessMessage>{message}</SuccessMessage>}
+        </FormContainer>
+      )}
     </AuthContainer>
   );
 }

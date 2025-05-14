@@ -11,7 +11,6 @@ import reset from "styled-reset";
 import { useEffect, useState } from "react";
 import LoadingScreen from "./components/loading_screen";
 import { auth } from "./firebase";
-// import ProtectedRoute from "./components/protected_route";
 import AuthLayout from "./components/auth_components.tsx";
 import Policy from "./routes/policy";
 import ProtectedRoute from "./components/protected_route.tsx";
@@ -24,6 +23,7 @@ import Community from "./community/index.tsx";
 import NewTopic from "./community/new-topic.tsx";
 import TopicDetail from "./community/topic-detail.tsx";
 import SampleArticlePage from "./routes/sample.tsx";
+import KakaoCallback from "./routes/kakao_callback.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -110,6 +110,10 @@ const router = createBrowserRouter([
         <Auth />
       </AuthLayout>
     ),
+  },
+  {
+    path: "/kakao_callback",
+    element: <KakaoCallback />,
   },
 ]);
 
