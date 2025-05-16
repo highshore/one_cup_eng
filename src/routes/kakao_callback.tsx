@@ -125,7 +125,7 @@ const KakaoCallback = () => {
         if ((functionData.status === "merged_by_phone" || functionData.status === "merged_by_kakao_id") && functionData.customToken && functionData.finalUid) {
           console.log(`Account merged (status: ${functionData.status}). Current OIDC UID: ${oidcUser.uid}, Final UID to switch to: ${functionData.finalUid}`);
           if (oidcUser.uid !== functionData.finalUid) { // Check if a switch is actually needed
-            await signOut(auth);
+          await signOut(auth);
             console.log("Signed out temporary Kakao OIDC user.");
             await signInWithCustomToken(auth, functionData.customToken);
             console.log("Signed in with custom token for merged user:", functionData.finalUid);
@@ -137,7 +137,7 @@ const KakaoCallback = () => {
             // Consider if the server should avoid sending a custom token if finalUid === oidcUserUid and no specific claim change is needed.
             console.log("OIDC user UID is the same as final UID. Re-signing with custom token (if provided) to ensure claims or if merge logic resulted in this.");
             await signOut(auth).catch(e => console.warn("Sign out failed before custom token re-sign (same user), might be okay:", e)); // Attempt sign out just in case
-            await signInWithCustomToken(auth, functionData.customToken);
+          await signInWithCustomToken(auth, functionData.customToken);
           }
           navigate("/profile");
         } else if (functionData.status === "success_oidc_user" && functionData.finalUid === oidcUser.uid) {

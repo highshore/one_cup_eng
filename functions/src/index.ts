@@ -1232,44 +1232,44 @@ export async function sendKakaoMessages(
 export const getUserDisplayNames = onCall(
   { region: "asia-northeast3" },
   async (request) => {
-    try {
-      const { userIds } = request.data;
+  try {
+    const { userIds } = request.data;
 
-      if (!userIds || !Array.isArray(userIds)) {
-        throw new Error("Invalid or missing userIds parameter");
-      }
-
-      logger.info(`Retrieving display names for ${userIds.length} users`);
-
-      const displayNames: Record<string, string> = {};
-      const phoneNumbers: Record<string, string> = {};
-
-      // Process users in batches of 10 to avoid rate limiting
-      const batchSize = 10;
-      for (let i = 0; i < userIds.length; i += batchSize) {
-        const batch = userIds.slice(i, i + batchSize);
-        const promises = batch.map(async (userId: string) => {
-          try {
-            const userRecord = await admin.auth().getUser(userId);
-            displayNames[userId] = userRecord.displayName || "";
-            phoneNumbers[userId] = userRecord.phoneNumber || "";
-          } catch (error) {
-            logger.error(`Error retrieving user ${userId}: ${error}`);
-            displayNames[userId] = "";
-            phoneNumbers[userId] = "";
-          }
-        });
-
-        await Promise.all(promises);
-      }
-
-      logger.info(
-        `Successfully retrieved ${Object.keys(displayNames).length} user records`
-      );
-      return { displayNames, phoneNumbers };
-    } catch (error) {
-      logger.error(`Error in getUserDisplayNames: ${error}`);
-      throw new Error(`Failed to retrieve user data: ${error}`);
+    if (!userIds || !Array.isArray(userIds)) {
+      throw new Error("Invalid or missing userIds parameter");
     }
+
+    logger.info(`Retrieving display names for ${userIds.length} users`);
+
+    const displayNames: Record<string, string> = {};
+    const phoneNumbers: Record<string, string> = {};
+
+    // Process users in batches of 10 to avoid rate limiting
+    const batchSize = 10;
+    for (let i = 0; i < userIds.length; i += batchSize) {
+      const batch = userIds.slice(i, i + batchSize);
+      const promises = batch.map(async (userId: string) => {
+        try {
+          const userRecord = await admin.auth().getUser(userId);
+          displayNames[userId] = userRecord.displayName || "";
+          phoneNumbers[userId] = userRecord.phoneNumber || "";
+        } catch (error) {
+          logger.error(`Error retrieving user ${userId}: ${error}`);
+          displayNames[userId] = "";
+          phoneNumbers[userId] = "";
+        }
+      });
+
+      await Promise.all(promises);
+    }
+
+    logger.info(
+      `Successfully retrieved ${Object.keys(displayNames).length} user records`
+    );
+    return { displayNames, phoneNumbers };
+  } catch (error) {
+    logger.error(`Error in getUserDisplayNames: ${error}`);
+    throw new Error(`Failed to retrieve user data: ${error}`);
+  }
   }
 );

@@ -260,6 +260,9 @@ interface EditingUser {
   cat_business: boolean;
 }
 
+// Define the functions instance with the correct region
+const functions = getFunctions(auth.app, "asia-northeast3");
+
 export default function Admin() {
   const user = auth.currentUser;
   if (
@@ -349,7 +352,6 @@ export default function Admin() {
 
   const fetchDisplayNames = async (userIds: string[]) => {
     try {
-      const functions = getFunctions();
       const getUserDisplayNames = httpsCallable(
         functions,
         "getUserDisplayNames"
@@ -373,7 +375,6 @@ export default function Admin() {
     setStatus("idle");
 
     try {
-      const functions = getFunctions();
       const testSendLinks = httpsCallable(functions, "testSendLinksToUsers");
 
       const response = await testSendLinks();
@@ -394,7 +395,6 @@ export default function Admin() {
     setStatus("idle");
 
     try {
-      const functions = getFunctions();
       const sendLinksToCategory = httpsCallable(
         functions,
         "sendLinksToCategory"
