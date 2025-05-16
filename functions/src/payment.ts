@@ -46,10 +46,10 @@ if (!PAYPLE_CST_ID || !PAYPLE_CUST_KEY || !PAYPLE_CLIENT_KEY) {
 // Subscription price in KRW
 const SUBSCRIPTION_PRICE = 9900;
 
-// Common function options
-const functionConfig = {
-  cors: true, // Allow CORS from any origin (simpler than specifying domains)
-  region: "us-central1", // Set the region (default is us-central1)
+// Common function options for onCall functions that need CORS
+const onCallFunctionConfig = {
+  cors: true,
+  region: "asia-northeast3",
 };
 
 // Interface for Payple authentication response
@@ -158,7 +158,7 @@ interface PaymentWindowData {
 // Function to get payment window parameters
 export const getPaymentWindow = onCall<PaymentWindowData>(
   {
-    ...functionConfig,
+    ...onCallFunctionConfig,
     secrets: [
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
@@ -408,7 +408,7 @@ interface VerifyPaymentData {
 // Function to verify payment result callback from Payple
 export const verifyPaymentResult = onCall<VerifyPaymentData>(
   {
-    ...functionConfig,
+    ...onCallFunctionConfig,
     secrets: [
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
@@ -818,6 +818,7 @@ export const processRecurringPayments = onSchedule(
       "PAYPLE_CLIENT_KEY",
       "PAYPLE_REFUND_KEY",
     ],
+    region: "asia-northeast3",
   },
   async (event) => {
     const db = admin.firestore();
@@ -1051,7 +1052,7 @@ interface CancelSubscriptionData {
 // Function to cancel subscription
 export const cancelSubscription = onCall<CancelSubscriptionData>(
   {
-    ...functionConfig,
+    ...onCallFunctionConfig,
     secrets: [
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",
@@ -1404,7 +1405,7 @@ export const cancelSubscription = onCall<CancelSubscriptionData>(
 // Function to log credentials (for debugging only)
 export const logCredentials = onCall(
   {
-    ...functionConfig,
+    ...onCallFunctionConfig,
     enforceAppCheck: false,
     invoker: "public",
   },
@@ -1426,7 +1427,7 @@ export const logCredentials = onCall(
 export const paymentCallback = onRequest(
   {
     cors: true,
-    region: "us-central1",
+    region: "asia-northeast3",
     secrets: [
       "PAYPLE_CST_ID",
       "PAYPLE_CUST_KEY",

@@ -1,6 +1,13 @@
+import * as admin from "firebase-admin";
+
+// Initialize Firebase Admin SDK only once
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+  console.log("Firebase Admin SDK initialized in index.ts");
+}
+
 import { onSchedule, ScheduledEvent } from "firebase-functions/v2/scheduler";
 import { onCall } from "firebase-functions/v2/https";
-import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
 // Export payment functions directly from the payment module
@@ -14,7 +21,7 @@ import {
 } from "./payment";
 
 // Export Kakao Auth Processor function
-import { resolveKakaoLogin } from "./kakaoAuthProcessor";
+import { processKakaoUser } from "./processKakaoUser";
 
 // Export the payment functions
 export {
@@ -24,10 +31,8 @@ export {
   processRecurringPayments,
   logCredentials, // <<< Make sure this export line exists
   paymentCallback,
-  resolveKakaoLogin, // Add the new function here
+  processKakaoUser,
 };
-
-admin.initializeApp();
 
 interface LinkData {
   url: string;
@@ -734,6 +739,7 @@ export const sendLinksToUsers = onSchedule(
   {
     schedule: "0 8 * * *",
     timeZone: "Asia/Seoul",
+    region: "asia-northeast3",
   },
   async (event: ScheduledEvent): Promise<void> => {
     try {
@@ -750,6 +756,7 @@ export const sendLinksToUsers = onSchedule(
 export const testSendLinksToUsers = onCall(
   {
     enforceAppCheck: false, // Set to true in production
+    region: "asia-northeast3",
   },
   async (request) => {
     try {
@@ -773,6 +780,7 @@ export const testSendLinksToUsers = onCall(
 export const sendLinksToCategory = onCall(
   {
     enforceAppCheck: false, // Set to true in production
+    region: "asia-northeast3",
   },
   async (request) => {
     try {
@@ -1221,44 +1229,47 @@ export async function sendKakaoMessages(
 }
 
 // New function to retrieve display names from Firebase Auth
-export const getUserDisplayNames = onCall(async (request) => {
-  try {
-    const { userIds } = request.data;
+export const getUserDisplayNames = onCall(
+  { region: "asia-northeast3" },
+  async (request) => {
+    try {
+      const { userIds } = request.data;
 
-    if (!userIds || !Array.isArray(userIds)) {
-      throw new Error("Invalid or missing userIds parameter");
+      if (!userIds || !Array.isArray(userIds)) {
+        throw new Error("Invalid or missing userIds parameter");
+      }
+
+      logger.info(`Retrieving display names for ${userIds.length} users`);
+
+      const displayNames: Record<string, string> = {};
+      const phoneNumbers: Record<string, string> = {};
+
+      // Process users in batches of 10 to avoid rate limiting
+      const batchSize = 10;
+      for (let i = 0; i < userIds.length; i += batchSize) {
+        const batch = userIds.slice(i, i + batchSize);
+        const promises = batch.map(async (userId: string) => {
+          try {
+            const userRecord = await admin.auth().getUser(userId);
+            displayNames[userId] = userRecord.displayName || "";
+            phoneNumbers[userId] = userRecord.phoneNumber || "";
+          } catch (error) {
+            logger.error(`Error retrieving user ${userId}: ${error}`);
+            displayNames[userId] = "";
+            phoneNumbers[userId] = "";
+          }
+        });
+
+        await Promise.all(promises);
+      }
+
+      logger.info(
+        `Successfully retrieved ${Object.keys(displayNames).length} user records`
+      );
+      return { displayNames, phoneNumbers };
+    } catch (error) {
+      logger.error(`Error in getUserDisplayNames: ${error}`);
+      throw new Error(`Failed to retrieve user data: ${error}`);
     }
-
-    logger.info(`Retrieving display names for ${userIds.length} users`);
-
-    const displayNames: Record<string, string> = {};
-    const phoneNumbers: Record<string, string> = {};
-
-    // Process users in batches of 10 to avoid rate limiting
-    const batchSize = 10;
-    for (let i = 0; i < userIds.length; i += batchSize) {
-      const batch = userIds.slice(i, i + batchSize);
-      const promises = batch.map(async (userId: string) => {
-        try {
-          const userRecord = await admin.auth().getUser(userId);
-          displayNames[userId] = userRecord.displayName || "";
-          phoneNumbers[userId] = userRecord.phoneNumber || "";
-        } catch (error) {
-          logger.error(`Error retrieving user ${userId}: ${error}`);
-          displayNames[userId] = "";
-          phoneNumbers[userId] = "";
-        }
-      });
-
-      await Promise.all(promises);
-    }
-
-    logger.info(
-      `Successfully retrieved ${Object.keys(displayNames).length} user records`
-    );
-    return { displayNames, phoneNumbers };
-  } catch (error) {
-    logger.error(`Error in getUserDisplayNames: ${error}`);
-    throw new Error(`Failed to retrieve user data: ${error}`);
   }
-});
+);
