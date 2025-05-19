@@ -8,7 +8,8 @@ import { getFunctions } from "firebase/functions";
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
-const firebaseConfig = {
+// Export this so it can be imported elsewhere
+export const firebaseConfig = {
   apiKey: "AIzaSyBC62vsKGQqdgpyC9RugoHEfh9UcRi2SMA",
   authDomain: "one-cup-eng.firebaseapp.com",
   projectId: "one-cup-eng",
@@ -29,4 +30,4 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app);
+export const functions = getFunctions(app, "asia-northeast3");

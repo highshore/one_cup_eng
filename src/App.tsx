@@ -23,6 +23,7 @@ import NewTopic from "./community/new-topic.tsx";
 import TopicDetail from "./community/topic-detail.tsx";
 import SampleArticlePage from "./routes/sample.tsx";
 import KakaoCallback from "./routes/kakao_callback.tsx";
+import ShadowPage from "./routes/shadow.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
@@ -64,6 +65,11 @@ const router = createBrowserRouter([
       {
         path: "sample",
         element: <SampleArticlePage />,
+      },
+      // Add the new shadow route
+      {
+        path: "shadow",
+        element: <ShadowPage />,
       },
     ],
   },

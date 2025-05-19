@@ -1,4 +1,9 @@
 import * as admin from "firebase-admin";
+// import * as functions from "firebase-functions"; // This line will be removed
+import { onRequest, HttpsOptions } from "firebase-functions/v2/https"; // For v2
+import * as logger from "firebase-functions/logger"; // v2 logger
+import { YoutubeTranscript } from "youtube-transcript"; // Added for youtube-transcript
+import cors from "cors";
 
 // Initialize Firebase Admin SDK only once
 if (admin.apps.length === 0) {
@@ -8,7 +13,6 @@ if (admin.apps.length === 0) {
 
 import { onSchedule, ScheduledEvent } from "firebase-functions/v2/scheduler";
 import { onCall } from "firebase-functions/v2/https";
-import * as logger from "firebase-functions/logger";
 
 // Export payment functions directly from the payment module
 import {
@@ -22,6 +26,111 @@ import {
 
 // Export Kakao Auth Processor function
 import { processKakaoUser } from "./processKakaoUser";
+
+// Initialize CORS middleware.
+// Allow requests from your local frontend and a placeholder for your deployed app.
+// IMPORTANT: Replace 'https://your-deployed-app-url.com' with your actual deployed frontend URL for production.
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://onecup.dev",
+  "https://one-cup-eng.web.app",
+  "https://one-cup-eng.firebaseapp.com",
+];
+
+const corsHandler = cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      logger.warn(`CORS policy: Blocking origin ${origin}`);
+      callback(
+        new Error(
+          `The CORS policy for this site does not allow access from the specified Origin: ${origin}`
+        ),
+        false
+      );
+    }
+  },
+});
+
+const commonHttpsOptions: HttpsOptions = {
+  region: "asia-northeast3", // Seoul
+  // You can set other common options here, like memory, timeoutSeconds, etc.
+};
+
+export const fetchYouTubeTranscriptProxy = onRequest(
+  commonHttpsOptions,
+  (request, response) => {
+    corsHandler(request, response, async () => {
+      logger.info(
+        `Request received for fetchYouTubeTranscriptProxy. Method: ${request.method}, Origin: ${request.headers.origin}`
+      );
+
+      if (request.method !== "POST") {
+        logger.warn(`Method Not Allowed: ${request.method}`);
+        response.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      const body: any = request.body;
+      const { videoId } = body; // Expecting videoId now
+      logger.debug(`Request body: videoId: ${videoId ? videoId : "missing"}`);
+
+      if (!videoId) {
+        logger.warn("Missing videoId in request body.");
+        response.status(400).send("Missing videoId in request body.");
+        return;
+      }
+
+      try {
+        logger.info(
+          `Fetching transcript for videoId: ${videoId} using youtube-transcript`
+        );
+        const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+
+        if (!transcript || transcript.length === 0) {
+          logger.warn(
+            `No transcript found or empty transcript for videoId: ${videoId}`
+          );
+          response
+            .status(404)
+            .send("No transcript found for this video using the library.");
+          return;
+        }
+
+        // Format the transcript (array of {text, duration, offset}) into a single string
+        const formattedTranscript = transcript
+          .map(
+            (item: { text: string; duration: number; offset: number }) =>
+              item.text
+          )
+          .join(" \n");
+
+        logger.info(
+          `Successfully fetched and formatted transcript for videoId: ${videoId}. Length: ${formattedTranscript.length}`
+        );
+        response.setHeader("Content-Type", "text/plain");
+        response.status(200).send(formattedTranscript);
+      } catch (error: any) {
+        logger.error(
+          `Error in fetchYouTubeTranscriptProxy while using youtube-transcript for videoId ${videoId}:`,
+          error
+        );
+        // Send a more specific error message if the library provides one
+        let errorMessage = `Error fetching transcript using library: ${error.message}`;
+        if (error.message && error.message.includes("subtitles disabled")) {
+          errorMessage = "Subtitles are disabled for this video.";
+          response.status(404).send(errorMessage);
+        } else if (error.message && error.message.includes("no such video")) {
+          errorMessage = "Invalid video ID or video not found.";
+          response.status(404).send(errorMessage);
+        } else {
+          response.status(500).send(errorMessage);
+        }
+      }
+    });
+  }
+);
 
 // Export the payment functions
 export {
@@ -1232,44 +1341,46 @@ export async function sendKakaoMessages(
 export const getUserDisplayNames = onCall(
   { region: "asia-northeast3" },
   async (request) => {
-  try {
-    const { userIds } = request.data;
+    try {
+      const { userIds } = request.data;
 
-    if (!userIds || !Array.isArray(userIds)) {
-      throw new Error("Invalid or missing userIds parameter");
+      if (!userIds || !Array.isArray(userIds)) {
+        throw new Error("Invalid or missing userIds parameter");
+      }
+
+      logger.info(`Retrieving display names for ${userIds.length} users`);
+
+      const displayNames: Record<string, string> = {};
+      const phoneNumbers: Record<string, string> = {};
+
+      // Process users in batches of 10 to avoid rate limiting
+      const batchSize = 10;
+      for (let i = 0; i < userIds.length; i += batchSize) {
+        const batch = userIds.slice(i, i + batchSize);
+        const promises = batch.map(async (userId: string) => {
+          try {
+            const userRecord = await admin.auth().getUser(userId);
+            displayNames[userId] = userRecord.displayName || "";
+            phoneNumbers[userId] = userRecord.phoneNumber || "";
+          } catch (error) {
+            logger.error(`Error retrieving user ${userId}: ${error}`);
+            displayNames[userId] = "";
+            phoneNumbers[userId] = "";
+          }
+        });
+
+        await Promise.all(promises);
+      }
+
+      logger.info(
+        `Successfully retrieved ${
+          Object.keys(displayNames).length
+        } user records`
+      );
+      return { displayNames, phoneNumbers };
+    } catch (error) {
+      logger.error(`Error in getUserDisplayNames: ${error}`);
+      throw new Error(`Failed to retrieve user data: ${error}`);
     }
-
-    logger.info(`Retrieving display names for ${userIds.length} users`);
-
-    const displayNames: Record<string, string> = {};
-    const phoneNumbers: Record<string, string> = {};
-
-    // Process users in batches of 10 to avoid rate limiting
-    const batchSize = 10;
-    for (let i = 0; i < userIds.length; i += batchSize) {
-      const batch = userIds.slice(i, i + batchSize);
-      const promises = batch.map(async (userId: string) => {
-        try {
-          const userRecord = await admin.auth().getUser(userId);
-          displayNames[userId] = userRecord.displayName || "";
-          phoneNumbers[userId] = userRecord.phoneNumber || "";
-        } catch (error) {
-          logger.error(`Error retrieving user ${userId}: ${error}`);
-          displayNames[userId] = "";
-          phoneNumbers[userId] = "";
-        }
-      });
-
-      await Promise.all(promises);
-    }
-
-    logger.info(
-      `Successfully retrieved ${Object.keys(displayNames).length} user records`
-    );
-    return { displayNames, phoneNumbers };
-  } catch (error) {
-    logger.error(`Error in getUserDisplayNames: ${error}`);
-    throw new Error(`Failed to retrieve user data: ${error}`);
-  }
   }
 );
