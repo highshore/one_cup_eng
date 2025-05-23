@@ -42,10 +42,10 @@ const ContentContainer = styled.div`
   display: flex;
   flex-direction: column;
   padding-top: 60px; /* Add space for the fixed navbar using padding instead of margin */
-  max-width: 850px;
+  max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
-  
+
   @media (max-width: 768px) {
     /* Force proper sizing on mobile */
     padding-top: 50px;

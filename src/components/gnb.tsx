@@ -46,7 +46,7 @@ const NavbarContainer = styled.nav`
 `;
 
 const NavbarContent = styled.div`
-  max-width: 850px;
+  max-width: 1200px;
   width: 100%;
   display: flex;
   align-items: center;

@@ -1,12 +1,13 @@
+"use client";
 import { useState, useEffect, useRef } from "react";
 import styled, { createGlobalStyle, css } from "styled-components";
 import React from "react";
 import GNB from "../components/gnb";
 import Footer from "../components/footer";
 
-import heroBg from "../assets/homepage/hero_bg.jpg";
-import wstPaper from "../assets/homepage/wst_paper.png";
-import coffeeImage from "../assets/homepage/coffee_cup.png";
+// import heroBg from "../assets/homepage/hero_bg.jpg";
+// import wstPaper from "../assets/homepage/wst_paper.png";
+// import coffeeImage from "../assets/homepage/coffee_cup.png";
 import kakaoLogo from "../assets/homepage/kakao_logo.png";
 import kakaoNotification from "../assets/homepage/kakao_notification.png";
 import meetupImage from "../assets/homepage/meetup.jpg";
@@ -15,6 +16,20 @@ import featureCard2 from "../assets/homepage/feature_card_2.png";
 import featureCard3 from "../assets/homepage/feature_card_3.png";
 import oneCupCup from "../assets/homepage/1cup_cup.png";
 import ceosImage from "../assets/homepage/ceos.png";
+
+// Bubble type definition
+interface Bubble {
+  x: number;
+  y: number;
+  radius: number;
+  dx: number;
+  dy: number;
+  color: string;
+  opacity: number;
+  pulseSpeed: number;
+  pulseAmount: number;
+  pulseOffset: number;
+}
 
 // Add global style for Noto Sans KR font
 const GlobalStyle = createGlobalStyle`
@@ -58,9 +73,7 @@ const SectionBase = css`
 `;
 
 // Hero Section
-const HeroSection = styled.section<{ backgroundImage: string }>`
-  background: url(${(props) => props.backgroundImage}) no-repeat center center;
-  background-size: cover;
+const HeroSection = styled.section`
   color: white;
   padding: 6rem 0;
   position: relative;
@@ -71,9 +84,17 @@ const HeroSection = styled.section<{ backgroundImage: string }>`
   align-items: center;
   justify-content: center;
 
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
   @media (max-width: 768px) {
     min-height: 600px;
-    background-size: cover;
     padding: 4rem 0;
   }
 `;
@@ -81,7 +102,7 @@ const HeroSection = styled.section<{ backgroundImage: string }>`
 const HeroContent = styled.div`
   position: relative;
   z-index: 1;
-  max-width: 850px;
+  max-width: 1200px;
   width: 100%;
   margin: 0 auto;
   padding: 0 20px;
@@ -249,8 +270,9 @@ const CoffeeSteam = styled.div`
 
 const KakaoContainer = styled.div`
   position: absolute;
-  right: 0px;
-  top: 20px;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -261,13 +283,13 @@ const KakaoContainer = styled.div`
 
   @keyframes floatingKakao {
     0% {
-      transform: translateY(0px);
+      transform: translateX(-50%) translateY(0px);
     }
     50% {
-      transform: translateY(-8px);
+      transform: translateX(-50%) translateY(-8px);
     }
     100% {
-      transform: translateY(0px);
+      transform: translateX(-50%) translateY(0px);
     }
   }
 
@@ -280,12 +302,8 @@ const KakaoContainer = styled.div`
   }
 
   @media (max-width: 768px) {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    top: 10px;
+    bottom: 20px;
     gap: 12px;
-    transform-origin: center top;
     animation-duration: 4s;
 
     @keyframes floatingKakao {
@@ -420,7 +438,7 @@ const ProblemCaption = styled.div`
 const ProblemImageContainer = styled.div`
   position: relative;
   width: 100%;
-  max-width: 700px;
+  max-width: 1200px;
   margin: 2rem auto 0;
   height: auto;
   overflow: hidden;
@@ -485,7 +503,7 @@ const FeatureSlider = styled.div`
   gap: 1.5rem;
   padding: 2rem 0;
   margin: 0 auto;
-  max-width: 850px;
+  max-width: 1200px;
   overflow: visible;
   will-change: contents;
   height: 450px; /* Add fixed height */
@@ -662,7 +680,7 @@ const FAQSection = styled.section`
 `;
 
 const FAQContainer = styled.div`
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
 
   @media (max-width: 768px) {
@@ -832,7 +850,7 @@ const MeetupSubtitle = styled.p`
   color: #ddd;
   animation: fadeIn 1.5s ease-in-out;
   position: relative;
-  max-width: 700px;
+  max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
   font-family: "Noto Sans KR", sans-serif;
@@ -842,6 +860,7 @@ const MeetupSubtitle = styled.p`
   align-items: baseline;
   line-height: 1.8;
   gap: 0.5rem;
+  max-width: 1200px;
 
   @keyframes fadeIn {
     from {
@@ -928,7 +947,7 @@ const MeetupSubtitle = styled.p`
 
 const MeetupImageContainer = styled.div`
   position: relative;
-  max-width: 500px;
+  max-width: 1200px;
   max-height: 300px;
   margin: 0px auto 0;
   overflow: hidden;
@@ -1057,6 +1076,44 @@ const MeetupButton = styled.button`
   }
 `;
 
+// New styled components for marketing text
+const MarketingText = styled.h2`
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  margin-bottom: 1rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  font-family: "Noto Sans KR", sans-serif;
+  z-index: 2; /* Ensure it's above canvas */
+  position: relative; /* For z-index to take effect */
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
+`;
+
+const MarketingSubText = styled.p`
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: #e0e0e0; /* Lighter than pure white for subtlety */
+  text-align: center;
+  margin-bottom: 2.5rem; /* Space before Kakao elements */
+  line-height: 1.6;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  font-family: "Noto Sans KR", sans-serif;
+  z-index: 2; /* Ensure it's above canvas */
+  position: relative; /* For z-index to take effect */
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+`;
+
 export default function Home() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
@@ -1064,6 +1121,141 @@ export default function Home() {
 
   // Reference to store the timer ID
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Refs for HeroSection and Canvas
+  const heroSectionRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Helper function for canvas animation
+  const getCoffeeColor = () => {
+    const colors = [
+      "rgba(101, 67, 33, opacity)",
+      "rgba(140, 94, 47, opacity)",
+      "rgba(173, 123, 73, opacity)",
+      "rgba(196, 164, 132, opacity)",
+      "rgba(153, 102, 51, opacity)",
+      "rgba(210, 180, 140, opacity)",
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  // Canvas animation useEffect
+  useEffect(() => {
+    const heroSectionElement = heroSectionRef.current;
+    const canvas = canvasRef.current;
+    if (!canvas || !heroSectionElement) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resizeCanvas = () => {
+      canvas.width = heroSectionElement.offsetWidth;
+      canvas.height = heroSectionElement.offsetHeight;
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const bubbles: Bubble[] = [];
+    const bubbleCount = 8;
+
+    for (let i = 0; i < bubbleCount; i++) {
+      const isSmall = Math.random() > 0.6;
+      const radius = isSmall ? Math.random() * 15 + 5 : Math.random() * 40 + 20;
+
+      bubbles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: radius,
+        dx: (Math.random() - 0.5) * 0.8,
+        dy: (Math.random() - 0.5) * 0.8,
+        color: getCoffeeColor(),
+        opacity: Math.random() * 0.5 + 0.3,
+        pulseSpeed: Math.random() * 0.02 + 0.01,
+        pulseAmount: Math.random() * 0.15 + 0.05,
+        pulseOffset: Math.random() * Math.PI * 2,
+      });
+    }
+
+    let animationFrameId: number;
+    function animate() {
+      animationFrameId = requestAnimationFrame(animate);
+
+      const gradient = ctx!.createLinearGradient(0, 0, 0, canvas!.height);
+      gradient.addColorStop(0, "#120404");
+      gradient.addColorStop(1, "#120404");
+
+      ctx!.fillStyle = gradient;
+      ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
+
+      bubbles.forEach((bubble) => {
+        const time = Date.now() * 0.001;
+        const pulseFactor =
+          Math.sin(time * bubble.pulseSpeed + bubble.pulseOffset) *
+            bubble.pulseAmount +
+          1;
+        const currentRadius = bubble.radius * pulseFactor;
+
+        const bubbleGradient = ctx!.createRadialGradient(
+          bubble.x,
+          bubble.y,
+          0,
+          bubble.x,
+          bubble.y,
+          currentRadius * 1.8
+        );
+        const colorMatch = bubble.color.match(/rgba\((\d+), (\d+), (\d+)/);
+        const [, r, g, b] = colorMatch || ["", "173", "123", "73"];
+
+        bubbleGradient.addColorStop(
+          0,
+          `rgba(${r}, ${g}, ${b}, ${bubble.opacity})`
+        );
+        bubbleGradient.addColorStop(
+          0.3,
+          `rgba(${r}, ${g}, ${b}, ${bubble.opacity * 0.8})`
+        );
+        bubbleGradient.addColorStop(
+          0.7,
+          `rgba(${r}, ${g}, ${b}, ${bubble.opacity * 0.4})`
+        );
+        bubbleGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+        ctx!.shadowBlur = currentRadius * 1.5;
+        ctx!.shadowColor = `rgba(${r}, ${g}, ${b}, ${bubble.opacity * 0.4})`;
+
+        ctx!.beginPath();
+        ctx!.arc(bubble.x, bubble.y, currentRadius * 1.8, 0, Math.PI * 2);
+        ctx!.fillStyle = bubbleGradient;
+        ctx!.fill();
+
+        ctx!.shadowBlur = 0;
+
+        bubble.x += bubble.dx;
+        bubble.y += bubble.dy;
+
+        if (
+          bubble.x + currentRadius * 2 > canvas!.width ||
+          bubble.x - currentRadius * 2 < 0
+        ) {
+          bubble.dx = -bubble.dx;
+        }
+        if (
+          bubble.y + currentRadius * 2 > canvas!.height ||
+          bubble.y - currentRadius * 2 < 0
+        ) {
+          bubble.dy = -bubble.dy;
+        }
+      });
+    }
+
+    animate();
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   // Set up scroll animation
   useEffect(() => {
@@ -1234,43 +1426,37 @@ export default function Home() {
       <GlobalStyle />
       <GNB />
       {/* Hero Section */}
-      <HeroSection backgroundImage={heroBg}>
+      <HeroSection ref={heroSectionRef}>
+        <canvas ref={canvasRef} />
         <HeroContent>
-          <HeroTextContent>
-            <HeroTitle>영어 한잔</HeroTitle>
-            <HeroSubtitle>
-              매일 아침 영어 한잔으로
+          {/* Added Marketing Text Elements */}
+          <div>
+            <MarketingText>매일 아침, 글로벌 감각을 깨우세요</MarketingText>
+            <MarketingSubText>
+              월스트리트저널 원문으로 배우는 프리미엄 비즈니스 영어.
               <br />
-              배우는 비즈니스 영어
-            </HeroSubtitle>
-          </HeroTextContent>
-
-          <HeroImagesWrapper>
-            <WSTPaperImage src={wstPaper} alt="WST Paper" />
-            <CoffeeImage src={coffeeImage} alt="Coffee Cup" />
-            <CoffeeSteam>
-              <span></span>
-            </CoffeeSteam>
-            <KakaoContainer>
-              <div className="kakao-logo-wrapper">
-                <KakaoIcon src={kakaoLogo} alt="Kakao Logo" />
-              </div>
-              <KakaoNotificationContainer>
-                <KakaoIcon
-                  src={kakaoNotification}
-                  alt="Kakao Notification"
-                  isNotification={true}
-                />
-                <KakaoNotificationButton
-                  href="/sample"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  영어 한잔 체험하기
-                </KakaoNotificationButton>
-              </KakaoNotificationContainer>
-            </KakaoContainer>
-          </HeroImagesWrapper>
+              하루 5분 투자로 영어 실력과 국제 시사 지식을 동시에!
+            </MarketingSubText>
+          </div>
+          <KakaoContainer>
+            <div className="kakao-logo-wrapper">
+              <KakaoIcon src={kakaoLogo} alt="Kakao Logo" />
+            </div>
+            <KakaoNotificationContainer>
+              <KakaoIcon
+                src={kakaoNotification}
+                alt="Kakao Notification"
+                isNotification={true}
+              />
+              <KakaoNotificationButton
+                href="/sample"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                영어 한잔 체험하기
+              </KakaoNotificationButton>
+            </KakaoNotificationContainer>
+          </KakaoContainer>
         </HeroContent>
       </HeroSection>
 
