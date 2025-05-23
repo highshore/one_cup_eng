@@ -118,8 +118,8 @@ export const fetchYouTubeTranscriptProxy = onRequest(
         );
         // Send a more specific error message if the library provides one
         let errorMessage = `Error fetching transcript using library: ${error.message}`;
-        if (error.message && error.message.includes("subtitles disabled")) {
-          errorMessage = "Subtitles are disabled for this video.";
+        if (error.message && error.message.includes("Transcript is disabled")) {
+          errorMessage = "Transcript is disabled for this video.";
           response.status(404).send(errorMessage);
         } else if (error.message && error.message.includes("no such video")) {
           errorMessage = "Invalid video ID or video not found.";

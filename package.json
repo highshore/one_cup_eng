@@ -13,6 +13,7 @@
     "deploy": "firebase deploy --only functions,hosting"
   },
   "dependencies": {
+    "@speechmatics/real-time-client": "^6.0.0",
     "@types/react-lottie": "^1.2.10",
     "axios": "^1.8.4",
     "date-fns": "^4.1.0",
