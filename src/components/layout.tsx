@@ -8,7 +8,7 @@ const colors = {
   primaryLight: "#4A2F23",
   primaryDark: "#1A0F0A",
   primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
+  primaryBg: "#fafafa",
   accent: "#C8A27A",
   text: {
     dark: "#2C1810",
@@ -41,8 +41,8 @@ const ContentContainer = styled.div`
   position: relative;
   display: flex;
   flex-direction: column;
-  padding-top: 60px; /* Add space for the fixed navbar using padding instead of margin */
-  max-width: 1200px;
+  padding: 60px 20px; /* Add space for the fixed navbar using padding instead of margin */
+  max-width: 960px;
   margin-left: auto;
   margin-right: auto;
 

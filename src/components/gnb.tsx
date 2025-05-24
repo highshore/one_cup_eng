@@ -6,7 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { auth } from "../firebase";
 
 // Import logo
-import logo from "../assets/1cup_logo_circular.png";
+import logo from "../assets/1cup_logo_new.svg";
 import defaultUser from "../assets/default_user.jpg";
 
 // Define colors for consistency
@@ -46,7 +46,7 @@ const NavbarContainer = styled.nav`
 `;
 
 const NavbarContent = styled.div`
-  max-width: 1200px;
+  max-width: 960px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -77,21 +77,10 @@ const LogoLink = styled(Link)`
 
 const Logo = styled.img`
   height: 24px;
-  margin-right: 8px;
 
   @media (max-width: 768px) {
     height: 28px;
     margin-right: 6px;
-  }
-`;
-
-const BrandName = styled.span`
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: ${colors.primary};
-
-  @media (max-width: 768px) {
-    font-size: 1.1rem;
   }
 `;
 
@@ -445,7 +434,6 @@ export default function GNB({}: GNBProps) {
         <LogoContainer>
           <LogoLink to="/">
             <Logo src={logo} alt="영어 한잔 로고" />
-            <BrandName>1 CUP ENGLISH</BrandName>
           </LogoLink>
         </LogoContainer>
 

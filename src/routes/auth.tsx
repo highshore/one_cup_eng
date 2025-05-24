@@ -4,7 +4,7 @@ import { auth, db } from "../firebase";
 import styled from "styled-components";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import kakaoBtnImg from "../assets/kakao_btn.png"; // Import the image
-import logoImage from "../assets/1cup_logo_circular.png"; // Added from auth_components
+import logoImage from "../assets/1cup_logo_new.svg"; // Added from auth_components
 import Footer from "../components/footer"; // Added from auth_components - assuming path
 
 console.log("Vite env variables:", import.meta.env); // Temporary log
@@ -93,15 +93,9 @@ export const Header = styled.header`
 `;
 
 export const Logo = styled.img`
-  height: 30px;
-  width: 30px;
-  margin-right: 8px;
-`;
-
-export const ServiceName = styled.h1`
-  font-size: 24px;
-  font-weight: 700;
-  color: ${colors.text.dark};
+  height: 28px;
+  width: auto; /* Adjust width to auto to maintain aspect ratio */
+  margin-left: 8px;
 `;
 
 // Form Components
@@ -327,7 +321,6 @@ function AuthLayout({ children }: AuthLayoutProps) {
           }}
         >
           <Logo src={logoImage} alt="1 Cup English Logo" />
-          <ServiceName>1 Cup English</ServiceName>
         </Link>
       </Header>
       <ContentContainer>{children}</ContentContainer>

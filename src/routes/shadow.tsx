@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 // Interface for Azure Phoneme-level Pronunciation Result
 interface AzurePhonemePronunciationResult {
@@ -34,139 +36,561 @@ interface AzureWordPronunciationResult {
   // Duration?: number;
 }
 
+interface VideoTimestamp {
+  start: number;
+  end: number;
+  word: string;
+}
+
+interface SentenceForAssessment {
+  id: string;
+  text: string;
+  words: VideoTimestamp[];
+  assessmentResult: SpeechSDK.PronunciationAssessmentResult | null;
+  recordedSentenceAudioUrl: string | null;
+  isAssessing: boolean;
+  assessmentError: string | null;
+  recognizedText?: string;
+  rawJson?: string;
+}
+
+// Modern color palette
+const colors = {
+  primary: "#3c2e26",
+  primaryDark: "#2c1810",
+  primaryLight: "#5d4037",
+  secondary: "#8d6e63",
+  accent: "#d4a574",
+  success: "#4e7c59",
+  warning: "#c17817",
+  error: "#a8423f",
+  background: "#faf8f6",
+  surface: "#ffffff",
+  surfaceElevated: "#ffffff",
+  text: {
+    primary: "#2c1810",
+    secondary: "#3c2e26",
+    muted: "#8d6e63",
+    inverse: "#ffffff",
+  },
+  border: {
+    light: "#e8ddd4",
+    medium: "#d7c7b8",
+    dark: "#a69080",
+  },
+  shadow: {
+    sm: "0 1px 3px rgba(44, 24, 16, 0.1), 0 1px 2px rgba(44, 24, 16, 0.06)",
+    md: "0 4px 6px rgba(44, 24, 16, 0.07), 0 2px 4px rgba(44, 24, 16, 0.06)",
+    lg: "0 10px 15px rgba(44, 24, 16, 0.1), 0 4px 6px rgba(44, 24, 16, 0.05)",
+    xl: "0 20px 25px rgba(44, 24, 16, 0.1), 0 10px 10px rgba(44, 24, 16, 0.04)",
+  },
+};
+
 const ShadowContainer = styled.div`
-  padding: 20px;
-  font-family: sans-serif;
+  width: 100%;
+  padding: 2rem 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+  background: ${colors.background};
+  min-height: 100vh;
 `;
 
 const Title = styled.h1`
-  color: #333;
-`;
+  color: ${colors.text.primary};
+  width: 100%;
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(
+    135deg,
+    ${colors.primary},
+    ${colors.primaryLight}
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
 
-const Input = styled.input`
-  padding: 10px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  width: 80%;
-  max-width: 500px;
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
 `;
 
 const Button = styled.button`
-  padding: 10px 20px;
-  font-size: 16px;
-  background-color: #007bff;
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark});
+  color: ${colors.text.inverse};
   border: none;
-  border-radius: 4px;
+  border-radius: 12px;
   cursor: pointer;
-  &:disabled {
-    background-color: #ccc;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: ${colors.shadow.sm};
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      135deg,
+      ${colors.primaryLight},
+      ${colors.accent}
+    );
+    opacity: 0;
+    transition: opacity 0.2s ease;
   }
+
   &:hover:not(:disabled) {
-    background-color: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: ${colors.shadow.lg};
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: ${colors.shadow.md};
+  }
+
+  &:disabled {
+    background: ${colors.border.medium};
+    color: ${colors.text.muted};
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+
+    &::before {
+      display: none;
+    }
+  }
+
+  span {
+    position: relative;
+    z-index: 1;
   }
 `;
 
 const TranscriptArea = styled.div`
-  width: 80%;
-  max-width: 500px;
-  min-height: 100px;
-  border: 1px solid #eee;
-  padding: 15px;
-  background-color: #f9f9f9;
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid ${colors.border.light};
+  padding: 1.5rem;
+  background: ${colors.surface};
   white-space: pre-wrap;
   text-align: left;
-  border-radius: 4px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: ${colors.text.secondary};
+  box-shadow: ${colors.shadow.sm};
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: ${colors.border.medium};
+    box-shadow: ${colors.shadow.md};
+  }
 `;
 
 const AzureResultsBox = styled(TranscriptArea)`
-  margin-top: 20px;
-  border-color: #0078d4; // Azure blue
-`;
-
-const AzureDetailTable = styled.table`
-  width: 100%;
-  margin-top: 10px;
-  border-collapse: collapse;
-  font-size: 0.9em;
-  th,
-  td {
-    border: 1px solid #ddd;
-    padding: 4px;
-    text-align: left;
-  }
-  th {
-    background-color: #f2f2f2;
-  }
+  background: linear-gradient(135deg, ${colors.surface}, ${colors.background});
+  border: 1px solid ${colors.primary}33;
+  border-left: 4px solid ${colors.primary};
+  box-shadow: ${colors.shadow.md};
 `;
 
 const AzureScoreArea = styled.div`
-  font-size: 16px;
-  margin-top: 10px;
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: ${colors.background};
+  border-radius: 12px;
+  border: 1px solid ${colors.border.light};
+
   p {
-    margin: 5px 0;
+    margin: 0.5rem 0;
+    color: ${colors.text.secondary};
+    font-weight: 500;
   }
 `;
 
 const ColorCodedSentence = styled.div`
-  margin: 20px 0;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, ${colors.surface}, ${colors.background});
+  border-radius: 16px;
   line-height: 2;
-  font-size: 18px;
+  font-size: 1.1rem;
+  box-shadow: ${colors.shadow.md};
+  border: 1px solid ${colors.border.light};
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: ${colors.shadow.lg};
+  }
 `;
 
 const SyllableSpan = styled.span<{ color: string }>`
-  color: ${(props) => props.color};
-  font-weight: 500;
-  padding: 2px 4px;
-  border-radius: 3px;
-  margin: 0 2px;
-  background-color: ${(props) => {
+  color: ${(props) => {
     switch (props.color) {
       case "green":
-        return "#e6f4ea";
+        return colors.success;
       case "orange":
-        return "#fef3c7";
+        return colors.warning;
       case "red":
-        return "#fee2e2";
+        return colors.error;
+      default:
+        return colors.text.muted;
+    }
+  }};
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+  margin: 0 2px;
+  background: ${(props) => {
+    switch (props.color) {
+      case "green":
+        return `${colors.success}15`;
+      case "orange":
+        return `${colors.warning}15`;
+      case "red":
+        return `${colors.error}15`;
       default:
         return "transparent";
     }
   }};
+  border: 1px solid
+    ${(props) => {
+      switch (props.color) {
+        case "green":
+          return `${colors.success}30`;
+        case "orange":
+          return `${colors.warning}30`;
+        case "red":
+          return `${colors.error}30`;
+        default:
+          return "transparent";
+      }
+    }};
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
 `;
 
 const ErrorMessage = styled.p`
-  color: red;
+  color: ${colors.error};
+  width: 100%;
+  text-align: center;
+  font-weight: 500;
+  padding: 1rem;
+  background: ${colors.error}10;
+  border: 1px solid ${colors.error}30;
+  border-radius: 12px;
+  margin: 1rem 0;
+  box-shadow: ${colors.shadow.sm};
+`;
+
+const TranscriptContainer = styled.div`
+  width: 100%;
+  margin-top: 1rem;
+  background: ${colors.surface};
+  border-radius: 16px;
+  line-height: 1.8;
+  text-align: left;
+  padding: 1.5rem;
+  border: 1px solid ${colors.border.light};
+  box-shadow: ${colors.shadow.sm};
+`;
+
+const TranscriptWord = styled.span<{ isActive: boolean }>`
+  padding: 4px 6px;
+  margin: 0 2px;
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: ${(props) => (props.isActive ? colors.accent : "transparent")};
+  color: ${(props) =>
+    props.isActive ? colors.text.inverse : colors.text.secondary};
+  font-weight: ${(props) => (props.isActive ? "600" : "400")};
+  cursor: pointer;
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: ${colors.primary};
+    opacity: 0;
+    border-radius: 8px;
+    transition: opacity 0.2s ease;
+    z-index: -1;
+  }
+
+  &:hover {
+    &::before {
+      opacity: ${(props) => (props.isActive ? "0" : "0.1")};
+    }
+    transform: ${(props) => (props.isActive ? "none" : "translateY(-1px)")};
+  }
+`;
+
+const SentenceListContainer = styled.div`
+  width: 100%;
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+`;
+
+const SentenceRow = styled.div`
+  padding: 2rem;
+  border: 1px solid ${colors.border.light};
+  border-radius: 20px;
+  background: ${colors.surface};
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: ${colors.shadow.md};
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, ${colors.primary}, ${colors.accent});
+    transition: width 0.3s ease;
+  }
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: ${colors.shadow.xl};
+    border-color: ${colors.primary}30;
+
+    &::before {
+      width: 8px;
+    }
+  }
+`;
+
+const SentenceTextDisplay = styled.div`
+  font-size: 1.15rem;
+  line-height: 1.7;
+  margin-bottom: 1rem;
+  color: ${colors.text.primary};
+  font-weight: 400;
+  letter-spacing: 0.01em;
+`;
+
+const SentenceControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+`;
+
+// Add modern YouTube container styling
+const VideoContainer = styled.div`
+  margin-bottom: 2rem;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: ${colors.shadow.xl};
+  background: linear-gradient(135deg, ${colors.background}, ${colors.surface});
+  border: 1px solid ${colors.border.light};
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: ${colors.shadow.xl}, 0 0 0 1px ${colors.primary}20;
+  }
+
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 20px;
+  }
+`;
+
+// Add loading spinner component
+const LoadingSpinner = styled.div`
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid ${colors.border.light};
+  border-radius: 50%;
+  border-top-color: ${colors.primary};
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 0.5rem;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+// Add loading state for page
+const LoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid ${colors.border.light};
+    border-radius: 50%;
+    border-top-color: ${colors.primary};
+    animation: spin 1s ease-in-out infinite;
+  }
+
+  .text {
+    font-size: 1.1rem;
+    color: ${colors.text.secondary};
+    font-weight: 500;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+// Add modern audio controls styling
+const AudioControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  audio {
+    border-radius: 12px;
+    height: 40px;
+    background: ${colors.surface};
+    border: 1px solid ${colors.border.light};
+    box-shadow: ${colors.shadow.sm};
+
+    &::-webkit-media-controls-panel {
+      background: ${colors.surface};
+      border-radius: 12px;
+    }
+  }
+`;
+
+// Modern status indicators
+const StatusIndicator = styled.div<{
+  type: "success" | "warning" | "error" | "info";
+}>`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  border: 1px solid;
+
+  ${(props) => {
+    switch (props.type) {
+      case "success":
+        return `
+          background: ${colors.success}10;
+          border-color: ${colors.success}30;
+          color: ${colors.success};
+        `;
+      case "warning":
+        return `
+          background: ${colors.warning}10;
+          border-color: ${colors.warning}30;
+          color: ${colors.warning};
+        `;
+      case "error":
+        return `
+          background: ${colors.error}10;
+          border-color: ${colors.error}30;
+          color: ${colors.error};
+        `;
+      case "info":
+      default:
+        return `
+          background: ${colors.primary}10;
+          border-color: ${colors.primary}30;
+          color: ${colors.primary};
+        `;
+    }
+  }}
 `;
 
 const ShadowPage: React.FC = () => {
-  const [targetSentence, setTargetSentence] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [overallError, setOverallError] = useState<string | null>(null);
 
-  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  // YouTube Player State
+  const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
+  const [youtubeLoading, setYoutubeLoading] = useState<boolean>(true);
+  const [youtubeError, setYoutubeError] = useState<string | null>(null);
+  const playerRef = useRef<any>(null);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+
+  // Transcript & Sentence Assessment State
+  const [videoTimestamps, setVideoTimestamps] = useState<VideoTimestamp[]>([]);
+  const [activeTimestampIndex, setActiveTimestampIndex] = useState<
+    number | null
+  >(null);
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
+  const timeUpdateIntervalRef = useRef<number | null>(null);
+  const [sentencesToAssess, setSentencesToAssess] = useState<
+    SentenceForAssessment[]
+  >([]);
+  const [currentRecordingSentenceIndex, setCurrentRecordingSentenceIndex] =
+    useState<number | null>(null);
+  const [isRecordingActive, setIsRecordingActive] = useState(false);
+
   const recordedAudioChunksRef = useRef<Float32Array[]>([]);
 
+  // Azure SDK state (recognizer and push stream)
   const [azureRecognizer, setAzureRecognizer] =
     useState<SpeechSDK.SpeechRecognizer | null>(null);
   const azurePushStreamRef = useRef<SpeechSDK.PushAudioInputStream | null>(
     null
   );
-  const [azurePronunciationResult, setAzurePronunciationResult] =
-    useState<SpeechSDK.PronunciationAssessmentResult | null>(null);
-  const [azureRecognizedText, setAzureRecognizedText] = useState<string>("");
-  const [azureError, setAzureError] = useState<string | null>(null);
-  const [azureRawJson, setAzureRawJson] = useState<string | null>(null);
 
+  // Refs for Azure SDK and recording state
   const azureRecognizerRef = useRef(azureRecognizer);
-  const isRecordingRef = useRef(isRecording);
+  const isRecordingRef = useRef(isRecordingActive);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const microphoneSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -179,19 +603,265 @@ const ShadowPage: React.FC = () => {
   useEffect(() => {
     azureRecognizerRef.current = azureRecognizer;
   }, [azureRecognizer]);
+  useEffect(() => {
+    isRecordingRef.current = isRecordingActive;
+  }, [isRecordingActive]);
+
+  const convertToEmbedUrl = useCallback((url: string): string | null => {
+    try {
+      const urlObj = new URL(url);
+      let videoId: string | null = null;
+      if (urlObj.hostname === "youtu.be")
+        videoId = urlObj.pathname.substring(1);
+      else if (
+        urlObj.hostname === "www.youtube.com" ||
+        urlObj.hostname === "youtube.com"
+      ) {
+        if (urlObj.pathname === "/embed") {
+          const pathPart = urlObj.pathname.split("/").pop(); // .pop() can return undefined
+          videoId = pathPart !== undefined ? pathPart : null; // Explicitly handle undefined
+        } else if (urlObj.pathname === "/watch")
+          videoId = urlObj.searchParams.get("v");
+      }
+      if (videoId) {
+        const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
+        embedUrl.searchParams.set("enablejsapi", "1");
+        urlObj.searchParams.forEach((value, key) => {
+          const lowerKey = key.toLowerCase();
+          if (!["v", "feature", "si", "enablejsapi"].includes(lowerKey))
+            embedUrl.searchParams.set(key, value);
+        });
+        return embedUrl.toString();
+      }
+      console.warn("Could not extract videoId from URL:", url);
+      return null;
+    } catch (e) {
+      console.error("Error parsing YouTube URL for embed:", e);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
-    isRecordingRef.current = isRecording;
-  }, [isRecording]);
-
-  useEffect(() => {
-    let currentUrl = recordedAudioUrl;
-    return () => {
-      if (currentUrl) {
-        URL.revokeObjectURL(currentUrl);
+    const segmentSentences = (
+      timestamps: VideoTimestamp[]
+    ): SentenceForAssessment[] => {
+      if (!timestamps || timestamps.length === 0) return [];
+      const sentences: SentenceForAssessment[] = [];
+      let currentSentenceText = "";
+      let currentSentenceWords: VideoTimestamp[] = [];
+      const sentenceEndPunctuations = [".", "?", "!"];
+      timestamps.forEach((ts, index) => {
+        currentSentenceText +=
+          (currentSentenceWords.length > 0 ? " " : "") + ts.word;
+        currentSentenceWords.push(ts);
+        const lastChar = ts.word.charAt(ts.word.length - 1);
+        const isEndOfSentence = sentenceEndPunctuations.includes(lastChar);
+        const isLastTimestamp = index === timestamps.length - 1;
+        if (
+          (isEndOfSentence && currentSentenceWords.length > 0) ||
+          (isLastTimestamp && currentSentenceWords.length > 0)
+        ) {
+          sentences.push({
+            id: `sentence-${sentences.length}-${Date.now()}`,
+            text: currentSentenceText.trim(),
+            words: [...currentSentenceWords],
+            assessmentResult: null,
+            recordedSentenceAudioUrl: null,
+            isAssessing: false,
+            assessmentError: null,
+            recognizedText: "",
+            rawJson: "",
+          });
+          currentSentenceText = "";
+          currentSentenceWords = [];
+        }
+      });
+      return sentences;
+    };
+    const fetchYoutubeDataAndSegment = async () => {
+      setYoutubeLoading(true);
+      setYoutubeError(null);
+      setVideoTimestamps([]);
+      setSentencesToAssess([]);
+      setActiveTimestampIndex(null);
+      setIsPlayerReady(false);
+      if (
+        playerRef.current &&
+        typeof playerRef.current.destroy === "function"
+      ) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current);
+        timeUpdateIntervalRef.current = null;
+      }
+      try {
+        const docRef = doc(db, "shadow", "sample");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.youtube_url) {
+            const embedUrl = convertToEmbedUrl(data.youtube_url as string);
+            if (embedUrl) setYoutubeUrl(embedUrl);
+            else setYoutubeError("Invalid YouTube URL in Firestore.");
+          } else
+            setYoutubeError(
+              "youtube_url field not found in Firestore document."
+            );
+          if (
+            data &&
+            data.audio_timestamps &&
+            Array.isArray(data.audio_timestamps)
+          ) {
+            const ts = (data.audio_timestamps as VideoTimestamp[]).sort(
+              (a, b) => a.start - b.start
+            );
+            setVideoTimestamps(ts);
+            setSentencesToAssess(segmentSentences(ts));
+          } else {
+            setVideoTimestamps([]);
+            setSentencesToAssess([]);
+            console.warn(
+              "audio_timestamps not found or not an array in Firestore."
+            );
+          }
+        } else setYoutubeError("Firestore document 'shadow/sample' not found.");
+      } catch (error: any) {
+        console.error("Firestore fetch error:", error);
+        setYoutubeError(`Firestore Error: ${error.message}`);
+      } finally {
+        setYoutubeLoading(false);
       }
     };
-  }, [recordedAudioUrl]);
+    fetchYoutubeDataAndSegment();
+    return () => {
+      if (timeUpdateIntervalRef.current)
+        clearInterval(timeUpdateIntervalRef.current);
+    };
+  }, [convertToEmbedUrl]);
+
+  useEffect(() => {
+    if (!youtubeUrl || youtubeLoading || youtubeError) {
+      if (
+        playerRef.current &&
+        typeof playerRef.current.destroy === "function"
+      ) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+        setIsPlayerReady(false);
+      }
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current);
+        timeUpdateIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const manageTimeUpdates = () => {
+      if (
+        !playerRef.current ||
+        typeof playerRef.current.getCurrentTime !== "function" ||
+        videoTimestamps.length === 0
+      )
+        return;
+      const currentTime = playerRef.current.getCurrentTime();
+      let newActiveIndex: number | null = null;
+      // Find the first timestamp that matches the current time
+      for (let i = 0; i < videoTimestamps.length; i++) {
+        if (
+          currentTime >= videoTimestamps[i].start &&
+          currentTime <= videoTimestamps[i].end
+        ) {
+          newActiveIndex = i;
+          break;
+        }
+      }
+
+      if (activeTimestampIndex !== newActiveIndex) {
+        // Check if update is needed
+        setActiveTimestampIndex(newActiveIndex);
+        if (newActiveIndex !== null && transcriptContainerRef.current) {
+          const activeWordElement = transcriptContainerRef.current.children[
+            newActiveIndex
+          ] as HTMLElement;
+          if (activeWordElement) {
+            activeWordElement.scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+            });
+          }
+        }
+      }
+    };
+
+    const onPlayerReady = () => {
+      setIsPlayerReady(true);
+    };
+
+    const onPlayerStateChange = (event: any) => {
+      if (event.data === (window as any).YT.PlayerState.PLAYING) {
+        if (timeUpdateIntervalRef.current)
+          clearInterval(timeUpdateIntervalRef.current);
+        // Only start interval if there are timestamps to sync with
+        if (videoTimestamps.length > 0) {
+          timeUpdateIntervalRef.current = window.setInterval(
+            manageTimeUpdates,
+            250
+          ); // Check time frequently
+        }
+      } else {
+        if (timeUpdateIntervalRef.current) {
+          clearInterval(timeUpdateIntervalRef.current);
+          timeUpdateIntervalRef.current = null;
+        }
+        if (
+          event.data === (window as any).YT.PlayerState.PAUSED ||
+          event.data === (window as any).YT.PlayerState.ENDED
+        ) {
+          if (videoTimestamps.length > 0) manageTimeUpdates();
+        }
+      }
+    };
+
+    const initializePlayer = () => {
+      if (playerRef.current && typeof playerRef.current.destroy === "function")
+        playerRef.current.destroy();
+      playerRef.current = new (window as any).YT.Player(
+        "youtube-player-iframe",
+        {
+          events: {
+            onReady: onPlayerReady,
+            onStateChange: onPlayerStateChange,
+          },
+        }
+      );
+    };
+
+    if (!(window as any).YT || !(window as any).YT.Player) {
+      (window as any).onYouTubeIframeAPIReady = initializePlayer;
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      if (firstScriptTag && firstScriptTag.parentNode)
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      else document.head.appendChild(tag);
+    } else {
+      if (document.getElementById("youtube-player-iframe")) initializePlayer();
+    }
+
+    return () => {
+      delete (window as any).onYouTubeIframeAPIReady;
+      if (playerRef.current && typeof playerRef.current.destroy === "function")
+        playerRef.current.destroy();
+      playerRef.current = null;
+      setIsPlayerReady(false);
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current);
+        timeUpdateIntervalRef.current = null;
+      }
+    };
+  }, [youtubeUrl, youtubeLoading, youtubeError, videoTimestamps.length]);
 
   useEffect(() => {
     return () => {
@@ -215,128 +885,6 @@ const ShadowPage: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const startRecording = async () => {
-    if (!targetSentence.trim()) {
-      setOverallError("Please enter target sentence.");
-      return;
-    }
-    setOverallError(null);
-    setAzureError(null);
-    setAzurePronunciationResult(null);
-    setAzureRecognizedText("");
-    setAzureRawJson(null);
-    setIsRecording(true);
-    recordedAudioChunksRef.current = [];
-    if (recordedAudioUrl) {
-      URL.revokeObjectURL(recordedAudioUrl);
-    }
-    setRecordedAudioUrl(null);
-
-    try {
-      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
-
-      await audioContextRef.current.audioWorklet.addModule(
-        "/audio-processor.js"
-      );
-
-      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
-
-      microphoneSourceRef.current =
-        audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
-
-      audioWorkletNodeRef.current = new AudioWorkletNode(
-        audioContextRef.current,
-        "audio-processor",
-        {
-          processorOptions: { sampleRate: audioContextRef.current.sampleRate },
-        }
-      );
-
-      audioWorkletNodeRef.current.port.onmessage = (
-        event: MessageEvent<ArrayBuffer>
-      ) => {
-        const dataIsArrayBuffer = event.data instanceof ArrayBuffer;
-        const bufferByteLength = dataIsArrayBuffer ? event.data.byteLength : 0;
-
-        if (dataIsArrayBuffer && bufferByteLength > 0) {
-          const float32Data = new Float32Array(event.data.slice(0));
-          recordedAudioChunksRef.current.push(float32Data);
-        }
-      };
-      microphoneSourceRef.current.connect(audioWorkletNodeRef.current);
-    } catch (err: any) {
-      console.error("Error starting recording (main function):", err);
-      setOverallError(err.message || "Failed to start. See console.");
-      await stopRecordingInternal(false);
-    }
-  };
-
-  const stopRecordingInternal = async (sendEndOfStreamCmd: boolean) => {
-    if (audioWorkletNodeRef.current) {
-      audioWorkletNodeRef.current.port.onmessage = null;
-      audioWorkletNodeRef.current.disconnect();
-      audioWorkletNodeRef.current = null;
-    }
-    if (microphoneSourceRef.current) {
-      microphoneSourceRef.current.disconnect();
-      microphoneSourceRef.current = null;
-    }
-    if (
-      audioContextRef.current &&
-      audioContextRef.current.state !== "closed" &&
-      sendEndOfStreamCmd
-    ) {
-      try {
-        await audioContextRef.current.close();
-      } catch (e) {
-        console.warn("Error closing AudioContext:", e);
-      }
-      audioContextRef.current = null;
-    }
-
-    if (sendEndOfStreamCmd && recordedAudioChunksRef.current.length > 0) {
-      const totalLength = recordedAudioChunksRef.current.reduce(
-        (acc, val) => acc + val.length,
-        0
-      );
-      const concatenatedPcm = new Float32Array(totalLength);
-      let offset = 0;
-      for (const chunk of recordedAudioChunksRef.current) {
-        concatenatedPcm.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      const sampleRate = 16000;
-      const wavBlob = encodeWAV(concatenatedPcm, sampleRate);
-      const url = URL.createObjectURL(wavBlob);
-      setRecordedAudioUrl(url);
-      recordedAudioChunksRef.current = [];
-    }
-
-    if (sendEndOfStreamCmd) {
-      setIsRecording(false);
-    }
-  };
-
-  const handleStopRecording = async () => {
-    setIsRecording(false);
-    await stopRecordingInternal(true);
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-      try {
-        await audioContextRef.current.close();
-      } catch (e) {
-        console.warn("Error closing AudioContext on explicit stop:", e);
-      }
-      audioContextRef.current = null;
-    }
-  };
 
   function encodeWAV(samples: Float32Array, sampleRate: number): Blob {
     const buffer = new ArrayBuffer(44 + samples.length * 2);
@@ -384,373 +932,667 @@ const ShadowPage: React.FC = () => {
   };
 
   // Function to render color-coded sentence based on Azure results
-  const renderColorCodedSentence = () => {
-    if (!azurePronunciationResult?.detailResult?.Words || !targetSentence) {
-      return null;
+  const renderSentenceWithAssessment = (sentence: SentenceForAssessment) => {
+    // Log the assessment result received by this function
+    // console.log(`[Render] Sentence ID: ${sentence.id}, Assessment Result:`, sentence.assessmentResult);
+    // console.log(`[Render] Sentence ID: ${sentence.id}, DetailResult Words:`, sentence.assessmentResult?.detailResult?.Words);
+
+    if (!sentence.assessmentResult?.detailResult?.Words || !sentence.text) {
+      return <SentenceTextDisplay>{sentence.text}</SentenceTextDisplay>;
     }
-
-    const words = azurePronunciationResult.detailResult
+    const words = sentence.assessmentResult.detailResult
       .Words as any as AzureWordPronunciationResult[];
-
     return (
       <ColorCodedSentence>
-        <p>
-          <strong>Pronunciation Analysis (Color-coded by accuracy):</strong>
-        </p>
-        <div style={{ marginTop: "10px" }}>
-          {words.map((word, wordIndex) => {
-            // If word has error type (e.g., omission, insertion), show it differently
-            const hasError =
-              word.PronunciationAssessment?.ErrorType &&
-              word.PronunciationAssessment.ErrorType !== "None";
-
-            return (
-              <span key={`color-word-${wordIndex}`}>
-                {word.Syllables && word.Syllables.length > 0 ? (
-                  word.Syllables.map((syllable, syllableIndex) => (
-                    <SyllableSpan
-                      key={`syllable-${wordIndex}-${syllableIndex}`}
-                      color={getAzurePronunciationColor(
-                        syllable.PronunciationAssessment?.AccuracyScore
-                      )}
-                      title={`Syllable: ${
-                        syllable.Syllable || syllable.Grapheme
-                      }\nScore: ${
-                        syllable.PronunciationAssessment?.AccuracyScore?.toFixed(
-                          0
-                        ) || "N/A"
-                      }`}
-                      style={{
-                        textDecoration: hasError ? "underline" : "none",
-                        fontStyle: hasError ? "italic" : "normal",
-                      }}
-                    >
-                      {syllable.Grapheme || syllable.Syllable}
-                    </SyllableSpan>
-                  ))
-                ) : (
+        {words.map((word, wordIndex) => {
+          const hasError =
+            word.PronunciationAssessment?.ErrorType &&
+            word.PronunciationAssessment.ErrorType !== "None";
+          return (
+            <span key={`s-${sentence.id}-w-${wordIndex}`}>
+              {word.Syllables && word.Syllables.length > 0 ? (
+                word.Syllables.map((syllable, syllableIndex) => (
                   <SyllableSpan
+                    key={`s-${sentence.id}-syl-${syllableIndex}`}
                     color={getAzurePronunciationColor(
-                      word.PronunciationAssessment?.AccuracyScore
+                      syllable.PronunciationAssessment?.AccuracyScore
                     )}
-                    title={`Word: ${word.Word}\nScore: ${
-                      word.PronunciationAssessment?.AccuracyScore?.toFixed(0) ||
-                      "N/A"
-                    }${
-                      hasError
-                        ? `\nError: ${word.PronunciationAssessment?.ErrorType}`
-                        : ""
+                    title={`Syllable: ${
+                      syllable.Syllable || syllable.Grapheme
+                    }\nScore: ${
+                      syllable.PronunciationAssessment?.AccuracyScore?.toFixed(
+                        0
+                      ) || "N/A"
                     }`}
                     style={{
                       textDecoration: hasError ? "underline" : "none",
                       fontStyle: hasError ? "italic" : "normal",
                     }}
                   >
-                    {word.Word}
+                    {syllable.Grapheme || syllable.Syllable}
                   </SyllableSpan>
-                )}
-                {wordIndex < words.length - 1 && " "}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Display phoneme-level details if available */}
-        {words.some((w) => w.Phonemes && w.Phonemes.length > 0) && (
-          <div style={{ marginTop: "15px", fontSize: "14px" }}>
-            <p>
-              <strong>Phoneme-level breakdown:</strong>
-            </p>
-            <div style={{ marginTop: "5px" }}>
-              {words.map(
-                (word, wordIndex) =>
-                  word.Phonemes &&
-                  word.Phonemes.length > 0 && (
-                    <div
-                      key={`phoneme-word-${wordIndex}`}
-                      style={{ marginBottom: "8px" }}
-                    >
-                      <span style={{ fontWeight: "500" }}>{word.Word}:</span>{" "}
-                      {word.Phonemes.map((phoneme, phonemeIndex) => (
-                        <span
-                          key={`phoneme-${wordIndex}-${phonemeIndex}`}
-                          style={{
-                            color: getAzurePronunciationColor(
-                              phoneme.PronunciationAssessment?.AccuracyScore
-                            ),
-                            marginLeft: phonemeIndex > 0 ? "4px" : "8px",
-                            fontFamily: "monospace",
-                            fontSize: "13px",
-                          }}
-                          title={`Score: ${
-                            phoneme.PronunciationAssessment?.AccuracyScore?.toFixed(
-                              0
-                            ) || "N/A"
-                          }`}
-                        >
-                          [{phoneme.Phoneme}]
-                        </span>
-                      ))}
-                    </div>
-                  )
+                ))
+              ) : (
+                <SyllableSpan
+                  color={getAzurePronunciationColor(
+                    word.PronunciationAssessment?.AccuracyScore
+                  )}
+                  title={`Word: ${word.Word}\nScore: ${
+                    word.PronunciationAssessment?.AccuracyScore?.toFixed(0) ||
+                    "N/A"
+                  }${
+                    hasError
+                      ? `\nError: ${word.PronunciationAssessment?.ErrorType}`
+                      : ""
+                  }`}
+                  style={{
+                    textDecoration: hasError ? "underline" : "none",
+                    fontStyle: hasError ? "italic" : "normal",
+                  }}
+                >
+                  {word.Word}
+                </SyllableSpan>
               )}
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: "15px", fontSize: "14px", color: "#666" }}>
-          <span style={{ color: "green", fontWeight: "bold" }}>
-            ● Excellent (80-100)
-          </span>
-          <span
-            style={{ color: "orange", fontWeight: "bold", marginLeft: "15px" }}
-          >
-            ● Good (60-79)
-          </span>
-          <span
-            style={{ color: "red", fontWeight: "bold", marginLeft: "15px" }}
-          >
-            ● Needs Improvement (0-59)
-          </span>
-        </div>
+              {wordIndex < words.length - 1 && " "}
+            </span>
+          );
+        })}
       </ColorCodedSentence>
     );
   };
 
+  // Function to convert Float32Array PCM data to Int16Array ArrayBuffer (needed for Azure)
+  function convertFloat32ToInt16(buffer: ArrayBuffer): ArrayBuffer {
+    const l = buffer.byteLength / 4; // Float32 is 4 bytes
+    const output = new Int16Array(l);
+    const input = new Float32Array(buffer);
+    for (let i = 0; i < l; i++) {
+      output[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff; // Convert to 16-bit PCM
+    }
+    return output.buffer;
+  }
+
+  // Placeholder for startSentenceRecording - to be implemented in Step 2
+  const startSentenceRecording = async (sentenceIndex: number) => {
+    if (isRecordingActive) return;
+    const sentenceToRecord = sentencesToAssess[sentenceIndex];
+    if (!sentenceToRecord) {
+      setOverallError("Cannot find sentence to record.");
+      return;
+    }
+
+    setOverallError(null);
+    setCurrentRecordingSentenceIndex(sentenceIndex);
+    setIsRecordingActive(true);
+    recordedAudioChunksRef.current = []; // Clear previous chunks
+
+    // Update sentence state: clear previous results, set assessing flag
+    setSentencesToAssess((prev) =>
+      prev.map((s, i) =>
+        i === sentenceIndex
+          ? {
+              ...s,
+              assessmentResult: null,
+              recordedSentenceAudioUrl: null,
+              assessmentError: null,
+              recognizedText: "",
+              rawJson: "",
+              isAssessing: true,
+            }
+          : s
+      )
+    );
+
+    try {
+      // 1. Azure Speech SDK Setup
+      if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION) {
+        throw new Error("Azure Speech Key or Region is not configured.");
+      }
+
+      const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
+        AZURE_SPEECH_KEY,
+        AZURE_SPEECH_REGION
+      );
+      speechConfig.speechRecognitionLanguage = "en-US";
+
+      if (azurePushStreamRef.current) azurePushStreamRef.current.close();
+      azurePushStreamRef.current = SpeechSDK.AudioInputStream.createPushStream(
+        SpeechSDK.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1)
+      );
+      const audioConfig = SpeechSDK.AudioConfig.fromStreamInput(
+        azurePushStreamRef.current
+      );
+
+      // CRUCIAL: Ensure PronunciationAssessmentConfig is created and applied BEFORE starting recognition
+      const pronunciationAssessmentConfig =
+        new SpeechSDK.PronunciationAssessmentConfig(
+          sentenceToRecord.text,
+          SpeechSDK.PronunciationAssessmentGradingSystem.HundredMark,
+          SpeechSDK.PronunciationAssessmentGranularity.Phoneme,
+          true
+        );
+      pronunciationAssessmentConfig.enableProsodyAssessment = true;
+
+      if (azureRecognizerRef.current) azureRecognizerRef.current.close();
+      const recognizer = new SpeechSDK.SpeechRecognizer(
+        speechConfig,
+        audioConfig
+      );
+      pronunciationAssessmentConfig.applyTo(recognizer);
+
+      recognizer.recognizing = (_s, _e) => {
+        /* console.log(`RECOGNIZING: Text=${_e.result.text}`); */
+      };
+
+      recognizer.recognized = (_s, e) => {
+        console.log(
+          `[Azure Recognized Event] Result reason: ${
+            SpeechSDK.ResultReason[e.result.reason]
+          }`
+        );
+        if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+          console.log(`[Azure Recognized] Text: ${e.result.text}`);
+          const pronunciationResult =
+            SpeechSDK.PronunciationAssessmentResult.fromResult(e.result);
+
+          // --- Detailed Logging ---
+          console.log(
+            "[Azure Recognized] Full e.result Object:",
+            JSON.stringify(e.result)
+          ); // Log the whole result object if possible (might be large)
+          console.log(
+            "[Azure Recognized] PronunciationAssessmentResult Object:",
+            pronunciationResult
+          );
+          if (pronunciationResult && pronunciationResult.detailResult) {
+            console.log(
+              "[Azure Recognized] pronunciationResult.detailResult:",
+              pronunciationResult.detailResult
+            );
+            console.log(
+              "[Azure Recognized] pronunciationResult.detailResult.Words:",
+              pronunciationResult.detailResult.Words
+            );
+          } else {
+            console.warn(
+              "[Azure Recognized] pronunciationResult OR detailResult is missing!"
+            );
+          }
+          // --- End Detailed Logging ---
+
+          const resultJson = e.result.properties.getProperty(
+            SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult
+          );
+          setSentencesToAssess((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? {
+                    ...s,
+                    assessmentResult: pronunciationResult,
+                    recognizedText: e.result.text,
+                    rawJson: resultJson,
+                  }
+                : s
+            )
+          );
+        } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
+          console.warn(
+            "[Azure Recognized] NoMatch: Speech could not be recognized."
+          );
+          setSentencesToAssess((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? {
+                    ...s,
+                    assessmentError: "Speech could not be recognized by Azure.",
+                  }
+                : s
+            )
+          );
+        } else {
+          console.log(
+            `[Azure Recognized] Other reason: ${
+              SpeechSDK.ResultReason[e.result.reason]
+            }`
+          );
+        }
+      };
+
+      recognizer.canceled = (
+        _s: SpeechSDK.Recognizer,
+        e: SpeechSDK.SpeechRecognitionCanceledEventArgs
+      ) => {
+        console.error(
+          `[Azure] CANCELED event. Reason: ${
+            SpeechSDK.CancellationReason[e.reason]
+          }`
+        );
+        if (e.reason === SpeechSDK.CancellationReason.Error) {
+          console.error(
+            `[Azure] CANCELED: ErrorCode=${e.errorCode} ( ${
+              SpeechSDK.CancellationErrorCode[e.errorCode]
+            } )`
+          );
+          console.error(`[Azure] CANCELED: ErrorDetails=${e.errorDetails}`);
+          console.error(
+            `[Azure] CANCELED: Did you set the speech resource key and region values?`
+          );
+          setSentencesToAssess((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? {
+                    ...s,
+                    assessmentError: `Azure CANCELED: ${e.errorDetails} (Code: ${e.errorCode})`,
+                  }
+                : s
+            )
+          );
+        }
+      };
+
+      recognizer.sessionStarted = (
+        _s: SpeechSDK.Recognizer,
+        _e: SpeechSDK.SessionEventArgs
+      ) => {
+        console.log("[Azure] Session STARTED");
+      };
+
+      recognizer.sessionStopped = (
+        _s: SpeechSDK.Recognizer,
+        _e: SpeechSDK.SessionEventArgs
+      ) => {
+        console.log("[Azure] Session STOPPED");
+        if (azurePushStreamRef.current) {
+          console.log("[Azure] Closing push stream on session stop.");
+          azurePushStreamRef.current.close();
+        }
+      };
+
+      await recognizer.startContinuousRecognitionAsync(
+        () => {
+          console.log("[Azure] Continuous recognition successfully started.");
+        },
+        (err: string) => {
+          console.error(
+            `[Azure] Error starting Azure continuous recognition: ${err}`
+          );
+          setSentencesToAssess((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? {
+                    ...s,
+                    assessmentError: `Azure SDK Error starting recognition: ${err}`,
+                    isAssessing: false,
+                  }
+                : s
+            )
+          );
+          if (azurePushStreamRef.current) azurePushStreamRef.current.close();
+        }
+      );
+      setAzureRecognizer(recognizer); // Set the new recognizer instance
+      console.log(
+        "[Azure] Azure Recognizer instance created and recognition started."
+      );
+
+      // 2. Web Audio API Setup
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+
+      await audioContextRef.current.audioWorklet.addModule(
+        "/audio-processor.js"
+      );
+
+      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+
+      microphoneSourceRef.current =
+        audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
+
+      audioWorkletNodeRef.current = new AudioWorkletNode(
+        audioContextRef.current,
+        "audio-processor",
+        {
+          processorOptions: { sampleRate: audioContextRef.current.sampleRate },
+        }
+      );
+
+      audioWorkletNodeRef.current.port.onmessage = (
+        event: MessageEvent<ArrayBuffer>
+      ) => {
+        const dataIsArrayBuffer = event.data instanceof ArrayBuffer;
+        const bufferByteLength = dataIsArrayBuffer ? event.data.byteLength : 0;
+
+        if (dataIsArrayBuffer && bufferByteLength > 0) {
+          const float32Data = new Float32Array(event.data.slice(0));
+          recordedAudioChunksRef.current.push(float32Data);
+
+          // Push to Azure stream - THIS BLOCK NEEDS TO BE RESTORED/ENSURED
+          if (
+            azurePushStreamRef.current &&
+            azureRecognizerRef.current && // Check if recognizer is active
+            isRecordingRef.current &&
+            bufferByteLength > 0
+          ) {
+            try {
+              const int16Buffer = convertFloat32ToInt16(event.data.slice(0));
+              azurePushStreamRef.current.write(int16Buffer);
+            } catch (azurePushError: any) {
+              console.error(
+                "[AudioWorklet] Error writing audio to Azure push stream:",
+                azurePushError.toString()
+              );
+              if (azurePushError.message?.includes("closed")) {
+                setSentencesToAssess((prev) =>
+                  prev.map((s, i) =>
+                    i === sentenceIndex
+                      ? {
+                          ...s,
+                          assessmentError:
+                            "Azure audio stream closed unexpectedly during write.",
+                        }
+                      : s
+                  )
+                );
+              }
+            }
+          } else {
+            // console.log(
+            //   "[AudioWorklet] Conditions not met for pushing audio to Azure."
+            // );
+          }
+        }
+      };
+      microphoneSourceRef.current.connect(audioWorkletNodeRef.current);
+    } catch (err: any) {
+      console.error("Error starting sentence recording:", err);
+      const errorMsg = err.message || "Failed to start recording.";
+      setOverallError(errorMsg); // General error for now
+      setSentencesToAssess((prev) =>
+        prev.map((s, i) =>
+          i === sentenceIndex
+            ? { ...s, assessmentError: errorMsg, isAssessing: false }
+            : s
+        )
+      );
+      setIsRecordingActive(false);
+      setCurrentRecordingSentenceIndex(null);
+      // Clean up Azure SDK resources if they were partially initialized
+      if (azureRecognizerRef.current) azureRecognizerRef.current.close();
+      if (azurePushStreamRef.current) azurePushStreamRef.current.close();
+    }
+  };
+
+  const stopCurrentSentenceRecording = async () => {
+    if (!isRecordingActive || currentRecordingSentenceIndex === null) {
+      console.warn("Stop called but no active recording or sentence index.");
+      return;
+    }
+
+    const recordingIdx = currentRecordingSentenceIndex; // Capture before resetting
+    console.log(
+      `[Stop] Attempting to stop recording for sentence index: ${recordingIdx}`
+    );
+
+    // 1. Stop Azure continuous recognition
+    if (
+      azureRecognizerRef.current &&
+      typeof azureRecognizerRef.current.stopContinuousRecognitionAsync ===
+        "function"
+    ) {
+      console.log("[Azure] Sending stopContinuousRecognitionAsync command.");
+      try {
+        await azureRecognizerRef.current.stopContinuousRecognitionAsync(
+          () => {
+            console.log(
+              "[Azure] Continuous recognition stopped command sent successfully."
+            );
+          },
+          (err: string) => {
+            console.error(
+              `[Azure] Error SENDING stop continuous recognition: ${err}`
+            );
+          }
+        );
+      } catch (err) {
+        console.error(
+          "[Azure] Exception during stopContinuousRecognitionAsync call:",
+          err
+        );
+      }
+    } else {
+      console.warn(
+        "[Azure] Recognizer or stopContinuousRecognitionAsync not available to stop."
+      );
+    }
+    // The azureRecognizerRef.current.sessionStopped event should handle closing the pushStream.
+    // azureRecognizerRef.current.close() will be called in general cleanup or before starting new recognition.
+
+    // 2. Stop Web Audio API recording parts
+    if (audioWorkletNodeRef.current) {
+      audioWorkletNodeRef.current.port.onmessage = null; // Remove listener
+      audioWorkletNodeRef.current.disconnect();
+      audioWorkletNodeRef.current = null;
+      console.log("[WebAudio] AudioWorkletNode disconnected.");
+    }
+    if (microphoneSourceRef.current) {
+      microphoneSourceRef.current.disconnect();
+      microphoneSourceRef.current = null;
+      console.log("[WebAudio] MicrophoneSourceNode disconnected.");
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      console.log("[WebAudio] MediaStream tracks stopped.");
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      try {
+        await audioContextRef.current.close();
+        console.log("[WebAudio] AudioContext closed.");
+      } catch (e) {
+        console.warn("[WebAudio] Error closing AudioContext:", e);
+      }
+      audioContextRef.current = null;
+    }
+
+    // 3. Process recorded audio chunks to create WAV and get URL
+    let newAudioUrl: string | null = null;
+    if (recordedAudioChunksRef.current.length > 0) {
+      try {
+        const totalLength = recordedAudioChunksRef.current.reduce(
+          (acc, val) => acc + val.length,
+          0
+        );
+        const concatenatedPcm = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of recordedAudioChunksRef.current) {
+          concatenatedPcm.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const sampleRate = 16000;
+        const wavBlob = encodeWAV(concatenatedPcm, sampleRate);
+        newAudioUrl = URL.createObjectURL(wavBlob);
+        console.log(`[WebAudio] Recorded audio URL created: ${newAudioUrl}`);
+      } catch (wavError) {
+        console.error("Error encoding WAV:", wavError);
+        setSentencesToAssess((prev) =>
+          prev.map((s, i) =>
+            i === recordingIdx
+              ? { ...s, assessmentError: "Failed to process recorded audio." }
+              : s
+          )
+        );
+      }
+    }
+    recordedAudioChunksRef.current = []; // Clear chunks after processing
+
+    // 4. Update state
+    setIsRecordingActive(false);
+    setCurrentRecordingSentenceIndex(null);
+    setSentencesToAssess((prev) =>
+      prev.map((s, i) =>
+        i === recordingIdx
+          ? {
+              ...s,
+              isAssessing: false, // Assessment attempt is complete
+              recordedSentenceAudioUrl: newAudioUrl, // Set the new audio URL (or null if WAV failed)
+            }
+          : s
+      )
+    );
+
+    // 5. Autoplay the recorded audio for the specific sentence
+    // We need to find the audio element in the DOM for this sentence if newAudioUrl is available
+    // This is a bit tricky as the audio element is part of the map.
+    // A direct .play() after URL set might work if React re-renders quickly enough.
+    // Or, we can use a temporary state to trigger play in a useEffect that watches recordedSentenceAudioUrl for that sentence.
+    // For now, let's log and address autoplay in UI refinement if needed.
+    if (newAudioUrl) {
+      console.log(
+        `[Autoplay] Would attempt to autoplay: ${newAudioUrl} for sentence ${recordingIdx}`
+      );
+      // To implement autoplay, you might need to add a ref to each audio element in the map
+      // or use a state variable to signal which audio should play.
+      // For simplicity, direct autoplay is omitted here but can be added if audio elements have unique IDs or refs.
+    }
+  };
+
   return (
     <ShadowContainer>
-      <Title>Pronunciation Accuracy</Title>
-      <Input
-        type="text"
-        value={targetSentence}
-        onChange={(e) => setTargetSentence(e.target.value)}
-        placeholder="Enter target sentence here"
-        disabled={isRecording}
-      />
-      {!isRecording ? (
-        <Button
-          onClick={startRecording}
-          disabled={!targetSentence.trim() || isRecording}
-        >
-          Start Recording
-        </Button>
-      ) : (
-        <Button onClick={handleStopRecording} disabled={!isRecording}>
-          Stop Recording
-        </Button>
-      )}
-      {recordedAudioUrl && (
-        <div
-          style={{
-            marginTop: "10px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <audio controls src={recordedAudioUrl}>
-            Your browser does not support the audio element.
-          </audio>
-        </div>
-      )}
-      {overallError && <ErrorMessage>{overallError}</ErrorMessage>}
-      {/* SPEECHMATICS: Remove Speechmatics TranscriptArea by commenting it out fully */}
-      {/* 
-      <TranscriptArea>
-        <strong>Live Transcript (Speechmatics):</strong>
-        <p>
-          {[...speechmaticsResults.finalTranscript, ...speechmaticsResults.activePartialSegment].map(
-            (result, index) => {
-              if (!result.alternatives || result.alternatives.length === 0) {
-                return null;
-              }
-              const mainAlternative = result.alternatives[0];
-              const wordContent = mainAlternative.content;
-              let displayContent = wordContent;
-
-              return (
-                <span
-                  key={`${result.start_time}-${index}`}
-                  style={{
-                    color: getConfidenceColor(mainAlternative.confidence),
-                  }}
-                >
-                  {displayContent}
-                  {result.type === "word" ? " " : ""}
-                </span>
-              );
-            }
-          )}
-          {[...speechmaticsResults.finalTranscript, ...speechmaticsResults.activePartialSegment].length === 0 && "-"}
-        </p>
-      </TranscriptArea>
-      */}
-      {/* SPEECHMATICS: Remove Speechmatics ScoreArea by commenting it out fully */}
-      {/* 
-      {speechmaticsAccuracy !== null && (
-        <ScoreArea>
-          Accuracy (Speechmatics): {speechmaticsAccuracy.toFixed(2)}%
-        </ScoreArea>
-      )}
-      */}
-
-      {/* Microsoft Azure Box */}
-      <AzureResultsBox>
-        <strong>Microsoft Azure Pronunciation Assessment:</strong>
-        {azureError && <ErrorMessage>Azure Error: {azureError}</ErrorMessage>}
-
-        {/* Display the input sentence */}
-        {targetSentence && (
-          <div
-            style={{
-              margin: "10px 0",
-              padding: "10px",
-              backgroundColor: "#f0f8ff",
-              borderRadius: "4px",
-            }}
-          >
-            <strong>Your Input Sentence:</strong>
-            <p style={{ marginTop: "5px", fontSize: "16px" }}>
-              {targetSentence}
-            </p>
-          </div>
+      <VideoContainer>
+        {youtubeLoading && (
+          <LoadingContainer>
+            <div className="spinner"></div>
+            <div className="text">Loading YouTube video...</div>
+          </LoadingContainer>
         )}
-
-        <p>Recognized Text (Azure): {azureRecognizedText || "-"}</p>
-
-        {/* Color-coded sentence display */}
-        {renderColorCodedSentence()}
-
-        {azurePronunciationResult && (
-          <AzureScoreArea>
-            <p>
-              Pronunciation Score:{" "}
-              {azurePronunciationResult.pronunciationScore?.toFixed(1)}
-            </p>
-            <p>
-              Accuracy Score:{" "}
-              {azurePronunciationResult.accuracyScore?.toFixed(1)}
-            </p>
-            <p>
-              Fluency Score: {azurePronunciationResult.fluencyScore?.toFixed(1)}
-            </p>
-            <p>
-              Completeness Score:{" "}
-              {azurePronunciationResult.completenessScore?.toFixed(1)}
-            </p>
-            <p>
-              Prosody Score: {azurePronunciationResult.prosodyScore?.toFixed(1)}
-            </p>
-            {/* Detailed Syllable and Phoneme Table */}
-            {azurePronunciationResult.detailResult?.Words &&
-              azurePronunciationResult.detailResult.Words.length > 0 && (
-                <div style={{ marginTop: "15px" }}>
-                  <p>
-                    <strong>Syllable & Phoneme Details:</strong>
-                  </p>
-                  {azurePronunciationResult.detailResult.Words.map(
-                    (sdkWord, wordIndex: number) => {
-                      const word =
-                        sdkWord as any as AzureWordPronunciationResult;
-                      console.log(
-                        "[UI Render] Word object (after cast):",
-                        JSON.stringify(word, null, 2)
-                      );
-                      return (
-                        <div
-                          key={`word-detail-${wordIndex}`}
-                          style={{ marginBottom: "15px" }}
-                        >
-                          <h4>Word: {word.Word}</h4>
-                          {word.Syllables && word.Syllables.length > 0 ? (
-                            <AzureDetailTable>
-                              <thead>
-                                <tr>
-                                  <th>Syllable</th>
-                                  <th>Phoneme</th>
-                                  <th>Score</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(word.Phonemes as any[])?.map(
-                                  (
-                                    phoneme: AzurePhonemePronunciationResult,
-                                    phonemeIndex: number
-                                  ) => (
-                                    <tr
-                                      key={`word-${wordIndex}-phoneme-${phonemeIndex}`}
-                                    >
-                                      <td>
-                                        {phonemeIndex === 0 &&
-                                          word.Syllables &&
-                                          word.Syllables.length > 0 &&
-                                          (word.Syllables[0].Grapheme ||
-                                            word.Syllables[0].Syllable)}
-                                      </td>
-                                      <td>{phoneme.Phoneme || "N/A"}</td>
-                                      <td>
-                                        {phoneme.PronunciationAssessment?.AccuracyScore?.toFixed(
-                                          0
-                                        ) || "-"}
-                                      </td>
-                                    </tr>
-                                  )
-                                )}
-                              </tbody>
-                            </AzureDetailTable>
-                          ) : (
-                            <p>
-                              No syllable or phoneme data available for this
-                              word.
-                            </p>
-                          )}
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              )}
-          </AzureScoreArea>
+        {youtubeError && (
+          <ErrorMessage>Error loading video: {youtubeError}</ErrorMessage>
         )}
-        {isRecording && !azurePronunciationResult && !azureError && (
-          <p>Processing audio with Azure...</p>
+        {!youtubeLoading && !youtubeError && youtubeUrl && (
+          <iframe
+            id="youtube-player-iframe"
+            width="100%"
+            height="100%"
+            src={youtubeUrl}
+            title="YouTube video player"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          ></iframe>
         )}
-        {!isRecording &&
-          !azurePronunciationResult &&
-          !azureError &&
-          !azureRecognizedText &&
-          targetSentence && (
-            <p>
-              Recording stopped. Waiting for final Azure assessment if
-              applicable.
-            </p>
-          )}
-        {!isRecording &&
-          !azurePronunciationResult &&
-          !azureError &&
-          !azureRecognizedText &&
-          !targetSentence && <p>-</p>}
+        {!youtubeLoading && !youtubeError && !youtubeUrl && (
+          <StatusIndicator type="info">
+            YouTube video URL not available.
+          </StatusIndicator>
+        )}
+      </VideoContainer>
 
-        {azureRawJson && (
-          <div style={{ marginTop: "15px", textAlign: "left" }}>
-            <strong>Raw Azure Response JSON:</strong>
-            <pre
-              style={{
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-all",
-                backgroundColor: "#f0f0f0",
-                padding: "10px",
-                borderRadius: "4px",
-                maxHeight: "300px",
-                overflowY: "auto",
+      {!youtubeLoading && !youtubeError && videoTimestamps.length > 0 && (
+        <TranscriptContainer ref={transcriptContainerRef}>
+          {videoTimestamps.map((item, index) => (
+            <TranscriptWord
+              key={`${item.word}-${index}-${item.start}`}
+              isActive={index === activeTimestampIndex}
+              onClick={() => {
+                if (playerRef.current && isPlayerReady)
+                  playerRef.current.seekTo(item.start, true);
               }}
             >
-              {azureRawJson}
-            </pre>
-          </div>
-        )}
-      </AzureResultsBox>
+              {item.word}{" "}
+            </TranscriptWord>
+          ))}
+        </TranscriptContainer>
+      )}
+
+      <Title>Practice Sentences</Title>
+      <SentenceListContainer>
+        {sentencesToAssess.map((sentence, index) => (
+          <SentenceRow key={sentence.id}>
+            {renderSentenceWithAssessment(sentence)}
+            <SentenceControls>
+              <Button
+                onClick={() => {
+                  if (
+                    isRecordingActive &&
+                    currentRecordingSentenceIndex === index
+                  ) {
+                    stopCurrentSentenceRecording();
+                  } else if (!isRecordingActive) {
+                    startSentenceRecording(index);
+                  }
+                }}
+                disabled={
+                  isRecordingActive && currentRecordingSentenceIndex !== index
+                } // Disable if another sentence is recording
+              >
+                <span>
+                  {isRecordingActive &&
+                  currentRecordingSentenceIndex === index ? (
+                    <>
+                      <LoadingSpinner />
+                      Stop Recording
+                    </>
+                  ) : (
+                    "Start Recording"
+                  )}
+                </span>
+              </Button>
+              {sentence.recordedSentenceAudioUrl && (
+                <AudioControls>
+                  <audio
+                    id={`sentence-audio-${index}`}
+                    controls
+                    src={sentence.recordedSentenceAudioUrl}
+                  />
+                </AudioControls>
+              )}
+            </SentenceControls>
+            {sentence.assessmentError && (
+              <StatusIndicator type="error">
+                {sentence.assessmentError}
+              </StatusIndicator>
+            )}
+            {sentence.isAssessing && (
+              <StatusIndicator type="info">
+                <LoadingSpinner />
+                Processing pronunciation assessment...
+              </StatusIndicator>
+            )}
+            {/* Display detailed Azure scores if available in sentence.assessmentResult */}
+            {sentence.assessmentResult && (
+              <AzureResultsBox>
+                <p>
+                  <strong>Recognized:</strong> "
+                  <em>{sentence.recognizedText || "(No speech recognized)"}</em>
+                  "
+                </p>
+                <AzureScoreArea>
+                  <p>
+                    <strong>Pronunciation:</strong>{" "}
+                    {sentence.assessmentResult.pronunciationScore?.toFixed(1)}%
+                    {" | "}
+                    <strong>Accuracy:</strong>{" "}
+                    {sentence.assessmentResult.accuracyScore?.toFixed(1)}%
+                    {" | "}
+                    <strong>Fluency:</strong>{" "}
+                    {sentence.assessmentResult.fluencyScore?.toFixed(1)}%{" | "}
+                    <strong>Completeness:</strong>{" "}
+                    {sentence.assessmentResult.completenessScore?.toFixed(1)}%
+                    {sentence.assessmentResult.prosodyScore &&
+                      ` | Prosody: ${sentence.assessmentResult.prosodyScore.toFixed(
+                        1
+                      )}%`}
+                  </p>
+                </AzureScoreArea>
+                {/* Optionally, add a button to show detailed phoneme/syllable table using AzureDetailTable and sentence.rawJson */}
+              </AzureResultsBox>
+            )}
+          </SentenceRow>
+        ))}
+      </SentenceListContainer>
+
+      {overallError && <ErrorMessage>{overallError}</ErrorMessage>}
     </ShadowContainer>
   );
 };
