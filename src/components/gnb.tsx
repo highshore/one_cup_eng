@@ -7,6 +7,7 @@ import { auth } from "../firebase";
 
 // Import logo
 import logo from "../assets/1cup_logo_new.svg";
+import logoWhite from "../assets/1cup_logo_new_white.svg";
 import defaultUser from "../assets/default_user.jpg";
 
 // Define colors for consistency
@@ -28,8 +29,9 @@ const colors = {
   },
 };
 
-const NavbarContainer = styled.nav`
-  background-color: white;
+const NavbarContainer = styled.nav<{ isTransparent?: boolean }>`
+  background-color: ${(props) =>
+    props.isTransparent ? "transparent" : "white"};
   height: 60px;
   display: flex;
   justify-content: center;
@@ -38,7 +40,9 @@ const NavbarContainer = styled.nav`
   left: 0;
   right: 0;
   z-index: 1000;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: ${(props) =>
+    props.isTransparent ? "none" : "0 2px 10px rgba(0, 0, 0, 0.1)"};
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 
   @media (max-width: 768px) {
     height: 50px;
@@ -93,8 +97,8 @@ const MenuContainer = styled.div`
   }
 `;
 
-const MenuItem = styled(Link)`
-  color: ${colors.text.medium};
+const MenuItem = styled(Link)<{ isTransparent?: boolean }>`
+  color: ${(props) => (props.isTransparent ? "white" : colors.text.medium)};
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 500;
@@ -102,7 +106,8 @@ const MenuItem = styled(Link)`
   transition: color 0.2s ease;
 
   &:hover {
-    color: ${colors.primary};
+    color: ${(props) =>
+      props.isTransparent ? colors.primaryPale : colors.primary};
   }
 `;
 
@@ -126,7 +131,7 @@ const AuthButton = styled(Link)`
 `;
 
 // Hamburger menu components
-const HamburgerButton = styled.button`
+const HamburgerButton = styled.button<{ isTransparent?: boolean }>`
   display: none;
   background: none;
   border: none;
@@ -134,7 +139,8 @@ const HamburgerButton = styled.button`
   padding: 8px;
   z-index: 1001;
   margin-left: -8px;
-  color: ${colors.primary};
+  color: ${(props) => (props.isTransparent ? "white" : colors.primary)};
+  transition: color 0.3s ease;
 
   @media (max-width: 768px) {
     display: flex;
@@ -282,12 +288,19 @@ const MobileAuthButton = styled(Link)`
 
 interface GNBProps {
   // Add any props you might need in the future
+  variant?: "home" | "default";
+  isAtTop?: boolean;
 }
 
-export default function GNB({}: GNBProps) {
+export default function GNB({
+  variant = "default",
+  isAtTop = false,
+}: GNBProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { currentUser, hasActiveSubscription } = useAuth();
   const [profileImageUrl, setProfileImageUrl] = useState(defaultUser);
+
+  const makeTransparent = variant === "home" && isAtTop;
 
   // Update profile image only when user logs in or when avatar is explicitly changed
   useEffect(() => {
@@ -391,10 +404,11 @@ export default function GNB({}: GNBProps) {
   // }
 
   return (
-    <NavbarContainer>
+    <NavbarContainer isTransparent={makeTransparent}>
       <NavbarContent>
         <HamburgerButton
           className="hamburger-btn"
+          isTransparent={makeTransparent}
           onClick={(e) => {
             e.stopPropagation(); // Prevent click from immediately closing the menu
             setIsMenuOpen(!isMenuOpen);
@@ -433,12 +447,17 @@ export default function GNB({}: GNBProps) {
 
         <LogoContainer>
           <LogoLink to="/">
-            <Logo src={logo} alt="영어 한잔 로고" />
+            <Logo
+              src={makeTransparent ? logoWhite : logo}
+              alt="영어 한잔 로고"
+            />
           </LogoLink>
         </LogoContainer>
 
         <MenuContainer>
-          <MenuItem to="/guide">가이드</MenuItem>
+          <MenuItem to="/guide" isTransparent={makeTransparent}>
+            가이드
+          </MenuItem>
           {/* <MenuItem to="/meetup">밋업</MenuItem>
           <MenuItem to="/community">커뮤니티</MenuItem> */}
         </MenuContainer>

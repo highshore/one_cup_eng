@@ -10,7 +10,6 @@ import featureCard1 from "../assets/homepage/feature_card_1.png";
 import featureCard2 from "../assets/homepage/feature_card_2.png";
 import featureCard3 from "../assets/homepage/feature_card_3.png";
 import oneCupCup from "../assets/homepage/1cup_cup.png";
-import ceosImage from "../assets/homepage/ceos.png";
 import alphabetVideo from "../assets/homepage/alphabet.mp4";
 
 // Bubble type definition
@@ -74,8 +73,7 @@ const HeroSection = styled.section`
   padding: 0rem 10rem;
   position: relative;
   overflow: hidden;
-  max-height: 600px;
-  min-height: 600px;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -92,7 +90,7 @@ const HeroSection = styled.section`
   }
 
   @media (max-width: 768px) {
-    min-height: 600px;
+    min-height: 100vh;
     padding: 4rem 0;
   }
 `;
@@ -100,7 +98,7 @@ const HeroSection = styled.section`
 const HeroContent = styled.div`
   position: relative;
   z-index: 2;
-  max-width: 1200px;
+  max-width: 960px;
   width: 100%;
   margin: 0 auto;
   padding: 0 20px;
@@ -128,7 +126,7 @@ const VideoOverlay = styled.div`
 
 const KakaoContainer = styled.div`
   position: absolute;
-  bottom: 20px;
+  bottom: -80px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -261,74 +259,6 @@ const KakaoNotificationButton = styled.a`
   }
 `;
 
-// Problem Section
-const ProblemSection = styled.section`
-  ${SectionBase}
-  background-color: ${colors.primaryBg};
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-
-  @media (max-width: 768px) {
-    padding-top: 4rem;
-    padding-bottom: 4rem;
-  }
-`;
-
-const ProblemCaption = styled.div`
-  text-align: center;
-  font-size: 1.2rem;
-  color: ${colors.text.medium};
-  font-weight: 500;
-  margin-bottom: 2rem;
-  font-family: "Noto Sans KR", sans-serif;
-
-  letter-spacing: -0.02em;
-  line-height: 1.5;
-  position: relative;
-
-  @media (max-width: 768px) {
-    font-size: 1rem;
-    margin-bottom: 1.5rem;
-  }
-`;
-
-const ProblemImageContainer = styled.div`
-  position: relative;
-  width: 100%;
-  max-width: 1200px;
-  margin: 2rem auto 0;
-  height: auto;
-  overflow: hidden;
-
-  @media (max-width: 768px) {
-    max-width: 85%;
-  }
-`;
-
-const ProblemImage = styled.img`
-  width: 100%;
-  height: auto;
-  display: block;
-  transition: transform 0.8s ease-out, opacity 0.8s ease-out;
-  will-change: transform, opacity;
-`;
-
-const SectionTitle = styled.h2`
-  font-size: 2.5rem;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-  color: ${colors.primary};
-  margin-bottom: 1.2rem;
-  font-weight: 800;
-  font-family: "Noto Sans KR", sans-serif;
-
-  @media (max-width: 768px) {
-    font-size: 1.8rem;
-    padding: 0 10px;
-  }
-`;
-
 // Common style utilities
 const breakpoints = {
   mobile: "768px",
@@ -348,6 +278,21 @@ const flexCenter = css`
   justify-content: center;
 `;
 
+const SectionTitle = styled.h2`
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: ${colors.primary};
+  margin-bottom: 1.2rem;
+  font-weight: 800;
+  font-family: "Noto Sans KR", sans-serif;
+
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+    padding: 0 10px;
+  }
+`;
+
 // Features Section
 const FeaturesSection = styled.section`
   ${SectionBase}
@@ -361,7 +306,7 @@ const FeatureSlider = styled.div`
   gap: 1.5rem;
   padding: 2rem 0;
   margin: 0 auto;
-  max-width: 1200px;
+  max-width: 960px;
   overflow: visible;
   will-change: contents;
   height: 450px; /* Add fixed height */
@@ -408,6 +353,14 @@ const SectionSubText = styled.p`
     font-size: 0.9rem;
     margin-top: 0.5rem;
   }
+`;
+
+const PricingContent = styled.div`
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative; /* To keep content above the pseudo-element */
+  z-index: 3; /* To keep content above the pseudo-element */
 `;
 
 // Pricing Section with Coffee Cup design
@@ -538,7 +491,7 @@ const FAQSection = styled.section`
 `;
 
 const FAQContainer = styled.div`
-  max-width: 1200px;
+  max-width: 960px;
   margin: 0 auto;
 
   @media (max-width: 768px) {
@@ -610,10 +563,7 @@ const FAQAnswer = styled.div<FAQAnswerProps>`
 
 // Define styled component for page wrapper
 const PageWrapper = styled.div`
-  padding-top: 60px; /* Add padding to account for fixed navbar */
-  @media (max-width: 768px) {
-    padding-top: 50px;
-  }
+  padding-top: 0; /* Always 0 for homepage */
 `;
 
 // MeetupSection styled component
@@ -708,7 +658,7 @@ const MeetupSubtitle = styled.p`
   color: #ddd;
   animation: fadeIn 1.5s ease-in-out;
   position: relative;
-  max-width: 1200px;
+  max-width: 960px;
   margin-left: auto;
   margin-right: auto;
   font-family: "Noto Sans KR", sans-serif;
@@ -805,7 +755,7 @@ const MeetupSubtitle = styled.p`
 
 const MeetupImageContainer = styled.div`
   position: relative;
-  max-width: 1200px;
+  max-width: 960px;
   max-height: 300px;
   margin: 0px auto 0;
   overflow: hidden;
@@ -941,6 +891,7 @@ const MarketingText = styled.h2`
   color: #ffffff;
   text-align: center;
   margin-bottom: 1rem;
+  line-height: 1.3;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   font-family: "Noto Sans KR", sans-serif;
   z-index: 2; /* Ensure it's above canvas */
@@ -975,43 +926,23 @@ const MarketingSubText = styled.p`
 export default function Home() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
-  const problemSectionRef = useRef<HTMLElement>(null);
+  const [isGnbTransparent, setIsGnbTransparent] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Reference to store the timer ID
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Set up scroll animation
+  // Effect to handle GNB transparency on scroll
   useEffect(() => {
     const handleScroll = () => {
-      if (!problemSectionRef.current) return;
-
-      const image = problemSectionRef.current.querySelector("img");
-      if (!image) return;
-
-      const rect = problemSectionRef.current.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-
-      // When the section starts entering the viewport
-      if (rect.top < windowHeight * 0.75) {
-        const scrollProgress = Math.min(
-          1,
-          (windowHeight * 0.75 - rect.top) / (windowHeight * 0.25)
-        );
-
-        // Apply the animation effect as user scrolls
-        image.style.transform = `translateY(${50 - scrollProgress * 50}px)`;
-        image.style.opacity = `${scrollProgress}`;
+      if (window.scrollY > 0) {
+        setIsGnbTransparent(false);
       } else {
-        // Reset when out of view
-        image.style.transform = "translateY(50px)";
-        image.style.opacity = "0";
+        setIsGnbTransparent(true);
       }
     };
 
     window.addEventListener("scroll", handleScroll);
-    handleScroll(); // Initial calculation
-
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
@@ -1155,7 +1086,7 @@ export default function Home() {
   return (
     <PageWrapper>
       <GlobalStyle />
-      <GNB />
+      <GNB variant="home" isAtTop={isGnbTransparent} />
       {/* Hero Section */}
       <HeroSection>
         <video autoPlay loop muted playsInline ref={videoRef}>
@@ -1166,11 +1097,15 @@ export default function Home() {
         <HeroContent>
           {/* Added Marketing Text Elements */}
           <div>
-            <MarketingText>커리어에 부스터를 장착하세요</MarketingText>
-            <MarketingSubText>
-              월스트리트저널 원문으로 배우는 프리미엄 비즈니스 영어.
+            <MarketingText>
+              조금씩 쌓아둔 영어가
               <br />
-              하루 5분 투자로 영어 실력과 국제 시사 지식을 동시에!
+              커리어를 크게 열어줍니다
+            </MarketingText>
+            <MarketingSubText>
+              국내파 통역사가 노하우를 담아 개발한
+              <br />
+              비즈니스 영어 습관 형성 서비스
             </MarketingSubText>
           </div>
           <KakaoContainer>
@@ -1194,22 +1129,6 @@ export default function Home() {
           </KakaoContainer>
         </HeroContent>
       </HeroSection>
-
-      {/* Problem Section */}
-      <ProblemSection ref={problemSectionRef}>
-        <SectionTitle>
-          전세계 상위 1%
-          <span style={{ fontWeight: 600 }}>가 가장 주목하는 토픽</span>
-        </SectionTitle>
-        <ProblemCaption>
-          글로벌 임원들이 주목하는 핵심 토픽을 매일 엄선해
-          <br />
-          5분 만에 영어 실력과 시야를 함께 키워드립니다
-        </ProblemCaption>
-        <ProblemImageContainer>
-          <ProblemImage src={ceosImage} alt="World's Top CEOs" />
-        </ProblemImageContainer>
-      </ProblemSection>
 
       {/* Features Section */}
       <FeaturesSection>
@@ -1235,7 +1154,7 @@ export default function Home() {
 
       {/* Pricing Section */}
       <PricingSection>
-        <div style={{ position: "relative", zIndex: 3 }}>
+        <PricingContent>
           <SectionTitle>
             <span style={{ fontWeight: 600 }}>이 모든 것을 </span>
             커피 한 잔 가격으로
@@ -1247,7 +1166,7 @@ export default function Home() {
           <ActionButton href="/subscribe" target="_blank">
             월 4,700원에 시작하기
           </ActionButton>
-        </div>
+        </PricingContent>
 
         {/* Cup image positioned over the gradient */}
         <CircleCupImage src={oneCupCup} alt="1 Cup English Cup" />
