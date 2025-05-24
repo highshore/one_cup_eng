@@ -1,29 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
-import { RealtimeClient } from "@speechmatics/real-time-client";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-
-// Interfaces for Speechmatics data structures
-interface SpeechmaticsAlternative {
-  content: string;
-  confidence?: number;
-}
-
-interface SpeechmaticsResult {
-  alternatives?: SpeechmaticsAlternative[];
-  start_time?: number;
-  end_time?: number;
-  type?: string; // e.g., "word", "punctuation"
-}
-
-interface SpeechmaticsMessage {
-  message: string; // e.g., "AddPartialTranscript", "AddTranscript", "EndOfTranscript", "Error"
-  results?: SpeechmaticsResult[];
-  // Fields for "Error" message type from Speechmatics service
-  code?: number;
-  reason?: string;
-  // Add other potential fields based on documentation or observed data
-}
 
 // Interface for Azure Phoneme-level Pronunciation Result
 interface AzurePhonemePronunciationResult {
@@ -136,9 +113,33 @@ const AzureScoreArea = styled.div`
   }
 `;
 
-const ScoreArea = styled.div`
+const ColorCodedSentence = styled.div`
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  line-height: 2;
   font-size: 18px;
-  font-weight: bold;
+`;
+
+const SyllableSpan = styled.span<{ color: string }>`
+  color: ${(props) => props.color};
+  font-weight: 500;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin: 0 2px;
+  background-color: ${(props) => {
+    switch (props.color) {
+      case "green":
+        return "#e6f4ea";
+      case "orange":
+        return "#fef3c7";
+      case "red":
+        return "#fee2e2";
+      default:
+        return "transparent";
+    }
+  }};
 `;
 
 const ErrorMessage = styled.p`
@@ -148,21 +149,11 @@ const ErrorMessage = styled.p`
 const ShadowPage: React.FC = () => {
   const [targetSentence, setTargetSentence] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const [activePartialSegment, setActivePartialSegment] = useState<
-    SpeechmaticsResult[]
-  >([]);
-  const [finalTranscript, setFinalTranscript] = useState<SpeechmaticsResult[]>(
-    []
-  );
-  const [accuracyScore, setAccuracyScore] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isSocketOpen, setIsSocketOpen] = useState(false);
-  const isSocketOpenRef = useRef(isSocketOpen);
+  const [overallError, setOverallError] = useState<string | null>(null);
 
-  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null); // For playing back recorded audio
-  const recordedAudioChunksRef = useRef<Float32Array[]>([]); // To store raw audio chunks
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const recordedAudioChunksRef = useRef<Float32Array[]>([]);
 
-  // Azure specific state
   const [azureRecognizer, setAzureRecognizer] =
     useState<SpeechSDK.SpeechRecognizer | null>(null);
   const azurePushStreamRef = useRef<SpeechSDK.PushAudioInputStream | null>(
@@ -172,25 +163,18 @@ const ShadowPage: React.FC = () => {
     useState<SpeechSDK.PronunciationAssessmentResult | null>(null);
   const [azureRecognizedText, setAzureRecognizedText] = useState<string>("");
   const [azureError, setAzureError] = useState<string | null>(null);
-  const [azureRawJson, setAzureRawJson] = useState<string | null>(null); // State for raw JSON output
+  const [azureRawJson, setAzureRawJson] = useState<string | null>(null);
 
-  // Refs for accessing current state within callbacks
   const azureRecognizerRef = useRef(azureRecognizer);
   const isRecordingRef = useRef(isRecording);
 
-  const clientRef = useRef<RealtimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const microphoneSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const API_KEY = import.meta.env.VITE_SPEECHMATICS_API_KEY;
   const AZURE_SPEECH_KEY = import.meta.env.VITE_AZURE_PRIMARY_KEY;
-  const AZURE_SPEECH_REGION = "koreacentral"; // As provided by user
-
-  useEffect(() => {
-    isSocketOpenRef.current = isSocketOpen;
-  }, [isSocketOpen]);
+  const AZURE_SPEECH_REGION = "koreacentral";
 
   useEffect(() => {
     azureRecognizerRef.current = azureRecognizer;
@@ -201,7 +185,6 @@ const ShadowPage: React.FC = () => {
   }, [isRecording]);
 
   useEffect(() => {
-    // Cleanup object URL when component unmounts or URL changes
     let currentUrl = recordedAudioUrl;
     return () => {
       if (currentUrl) {
@@ -212,7 +195,6 @@ const ShadowPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      stopRecordingInternal(false); // Ensure this is called with false to prevent recursive stop commands initially
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -222,161 +204,140 @@ const ShadowPage: React.FC = () => {
       ) {
         audioContextRef.current.close().catch(console.warn);
       }
-      // Clean up Azure recognizer on unmount
-      if (azureRecognizer) {
+      if (azureRecognizerRef.current) {
         console.log("[Cleanup] Closing Azure Recognizer on unmount.");
-        azureRecognizer.close();
-        setAzureRecognizer(null);
+        azureRecognizerRef.current.close();
       }
       if (azurePushStreamRef.current) {
         console.log("[Cleanup] Closing Azure PushStream on unmount.");
         azurePushStreamRef.current.close();
-        azurePushStreamRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Add azureRecognizer to dependency array if its direct manipulation outside useEffect causes issues
+  }, []);
 
-  async function fetchJWT(): Promise<string> {
-    if (!API_KEY) {
-      throw new Error(
-        "Speechmatics API key is not set (VITE_SPEECHMATICS_API_KEY)."
+  const startRecording = async () => {
+    if (!targetSentence.trim()) {
+      setOverallError("Please enter target sentence.");
+      return;
+    }
+    setOverallError(null);
+    setAzureError(null);
+    setAzurePronunciationResult(null);
+    setAzureRecognizedText("");
+    setAzureRawJson(null);
+    setIsRecording(true);
+    recordedAudioChunksRef.current = [];
+    if (recordedAudioUrl) {
+      URL.revokeObjectURL(recordedAudioUrl);
+    }
+    setRecordedAudioUrl(null);
+
+    try {
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+
+      await audioContextRef.current.audioWorklet.addModule(
+        "/audio-processor.js"
       );
-    }
-    const resp = await fetch(
-      "https://mp.speechmatics.com/v1/api_keys?type=rt",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${API_KEY}`,
-        },
-        body: JSON.stringify({ ttl: 3600 }),
-      }
-    );
-    if (!resp.ok) {
-      const errorBody = await resp.text();
-      throw new Error(`Failed to fetch JWT: ${resp.status} ${errorBody}`);
-    }
-    const data = await resp.json();
-    return data.key_value;
-  }
 
-  const calculateAccuracy = (
-    target: string,
-    transcribedResults: SpeechmaticsResult[]
-  ): number => {
-    if (!target.trim() || transcribedResults.length === 0) return 0;
-    const targetWords = target
-      .toLowerCase()
-      .replace(/[^\w\s]/gi, "")
-      .split(/\s+/)
-      .filter(Boolean);
-    // Extract content from transcribedResults, filtering out any non-word types if necessary, though Speechmatics usually handles this.
-    const transcribedWords = transcribedResults
-      .filter(
-        (r) => r.type === "word" && r.alternatives && r.alternatives.length > 0
-      )
-      .map((r) =>
-        r.alternatives![0].content.toLowerCase().replace(/[^\w\s]/gi, "")
-      )
-      .filter(Boolean);
+      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
 
-    if (transcribedWords.length === 0) return 0;
+      microphoneSourceRef.current =
+        audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
 
-    let correctWords = 0;
-    const minLength = Math.min(targetWords.length, transcribedWords.length);
-    for (let i = 0; i < minLength; i++) {
-      if (targetWords[i] === transcribedWords[i]) correctWords++;
-    }
-    return targetWords.length > 0
-      ? (correctWords / targetWords.length) * 100
-      : 0;
-  };
+      audioWorkletNodeRef.current = new AudioWorkletNode(
+        audioContextRef.current,
+        "audio-processor",
+        {
+          processorOptions: { sampleRate: audioContextRef.current.sampleRate },
+        }
+      );
 
-  const handleReceivedMessage = (data: SpeechmaticsMessage) => {
-    // console.log("[Speechmatics] Received message:", JSON.stringify(data, null, 2));
+      audioWorkletNodeRef.current.port.onmessage = (
+        event: MessageEvent<ArrayBuffer>
+      ) => {
+        const dataIsArrayBuffer = event.data instanceof ArrayBuffer;
+        const bufferByteLength = dataIsArrayBuffer ? event.data.byteLength : 0;
 
-    if (data.message === "RecognitionStarted") {
-      // console.log("[Speechmatics] RecognitionStarted received. Setting socket to open.");
-      setIsSocketOpen(true);
-    } else if (data.message === "AddPartialTranscript") {
-      const newPartialResults = data.results || [];
-      setActivePartialSegment(newPartialResults);
-      // console.log("[Speechmatics] Updated active partial segment with:", newPartialResults.length, "results");
-    } else if (data.message === "AddTranscript") {
-      const finalizedResults = data.results || [];
-      if (finalizedResults.length > 0) {
-        setFinalTranscript((prevFinal) => [...prevFinal, ...finalizedResults]);
-        const updatedFullTranscriptResults = [
-          ...finalTranscript,
-          ...finalizedResults,
-        ];
-        setAccuracyScore(
-          calculateAccuracy(targetSentence, updatedFullTranscriptResults)
-        );
-      }
-      setActivePartialSegment([]); // Clear active partial as it's now final
-      // console.log("[Speechmatics] Finalized segment. Added:", finalizedResults.length, "results to final transcript.");
-    } else if (data.message === "EndOfTranscript") {
-      // console.log("EndOfTranscript received");
-      const currentFinalTranscript = finalTranscript;
-      const currentActivePartialSegment = activePartialSegment;
-
-      if (currentActivePartialSegment.length > 0) {
-        const updatedFullTranscriptResults = [
-          ...currentFinalTranscript,
-          ...currentActivePartialSegment,
-        ];
-        setFinalTranscript(updatedFullTranscriptResults);
-        setAccuracyScore(
-          calculateAccuracy(targetSentence, updatedFullTranscriptResults)
-        );
-        setActivePartialSegment([]);
-        // console.log("[Speechmatics] EndOfTranscript: Moved", currentActivePartialSegment.length, "active partial results to final.");
-      } else if (currentFinalTranscript.length > 0) {
-        setAccuracyScore(
-          calculateAccuracy(targetSentence, currentFinalTranscript)
-        );
-      }
-    } else if (data.message === "Error") {
-      // console.error("Speechmatics Service Error:", data);
-      setError(`API Error: ${data.code} - ${data.reason}`);
-      stopRecordingInternal(false);
+        if (dataIsArrayBuffer && bufferByteLength > 0) {
+          const float32Data = new Float32Array(event.data.slice(0));
+          recordedAudioChunksRef.current.push(float32Data);
+        }
+      };
+      microphoneSourceRef.current.connect(audioWorkletNodeRef.current);
+    } catch (err: any) {
+      console.error("Error starting recording (main function):", err);
+      setOverallError(err.message || "Failed to start. See console.");
+      await stopRecordingInternal(false);
     }
   };
 
-  const handleSocketStateChange = (eventData: unknown) => {
-    const actualState = (
-      eventData as { socketState: string; [key: string]: any }
-    ).socketState;
-    // console.log("[Speechmatics] socketStateChange: actualState is '", actualState, "'. Raw eventData:", JSON.stringify(eventData, null, 2));
-
-    if (actualState === "open") {
-      setIsSocketOpen(true);
-      // console.log("Speechmatics WebSocket OPENED (via socketStateChange).");
-    } else if (actualState === "closed") {
-      setIsSocketOpen(false);
-      // console.log("Speechmatics WebSocket CLOSED.", (eventData as any).event);
-      if (isRecording) {
-        setError("WebSocket closed unexpectedly.");
-        setIsRecording(false);
+  const stopRecordingInternal = async (sendEndOfStreamCmd: boolean) => {
+    if (audioWorkletNodeRef.current) {
+      audioWorkletNodeRef.current.port.onmessage = null;
+      audioWorkletNodeRef.current.disconnect();
+      audioWorkletNodeRef.current = null;
+    }
+    if (microphoneSourceRef.current) {
+      microphoneSourceRef.current.disconnect();
+      microphoneSourceRef.current = null;
+    }
+    if (
+      audioContextRef.current &&
+      audioContextRef.current.state !== "closed" &&
+      sendEndOfStreamCmd
+    ) {
+      try {
+        await audioContextRef.current.close();
+      } catch (e) {
+        console.warn("Error closing AudioContext:", e);
       }
-    } else if (actualState === "error") {
-      setIsSocketOpen(false);
-      // console.error("Speechmatics WebSocket ERROR.", (eventData as any).event);
-      setError("WebSocket connection error. See console.");
+      audioContextRef.current = null;
+    }
+
+    if (sendEndOfStreamCmd && recordedAudioChunksRef.current.length > 0) {
+      const totalLength = recordedAudioChunksRef.current.reduce(
+        (acc, val) => acc + val.length,
+        0
+      );
+      const concatenatedPcm = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of recordedAudioChunksRef.current) {
+        concatenatedPcm.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const sampleRate = 16000;
+      const wavBlob = encodeWAV(concatenatedPcm, sampleRate);
+      const url = URL.createObjectURL(wavBlob);
+      setRecordedAudioUrl(url);
+      recordedAudioChunksRef.current = [];
+    }
+
+    if (sendEndOfStreamCmd) {
       setIsRecording(false);
-    } else if (actualState === "connecting") {
-      // console.log("Speechmatics WebSocket is CONNECTING...");
-      setIsSocketOpen(false);
-    } else {
-      // console.warn("[Speechmatics] Unhandled socketState:", actualState, "Raw eventData:", eventData);
-      setIsSocketOpen(false);
     }
   };
 
-  // Helper function to convert Float32Array PCM data to WAV Blob
+  const handleStopRecording = async () => {
+    setIsRecording(false);
+    await stopRecordingInternal(true);
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      try {
+        await audioContextRef.current.close();
+      } catch (e) {
+        console.warn("Error closing AudioContext on explicit stop:", e);
+      }
+      audioContextRef.current = null;
+    }
+  };
+
   function encodeWAV(samples: Float32Array, sampleRate: number): Blob {
     const buffer = new ArrayBuffer(44 + samples.length * 2);
     const view = new DataView(buffer);
@@ -414,501 +375,146 @@ const ShadowPage: React.FC = () => {
     return new Blob([view], { type: "audio/wav" });
   }
 
-  // Helper function to convert Float32Array PCM data to Int16Array ArrayBuffer
-  function convertFloat32ToInt16(buffer: ArrayBuffer): ArrayBuffer {
-    const l = buffer.byteLength / 4; // Float32 is 4 bytes
-    const output = new Int16Array(l);
-    const input = new Float32Array(buffer);
-    for (let i = 0; i < l; i++) {
-      output[i] = Math.max(-1, Math.min(1, input[i])) * 0x7fff; // Convert to 16-bit PCM
-    }
-    return output.buffer;
-  }
-
-  const startRecording = async () => {
-    if (!targetSentence.trim()) {
-      setError("Please enter target sentence.");
-      return;
-    }
-    setError(null);
-    setAzureError(null);
-    setFinalTranscript([]);
-    setActivePartialSegment([]);
-    setAccuracyScore(null);
-    setAzurePronunciationResult(null);
-    setAzureRecognizedText("");
-    setAzureRawJson(null); // Clear raw JSON on new recording
-    setIsRecording(true);
-    recordedAudioChunksRef.current = []; // Clear previous audio chunks
-    if (recordedAudioUrl) {
-      URL.revokeObjectURL(recordedAudioUrl); // Revoke old URL
-    }
-    setRecordedAudioUrl(null); // Clear previous audio URL
-
-    try {
-      // Speechmatics setup
-      const jwt = await fetchJWT();
-      clientRef.current = new RealtimeClient();
-
-      clientRef.current.addEventListener(
-        "receiveMessage",
-        ({ data }: { data: unknown }) =>
-          handleReceivedMessage(data as SpeechmaticsMessage)
-      );
-      clientRef.current.addEventListener(
-        "socketStateChange",
-        (eventData: unknown) => {
-          // console.log("[Speechmatics] Raw socketStateChange eventData:", JSON.stringify(eventData, null, 2));
-          handleSocketStateChange(eventData);
-        }
-      );
-
-      // The 'open' state will be handled by socketStateChange
-      // 'error' and 'close' also via socketStateChange
-
-      await clientRef.current.start(jwt, {
-        transcription_config: {
-          language: "en",
-          diarization: "none",
-          operating_point: "enhanced",
-          max_delay_mode: "flexible",
-          max_delay: 0.7,
-          enable_partials: true,
-          enable_entities: true,
-          output_locale: "en-US",
-          transcript_filtering_config: {
-            remove_disfluencies: true,
-          },
-        },
-        audio_format: {
-          type: "raw",
-          encoding: "pcm_f32le",
-          sample_rate: 16000,
-        },
-      });
-      // console.log("[AudioSetup] Speechmatics client started with updated config (disfluency removal, en-US). Waiting for socket open.");
-
-      // Azure Speech SDK setup
-      if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION) {
-        setAzureError("Azure Speech Key or Region is not configured.");
-        console.error("Azure Speech Key or Region is not configured.");
-      } else {
-        try {
-          console.log("[Azure] Setting up Azure Speech SDK...");
-          const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
-            AZURE_SPEECH_KEY,
-            AZURE_SPEECH_REGION
-          );
-          speechConfig.speechRecognitionLanguage = "en-US";
-
-          // Re-create push stream for each recording session
-          if (azurePushStreamRef.current) azurePushStreamRef.current.close(); // Close if existing from previous run
-          azurePushStreamRef.current =
-            SpeechSDK.AudioInputStream.createPushStream(
-              SpeechSDK.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1) // 16kHz, 16-bit, mono
-            );
-          const audioConfig = SpeechSDK.AudioConfig.fromStreamInput(
-            azurePushStreamRef.current
-          );
-
-          // Simplified PronunciationAssessmentConfig for debugging
-          const pronunciationAssessmentConfig =
-            new SpeechSDK.PronunciationAssessmentConfig(
-              targetSentence, // Reference text is still essential
-              SpeechSDK.PronunciationAssessmentGradingSystem.HundredMark,
-              SpeechSDK.PronunciationAssessmentGranularity.Phoneme,
-              true // enableMiscue set to true as per sample
-            );
-          // Re-enable prosody assessment
-          pronunciationAssessmentConfig.enableProsodyAssessment = true;
-
-          // Close existing recognizer if any before creating a new one
-          if (azureRecognizer) {
-            azureRecognizer.close();
-          }
-          const recognizer = new SpeechSDK.SpeechRecognizer(
-            speechConfig,
-            audioConfig
-          );
-          pronunciationAssessmentConfig.applyTo(recognizer);
-
-          recognizer.recognizing = (
-            _s: SpeechSDK.Recognizer,
-            _e: SpeechSDK.SpeechRecognitionEventArgs
-          ) => {
-            // console.log(`[Azure] RECOGNIZING: Text=${e.result.text}`);
-          };
-
-          recognizer.recognized = (
-            _s: SpeechSDK.Recognizer,
-            e: SpeechSDK.SpeechRecognitionEventArgs
-          ) => {
-            console.log(
-              `[Azure] RECOGNIZED event triggered. Result reason: ${
-                SpeechSDK.ResultReason[e.result.reason]
-              }`
-            );
-            if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
-              console.log(`[Azure] RECOGNIZED: Text=${e.result.text}`);
-              setAzureRecognizedText(
-                (prev) => prev + (prev ? " " : "") + e.result.text
-              );
-              const pronunciationResult =
-                SpeechSDK.PronunciationAssessmentResult.fromResult(e.result);
-              if (pronunciationResult) {
-                console.log(
-                  "[Azure] Pronunciation Assessment Result:",
-                  pronunciationResult
-                );
-                setAzurePronunciationResult(pronunciationResult);
-
-                // For debugging, we can still log the raw JSON if necessary
-                const pronAssessmentResultJson =
-                  e.result.properties.getProperty(
-                    SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult
-                  );
-                if (pronAssessmentResultJson) {
-                  setAzureRawJson(pronAssessmentResultJson);
-                }
-              }
-            } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
-              console.log(
-                "[Azure] NOMATCH: Speech could not be recognized. Details: ",
-                e.result.properties.getProperty(
-                  SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult
-                )
-              );
-            } else {
-              console.log(
-                `[Azure] RECOGNIZED with other reason: ${
-                  SpeechSDK.ResultReason[e.result.reason]
-                }. Full result:`,
-                JSON.stringify(e.result)
-              );
-            }
-          };
-
-          recognizer.canceled = (
-            _s: SpeechSDK.Recognizer,
-            e: SpeechSDK.SpeechRecognitionCanceledEventArgs
-          ) => {
-            console.error(
-              `[Azure] CANCELED event. Reason: ${
-                SpeechSDK.CancellationReason[e.reason]
-              }`
-            );
-            if (e.reason === SpeechSDK.CancellationReason.Error) {
-              console.error(
-                `[Azure] CANCELED: ErrorCode=${e.errorCode} ( ${
-                  SpeechSDK.CancellationErrorCode[e.errorCode]
-                } )`
-              );
-              console.error(`[Azure] CANCELED: ErrorDetails=${e.errorDetails}`);
-              console.error(
-                `[Azure] CANCELED: Did you set the speech resource key and region values?`
-              );
-              setAzureError(
-                `Azure CANCELED: ${e.errorDetails} (Code: ${e.errorCode})`
-              );
-            }
-            // recognizer.stopContinuousRecognitionAsync(); // Should be handled by sessionStopped
-          };
-
-          recognizer.sessionStarted = (
-            _s: SpeechSDK.Recognizer,
-            _e: SpeechSDK.SessionEventArgs
-          ) => {
-            console.log("[Azure] Session STARTED");
-          };
-
-          recognizer.sessionStopped = (
-            _s: SpeechSDK.Recognizer,
-            _e: SpeechSDK.SessionEventArgs
-          ) => {
-            console.log("[Azure] Session STOPPED");
-            // No need to call stopContinuousRecognitionAsync here, as it's the event indicating it has stopped.
-            if (azurePushStreamRef.current) {
-              console.log("[Azure] Closing push stream on session stop.");
-              azurePushStreamRef.current.close();
-            }
-            // Don't nullify azureRecognizer here, allow explicit stop or unmount to handle it.
-          };
-
-          recognizer.startContinuousRecognitionAsync(
-            () => {
-              console.log(
-                "[Azure] Continuous recognition successfully started."
-              );
-            },
-            (err: string) => {
-              console.error(
-                `[Azure] Error starting Azure continuous recognition: ${err}`
-              );
-              setAzureError(`Azure SDK Error starting recognition: ${err}`);
-              if (recognizer) recognizer.close();
-              setAzureRecognizer(null);
-              if (azurePushStreamRef.current)
-                azurePushStreamRef.current.close();
-            }
-          );
-          setAzureRecognizer(recognizer);
-          console.log(
-            "[Azure] Azure Recognizer instance created and recognition started."
-          );
-        } catch (azureErr: any) {
-          console.error("Error setting up Azure Speech SDK:", azureErr);
-          setAzureError(
-            azureErr.message || "Failed to initialize Azure SDK. See console."
-          );
-        }
-      }
-
-      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
-      // console.log("[AudioSetup] AudioContext created, requested 16000Hz, actual state:", audioContextRef.current.state, "actual sampleRate:", audioContextRef.current.sampleRate);
-
-      // console.log("[AudioSetup] Attempting to add AudioWorklet module from /audio-processor.js");
-      await audioContextRef.current.audioWorklet.addModule(
-        "/audio-processor.js"
-      );
-      // console.log("[AudioSetup] AudioWorklet module added.");
-
-      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
-      // console.log("[AudioSetup] MediaStream obtained from microphone.");
-
-      microphoneSourceRef.current =
-        audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
-      // console.log("[AudioSetup] MediaStreamAudioSourceNode created.");
-
-      audioWorkletNodeRef.current = new AudioWorkletNode(
-        audioContextRef.current,
-        "audio-processor",
-        {
-          processorOptions: { sampleRate: audioContextRef.current.sampleRate },
-        }
-      );
-      console.log("[AudioSetup] AudioWorkletNode created.");
-
-      audioWorkletNodeRef.current.port.onmessage = (
-        event: MessageEvent<ArrayBuffer>
-      ) => {
-        console.log("[AudioWorklet] port.onmessage triggered."); // Confirm event handler fires
-        const dataIsArrayBuffer = event.data instanceof ArrayBuffer;
-        const bufferByteLength = dataIsArrayBuffer ? event.data.byteLength : 0;
-
-        // Store a copy of the audio data for playback
-        if (dataIsArrayBuffer && bufferByteLength > 0) {
-          const float32Data = new Float32Array(event.data.slice(0));
-          recordedAudioChunksRef.current.push(float32Data);
-        }
-
-        // Log conditions for pushing to Azure
-        console.log(
-          `[AudioWorklet] Checking conditions: azurePushStreamRef.current: ${!!azurePushStreamRef.current}, azureRecognizerRef.current: ${!!azureRecognizerRef.current}, isRecordingRef.current: ${
-            isRecordingRef.current
-          }, dataIsArrayBuffer: ${dataIsArrayBuffer}, bufferByteLength: ${bufferByteLength}`
-        );
-
-        // Push to Azure stream if available and recognizer is active
-        if (
-          azurePushStreamRef.current &&
-          azureRecognizerRef.current &&
-          isRecordingRef.current &&
-          dataIsArrayBuffer &&
-          bufferByteLength > 0
-        ) {
-          try {
-            const int16Buffer = convertFloat32ToInt16(event.data.slice(0));
-            console.log(
-              `[AudioWorklet] Attempting to write ${int16Buffer.byteLength} bytes to Azure push stream.`
-            );
-            azurePushStreamRef.current.write(int16Buffer);
-            console.log(
-              `[AudioWorklet] Successfully wrote to Azure push stream.`
-            );
-          } catch (azurePushError: any) {
-            console.error(
-              "[AudioWorklet] Error writing audio to Azure push stream:",
-              azurePushError.toString()
-            );
-            if (azurePushError.message?.includes("closed")) {
-              setAzureError(
-                "Azure audio stream closed unexpectedly during write."
-              );
-            }
-          }
-        } else {
-          console.log(
-            "[AudioWorklet] Conditions not met for pushing audio to Azure."
-          );
-        }
-
-        // Speechmatics related audio sending (existing code, ensure it doesn't interfere if enabled)
-        // console.log(
-        if (
-          clientRef.current &&
-          isSocketOpenRef.current &&
-          dataIsArrayBuffer &&
-          bufferByteLength > 0
-        ) {
-          // console.log(`[AudioWorklet] Attempting to send audio data chunk, size: ${bufferByteLength}`);
-          try {
-            clientRef.current.sendAudio(new Uint8Array(event.data));
-            // console.log(`[AudioWorklet] Successfully called sendAudio.`); // Optional: too verbose if successful
-          } catch (e: any) {
-            // console.error("[AudioWorklet] Error calling sendAudio:", e);
-            setError(`Error sending audio: ${e.message || "Unknown error"}`);
-            // Consider implications for isRecording state here if errors are persistent
-          }
-        } else {
-          // let reason = "[AudioWorklet] Not sending audio because:";
-          // if (!clientRef.current) reason += " clientRef.current is not set;";
-          // if (!isSocketOpenRef.current) reason += " isSocketOpenRef.current is false;";
-          // if (!dataIsArrayBuffer) reason += " data is not an ArrayBuffer;";
-          // if (dataIsArrayBuffer && bufferByteLength === 0) reason += " ArrayBuffer length is 0;";
-          // console.log(reason);
-        }
-      };
-      microphoneSourceRef.current.connect(audioWorkletNodeRef.current);
-    } catch (err: any) {
-      console.error("Error starting recording:", err);
-      setError(err.message || "Failed to start. See console.");
-      await stopRecordingInternal(false);
-    }
-  };
-
-  const stopRecordingInternal = async (sendEndOfStreamCmd: boolean) => {
-    if (clientRef.current && isSocketOpen && sendEndOfStreamCmd) {
-      try {
-        await clientRef.current.stopRecognition();
-        // console.log("stopRecognition called for Speechmatics.");
-      } catch (e) {
-        // console.error("Error calling stopRecognition for Speechmatics:", e);
-      }
-    }
-
-    // Stop Azure recognition
-    if (azureRecognizer && sendEndOfStreamCmd) {
-      // only if sendEndOfStreamCmd is true
-      console.log("[Azure] Attempting to stop Azure recognizer...");
-      azureRecognizer.stopContinuousRecognitionAsync(
-        () => {
-          console.log(
-            "[Azure] Continuous recognition stopped command sent successfully."
-          );
-          // The sessionStopped event will handle stream closing and other cleanup.
-        },
-        (err: string) => {
-          console.error(
-            `[Azure] Error sending stop continuous recognition command: ${err}`
-          );
-          // If stopping fails, we might need to manually close resources
-          if (azurePushStreamRef.current) azurePushStreamRef.current.close();
-          if (azureRecognizer) azureRecognizer.close(); // Force close if stop command fails
-          setAzureRecognizer(null);
-        }
-      );
-    } else if (!sendEndOfStreamCmd && azureRecognizer) {
-      console.log(
-        "[Azure] stopRecordingInternal called with sendEndOfStreamCmd=false, Azure recognizer might still be active."
-      );
-    }
-
-    // If not sending EndOfStream (e.g. due to Speechmatics EndOfTranscript or error),
-    // Azure might still be running. User initiated stop (`handleStopRecording`) should handle Azure too.
-
-    // Note: stopRecognition for Speechmatics should trigger EndOfTranscript and socket closure.
-    // Actual client closure and resource cleanup should ideally happen upon 'socketStateChange' -> 'closed'.
-
-    if (audioWorkletNodeRef.current) {
-      audioWorkletNodeRef.current.port.onmessage = null;
-      audioWorkletNodeRef.current.disconnect();
-      audioWorkletNodeRef.current = null;
-    }
-    if (microphoneSourceRef.current) {
-      microphoneSourceRef.current.disconnect();
-      microphoneSourceRef.current = null;
-    }
-    // Don't stop mediaStream tracks here if Azure might still need them, or if stop is only for Speechmatics.
-    // Let user-initiated full stop or component unmount handle global media stream track stopping.
-    // if (mediaStreamRef.current && sendEndOfStreamCmd) { // Only stop tracks on explicit full stop
-    //   mediaStreamRef.current.getTracks().forEach(track => track.stop());
-    //   mediaStreamRef.current = null;
-    // }
-    if (
-      audioContextRef.current &&
-      audioContextRef.current.state !== "closed" &&
-      sendEndOfStreamCmd
-    ) {
-      // only on full stop
-      try {
-        await audioContextRef.current.close();
-      } catch (e) {
-        console.warn("Error closing AudioContext:", e);
-      }
-      audioContextRef.current = null;
-    }
-
-    // Process recorded audio chunks to create a playable WAV file
-    // This should probably happen only on a full stop (sendEndOfStreamCmd = true)
-    if (sendEndOfStreamCmd && recordedAudioChunksRef.current.length > 0) {
-      const totalLength = recordedAudioChunksRef.current.reduce(
-        (acc, val) => acc + val.length,
-        0
-      );
-      const concatenatedPcm = new Float32Array(totalLength);
-      let offset = 0;
-      for (const chunk of recordedAudioChunksRef.current) {
-        concatenatedPcm.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      // Assuming audioContextRef.current.sampleRate was 16000Hz, or use a fixed value if sure
-      const sampleRate = 16000; // Use the sample rate we configured
-      const wavBlob = encodeWAV(concatenatedPcm, sampleRate);
-      const url = URL.createObjectURL(wavBlob);
-      setRecordedAudioUrl(url);
-      recordedAudioChunksRef.current = []; // Clear chunks after processing
-    }
-
-    setIsSocketOpen(false); // Reflect that we've initiated stop or it has closed (for Speechmatics)
-    if (sendEndOfStreamCmd) {
-      // Only set global isRecording to false on a full stop action
-      setIsRecording(false);
-    }
-
-    if (finalTranscript.length > 0 && targetSentence) {
-      setAccuracyScore(calculateAccuracy(targetSentence, finalTranscript));
-    }
-    // Azure results are updated via its 'recognized' event handler and set directly to state.
-    // No specific action needed here for Azure scores unless re-calculation is needed post-stop.
-  };
-
-  const handleStopRecording = async () => {
-    setIsRecording(false); // Immediately update UI to reflect stopping intention
-    await stopRecordingInternal(true); // True indicates a user-initiated full stop
-    // Clean up media stream tracks and audio context as this is a full stop
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-      try {
-        await audioContextRef.current.close();
-      } catch (e) {
-        console.warn("Error closing AudioContext on explicit stop:", e);
-      }
-      audioContextRef.current = null;
-    }
-  };
-
-  // Function to get color based on confidence score
-  const getConfidenceColor = (confidence?: number): string => {
-    if (confidence === undefined) return "black"; // Default for words without confidence (e.g. punctuation)
-    if (confidence >= 0.9) return "green";
-    if (confidence >= 0.7) return "orange";
+  // Function to get color based on Azure pronunciation score
+  const getAzurePronunciationColor = (score?: number): string => {
+    if (score === undefined) return "gray";
+    if (score >= 80) return "green";
+    if (score >= 60) return "orange";
     return "red";
+  };
+
+  // Function to render color-coded sentence based on Azure results
+  const renderColorCodedSentence = () => {
+    if (!azurePronunciationResult?.detailResult?.Words || !targetSentence) {
+      return null;
+    }
+
+    const words = azurePronunciationResult.detailResult
+      .Words as any as AzureWordPronunciationResult[];
+
+    return (
+      <ColorCodedSentence>
+        <p>
+          <strong>Pronunciation Analysis (Color-coded by accuracy):</strong>
+        </p>
+        <div style={{ marginTop: "10px" }}>
+          {words.map((word, wordIndex) => {
+            // If word has error type (e.g., omission, insertion), show it differently
+            const hasError =
+              word.PronunciationAssessment?.ErrorType &&
+              word.PronunciationAssessment.ErrorType !== "None";
+
+            return (
+              <span key={`color-word-${wordIndex}`}>
+                {word.Syllables && word.Syllables.length > 0 ? (
+                  word.Syllables.map((syllable, syllableIndex) => (
+                    <SyllableSpan
+                      key={`syllable-${wordIndex}-${syllableIndex}`}
+                      color={getAzurePronunciationColor(
+                        syllable.PronunciationAssessment?.AccuracyScore
+                      )}
+                      title={`Syllable: ${
+                        syllable.Syllable || syllable.Grapheme
+                      }\nScore: ${
+                        syllable.PronunciationAssessment?.AccuracyScore?.toFixed(
+                          0
+                        ) || "N/A"
+                      }`}
+                      style={{
+                        textDecoration: hasError ? "underline" : "none",
+                        fontStyle: hasError ? "italic" : "normal",
+                      }}
+                    >
+                      {syllable.Grapheme || syllable.Syllable}
+                    </SyllableSpan>
+                  ))
+                ) : (
+                  <SyllableSpan
+                    color={getAzurePronunciationColor(
+                      word.PronunciationAssessment?.AccuracyScore
+                    )}
+                    title={`Word: ${word.Word}\nScore: ${
+                      word.PronunciationAssessment?.AccuracyScore?.toFixed(0) ||
+                      "N/A"
+                    }${
+                      hasError
+                        ? `\nError: ${word.PronunciationAssessment?.ErrorType}`
+                        : ""
+                    }`}
+                    style={{
+                      textDecoration: hasError ? "underline" : "none",
+                      fontStyle: hasError ? "italic" : "normal",
+                    }}
+                  >
+                    {word.Word}
+                  </SyllableSpan>
+                )}
+                {wordIndex < words.length - 1 && " "}
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Display phoneme-level details if available */}
+        {words.some((w) => w.Phonemes && w.Phonemes.length > 0) && (
+          <div style={{ marginTop: "15px", fontSize: "14px" }}>
+            <p>
+              <strong>Phoneme-level breakdown:</strong>
+            </p>
+            <div style={{ marginTop: "5px" }}>
+              {words.map(
+                (word, wordIndex) =>
+                  word.Phonemes &&
+                  word.Phonemes.length > 0 && (
+                    <div
+                      key={`phoneme-word-${wordIndex}`}
+                      style={{ marginBottom: "8px" }}
+                    >
+                      <span style={{ fontWeight: "500" }}>{word.Word}:</span>{" "}
+                      {word.Phonemes.map((phoneme, phonemeIndex) => (
+                        <span
+                          key={`phoneme-${wordIndex}-${phonemeIndex}`}
+                          style={{
+                            color: getAzurePronunciationColor(
+                              phoneme.PronunciationAssessment?.AccuracyScore
+                            ),
+                            marginLeft: phonemeIndex > 0 ? "4px" : "8px",
+                            fontFamily: "monospace",
+                            fontSize: "13px",
+                          }}
+                          title={`Score: ${
+                            phoneme.PronunciationAssessment?.AccuracyScore?.toFixed(
+                              0
+                            ) || "N/A"
+                          }`}
+                        >
+                          [{phoneme.Phoneme}]
+                        </span>
+                      ))}
+                    </div>
+                  )
+              )}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: "15px", fontSize: "14px", color: "#666" }}>
+          <span style={{ color: "green", fontWeight: "bold" }}>
+            ● Excellent (80-100)
+          </span>
+          <span
+            style={{ color: "orange", fontWeight: "bold", marginLeft: "15px" }}
+          >
+            ● Good (60-79)
+          </span>
+          <span
+            style={{ color: "red", fontWeight: "bold", marginLeft: "15px" }}
+          >
+            ● Needs Improvement (0-59)
+          </span>
+        </div>
+      </ColorCodedSentence>
+    );
   };
 
   return (
@@ -946,31 +552,22 @@ const ShadowPage: React.FC = () => {
           <audio controls src={recordedAudioUrl}>
             Your browser does not support the audio element.
           </audio>
-          {/* <Button onClick={() => {
-            const audioElement = document.querySelector("audio");
-            if (audioElement) audioElement.play();
-          }}>Replay Recording</Button> */}
         </div>
       )}
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {overallError && <ErrorMessage>{overallError}</ErrorMessage>}
+      {/* SPEECHMATICS: Remove Speechmatics TranscriptArea by commenting it out fully */}
+      {/* 
       <TranscriptArea>
         <strong>Live Transcript (Speechmatics):</strong>
         <p>
-          {[...finalTranscript, ...activePartialSegment].map(
+          {[...speechmaticsResults.finalTranscript, ...speechmaticsResults.activePartialSegment].map(
             (result, index) => {
               if (!result.alternatives || result.alternatives.length === 0) {
-                return null; // Should not happen with valid results
+                return null;
               }
               const mainAlternative = result.alternatives[0];
-              // Add a space after each word, unless it's followed by punctuation that attaches to it.
-              // This is a simplified approach; Speechmatics results can have `attaches_to: "previous" for punctuation.
-              // For now, we will just add a space.
               const wordContent = mainAlternative.content;
               let displayContent = wordContent;
-
-              // Check if next element is punctuation that attaches to previous, to avoid double spacing or space before punctuation.
-              // This is a more complex formatting rule that depends on the structure of Speechmatics results
-              // and how it handles spaces around punctuation. For simplicity now, always add a space, then trim.
 
               return (
                 <span
@@ -985,20 +582,46 @@ const ShadowPage: React.FC = () => {
               );
             }
           )}
-          {[...finalTranscript, ...activePartialSegment].length === 0 && "-"}
+          {[...speechmaticsResults.finalTranscript, ...speechmaticsResults.activePartialSegment].length === 0 && "-"}
         </p>
       </TranscriptArea>
-      {accuracyScore !== null && (
+      */}
+      {/* SPEECHMATICS: Remove Speechmatics ScoreArea by commenting it out fully */}
+      {/* 
+      {speechmaticsAccuracy !== null && (
         <ScoreArea>
-          Accuracy (Speechmatics): {accuracyScore.toFixed(2)}%
+          Accuracy (Speechmatics): {speechmaticsAccuracy.toFixed(2)}%
         </ScoreArea>
       )}
+      */}
 
       {/* Microsoft Azure Box */}
       <AzureResultsBox>
         <strong>Microsoft Azure Pronunciation Assessment:</strong>
         {azureError && <ErrorMessage>Azure Error: {azureError}</ErrorMessage>}
+
+        {/* Display the input sentence */}
+        {targetSentence && (
+          <div
+            style={{
+              margin: "10px 0",
+              padding: "10px",
+              backgroundColor: "#f0f8ff",
+              borderRadius: "4px",
+            }}
+          >
+            <strong>Your Input Sentence:</strong>
+            <p style={{ marginTop: "5px", fontSize: "16px" }}>
+              {targetSentence}
+            </p>
+          </div>
+        )}
+
         <p>Recognized Text (Azure): {azureRecognizedText || "-"}</p>
+
+        {/* Color-coded sentence display */}
+        {renderColorCodedSentence()}
+
         {azurePronunciationResult && (
           <AzureScoreArea>
             <p>
