@@ -67,10 +67,10 @@ export const PageWrapper = styled.div`
 export const ContentContainer = styled.div`
   width: 100%; /* Take full width within PageWrapper */
   max-width: 550px; /* Max width from original AuthContainer */
-  margin: 0 auto;
-  padding: 30px 2rem; /* Adjusted vertical padding from 50px to 30px */
+  margin: -135px 0 0 0;
+  padding: 50px 2rem; /* Adjusted vertical padding from 50px to 30px */
   min-height: calc(
-    100vh - 130px
+    100vh
   ); /* Adjusted for Header height (70px) + Footer height (60px) */
   display: flex;
   flex-direction: column;

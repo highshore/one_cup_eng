@@ -131,7 +131,7 @@ const KakaoContainer = styled.div`
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   z-index: 3;
   animation: floatingKakao 5s ease-in-out infinite;
@@ -161,6 +161,7 @@ const KakaoContainer = styled.div`
     bottom: 20px;
     gap: 12px;
     animation-duration: 4s;
+    width: max-content;
 
     @keyframes floatingKakao {
       0% {
@@ -176,6 +177,7 @@ const KakaoContainer = styled.div`
 
     .kakao-logo-wrapper {
       animation-duration: 3s;
+      width: auto;
     }
   }
 `;
@@ -199,6 +201,10 @@ const KakaoNotificationContainer = styled.div`
   width: 100%;
   animation: fadeInOut 10s ease-in-out infinite;
   opacity: 0;
+
+  @media (max-width: 768px) {
+    width: auto; /* Make container shrink to content on mobile */
+  }
 
   @keyframes fadeInOut {
     0%,
@@ -934,19 +940,36 @@ export default function Home() {
 
   // Effect to handle GNB transparency on scroll
   useEffect(() => {
+    const rootElement = document.getElementById("root");
+    const isMobile = window.innerWidth <= 768;
+    // Determine the target for scroll events.
+    // On mobile, if #root exists, use it; otherwise, default to window.
+    const scrollTarget = isMobile && rootElement ? rootElement : window;
+
     const handleScroll = () => {
-      if (window.scrollY > 0) {
+      let scrollTop = 0;
+      // Read scrollTop from the correct target.
+      if (isMobile && rootElement) {
+        scrollTop = rootElement.scrollTop;
+      } else {
+        // Default to window.scrollY for desktop or if rootElement is not found.
+        scrollTop = window.scrollY;
+      }
+
+      if (scrollTop > 0) {
         setIsGnbTransparent(false);
       } else {
         setIsGnbTransparent(true);
       }
     };
 
-    window.addEventListener("scroll", handleScroll);
+    scrollTarget.addEventListener("scroll", handleScroll);
+    handleScroll(); // Call once to set initial state based on current scroll position
+
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      scrollTarget.removeEventListener("scroll", handleScroll);
     };
-  }, []);
+  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount.
 
   // Effect to set video playback speed
   useEffect(() => {
