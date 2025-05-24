@@ -1,13 +1,8 @@
-"use client";
 import { useState, useEffect, useRef } from "react";
 import styled, { createGlobalStyle, css } from "styled-components";
 import React from "react";
 import GNB from "../components/gnb";
 import Footer from "../components/footer";
-
-// import heroBg from "../assets/homepage/hero_bg.jpg";
-// import wstPaper from "../assets/homepage/wst_paper.png";
-// import coffeeImage from "../assets/homepage/coffee_cup.png";
 import kakaoLogo from "../assets/homepage/kakao_logo.png";
 import kakaoNotification from "../assets/homepage/kakao_notification.png";
 import meetupImage from "../assets/homepage/meetup.jpg";
@@ -16,20 +11,21 @@ import featureCard2 from "../assets/homepage/feature_card_2.png";
 import featureCard3 from "../assets/homepage/feature_card_3.png";
 import oneCupCup from "../assets/homepage/1cup_cup.png";
 import ceosImage from "../assets/homepage/ceos.png";
+import alphabetVideo from "../assets/homepage/alphabet.mp4";
 
 // Bubble type definition
-interface Bubble {
-  x: number;
-  y: number;
-  radius: number;
-  dx: number;
-  dy: number;
-  color: string;
-  opacity: number;
-  pulseSpeed: number;
-  pulseAmount: number;
-  pulseOffset: number;
-}
+// interface Bubble {
+//   x: number;
+//   y: number;
+//   radius: number;
+//   dx: number;
+//   dy: number;
+//   color: string;
+//   opacity: number;
+//   pulseSpeed: number;
+//   pulseAmount: number;
+//   pulseOffset: number;
+// }
 
 // Add global style for Noto Sans KR font
 const GlobalStyle = createGlobalStyle`
@@ -75,21 +71,23 @@ const SectionBase = css`
 // Hero Section
 const HeroSection = styled.section`
   color: white;
-  padding: 6rem 0;
+  padding: 0rem 10rem;
   position: relative;
   overflow: hidden;
-  max-height: 450px;
-  min-height: 450px;
+  max-height: 600px;
+  min-height: 600px;
   display: flex;
   align-items: center;
   justify-content: center;
 
-  canvas {
+  video {
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 50%;
+    left: 50%;
     width: 100%;
     height: 100%;
+    object-fit: cover;
+    transform: translate(-50%, -50%);
     z-index: 0;
   }
 
@@ -101,7 +99,7 @@ const HeroSection = styled.section`
 
 const HeroContent = styled.div`
   position: relative;
-  z-index: 1;
+  z-index: 2;
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
@@ -116,156 +114,16 @@ const HeroContent = styled.div`
   }
 `;
 
-const HeroTextContent = styled.div`
+// New styled component for the video overlay
+const VideoOverlay = styled.div`
   position: absolute;
-  left: 20px;
-  top: 15%;
-  max-width: 300px;
-  z-index: 2;
-
-  @media (max-width: 768px) {
-    position: relative;
-    left: auto;
-    top: 0;
-    transform: none;
-    max-width: 100%;
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-`;
-
-const HeroTitle = styled.h1`
-  font-size: 3.6rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
-  color: #ffffff;
-  position: relative;
-  z-index: 1;
-  text-align: left;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  font-family: "Noto Sans KR", sans-serif;
-
-  @media (max-width: 768px) {
-    margin-top: 30px;
-    font-size: 3rem;
-    text-align: center;
-  }
-`;
-
-const HeroSubtitle = styled.p`
-  font-size: 1.5rem;
-  line-height: 1.5;
-  color: #ffffff;
-  font-weight: 700;
-  text-align: left;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  font-family: "Noto Sans KR", sans-serif;
-
-  @media (max-width: 768px) {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-`;
-
-const HeroImagesWrapper = styled.div`
-  position: absolute;
-  width: 450px;
-  height: 100%;
-  right: 20px;
   top: 0;
-
-  @media (max-width: 768px) {
-    position: relative;
-    width: 100%;
-    height: 280px;
-    right: auto;
-    display: flex;
-    justify-content: center;
-  }
-`;
-
-const WSTPaperImage = styled.img`
-  position: absolute;
-  height: auto;
-  right: 400px;
-  bottom: -190px;
-  width: 500px;
-  z-index: 0;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const CoffeeImage = styled.img`
-  position: absolute;
-  height: auto;
-  right: 260px;
-  bottom: 30px;
-  width: 220px;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(4, 4, 20, 0.5);
+  backdrop-filter: blur(2px);
   z-index: 1;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const CoffeeSteam = styled.div`
-  position: absolute;
-  right: 430px;
-  bottom: 240px;
-  z-index: 2;
-  pointer-events: none;
-
-  &::before,
-  &::after,
-  & > span {
-    content: "";
-    position: absolute;
-    width: 8px;
-    height: 40px;
-    background: white;
-    border-radius: 50%;
-    animation: steam 3s infinite ease-in-out;
-    opacity: 0.8;
-    filter: blur(7px);
-  }
-
-  &::before {
-    left: 20px;
-    animation-delay: 0.2s;
-  }
-
-  &::after {
-    left: 60px;
-    animation-delay: 0.5s;
-    height: 35px;
-  }
-
-  & > span {
-    left: 40px;
-    animation-delay: 0s;
-    height: 30px;
-  }
-
-  @keyframes steam {
-    0% {
-      transform: translateY(0) scaleX(0.8);
-      opacity: 0.7;
-    }
-    50% {
-      transform: translateY(-35px) scaleX(1.2) rotate(5deg);
-      opacity: 0.4;
-    }
-    100% {
-      transform: translateY(-70px) scaleX(0.4) rotate(-5deg);
-      opacity: 0;
-    }
-  }
-
-  @media (max-width: 768px) {
-    display: none;
-  }
 `;
 
 const KakaoContainer = styled.div`
@@ -1118,144 +976,10 @@ export default function Home() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
   const problemSectionRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Reference to store the timer ID
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  // Refs for HeroSection and Canvas
-  const heroSectionRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Helper function for canvas animation
-  const getCoffeeColor = () => {
-    const colors = [
-      "rgba(101, 67, 33, opacity)",
-      "rgba(140, 94, 47, opacity)",
-      "rgba(173, 123, 73, opacity)",
-      "rgba(196, 164, 132, opacity)",
-      "rgba(153, 102, 51, opacity)",
-      "rgba(210, 180, 140, opacity)",
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
-
-  // Canvas animation useEffect
-  useEffect(() => {
-    const heroSectionElement = heroSectionRef.current;
-    const canvas = canvasRef.current;
-    if (!canvas || !heroSectionElement) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const resizeCanvas = () => {
-      canvas.width = heroSectionElement.offsetWidth;
-      canvas.height = heroSectionElement.offsetHeight;
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
-    const bubbles: Bubble[] = [];
-    const bubbleCount = 8;
-
-    for (let i = 0; i < bubbleCount; i++) {
-      const isSmall = Math.random() > 0.6;
-      const radius = isSmall ? Math.random() * 15 + 5 : Math.random() * 40 + 20;
-
-      bubbles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        radius: radius,
-        dx: (Math.random() - 0.5) * 0.8,
-        dy: (Math.random() - 0.5) * 0.8,
-        color: getCoffeeColor(),
-        opacity: Math.random() * 0.5 + 0.3,
-        pulseSpeed: Math.random() * 0.02 + 0.01,
-        pulseAmount: Math.random() * 0.15 + 0.05,
-        pulseOffset: Math.random() * Math.PI * 2,
-      });
-    }
-
-    let animationFrameId: number;
-    function animate() {
-      animationFrameId = requestAnimationFrame(animate);
-
-      const gradient = ctx!.createLinearGradient(0, 0, 0, canvas!.height);
-      gradient.addColorStop(0, "#120404");
-      gradient.addColorStop(1, "#120404");
-
-      ctx!.fillStyle = gradient;
-      ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
-
-      bubbles.forEach((bubble) => {
-        const time = Date.now() * 0.001;
-        const pulseFactor =
-          Math.sin(time * bubble.pulseSpeed + bubble.pulseOffset) *
-            bubble.pulseAmount +
-          1;
-        const currentRadius = bubble.radius * pulseFactor;
-
-        const bubbleGradient = ctx!.createRadialGradient(
-          bubble.x,
-          bubble.y,
-          0,
-          bubble.x,
-          bubble.y,
-          currentRadius * 1.8
-        );
-        const colorMatch = bubble.color.match(/rgba\((\d+), (\d+), (\d+)/);
-        const [, r, g, b] = colorMatch || ["", "173", "123", "73"];
-
-        bubbleGradient.addColorStop(
-          0,
-          `rgba(${r}, ${g}, ${b}, ${bubble.opacity})`
-        );
-        bubbleGradient.addColorStop(
-          0.3,
-          `rgba(${r}, ${g}, ${b}, ${bubble.opacity * 0.8})`
-        );
-        bubbleGradient.addColorStop(
-          0.7,
-          `rgba(${r}, ${g}, ${b}, ${bubble.opacity * 0.4})`
-        );
-        bubbleGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-
-        ctx!.shadowBlur = currentRadius * 1.5;
-        ctx!.shadowColor = `rgba(${r}, ${g}, ${b}, ${bubble.opacity * 0.4})`;
-
-        ctx!.beginPath();
-        ctx!.arc(bubble.x, bubble.y, currentRadius * 1.8, 0, Math.PI * 2);
-        ctx!.fillStyle = bubbleGradient;
-        ctx!.fill();
-
-        ctx!.shadowBlur = 0;
-
-        bubble.x += bubble.dx;
-        bubble.y += bubble.dy;
-
-        if (
-          bubble.x + currentRadius * 2 > canvas!.width ||
-          bubble.x - currentRadius * 2 < 0
-        ) {
-          bubble.dx = -bubble.dx;
-        }
-        if (
-          bubble.y + currentRadius * 2 > canvas!.height ||
-          bubble.y - currentRadius * 2 < 0
-        ) {
-          bubble.dy = -bubble.dy;
-        }
-      });
-    }
-
-    animate();
-
-    return () => {
-      window.removeEventListener("resize", resizeCanvas);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
 
   // Set up scroll animation
   useEffect(() => {
@@ -1291,6 +1015,13 @@ export default function Home() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
+  }, []);
+
+  // Effect to set video playback speed
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = 0.8; // Set to 0.5 for 2x slower
+    }
   }, []);
 
   const toggleFAQ = (index: number) => {
@@ -1426,12 +1157,16 @@ export default function Home() {
       <GlobalStyle />
       <GNB />
       {/* Hero Section */}
-      <HeroSection ref={heroSectionRef}>
-        <canvas ref={canvasRef} />
+      <HeroSection>
+        <video autoPlay loop muted playsInline ref={videoRef}>
+          <source src={alphabetVideo} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <VideoOverlay />
         <HeroContent>
           {/* Added Marketing Text Elements */}
           <div>
-            <MarketingText>매일 아침, 글로벌 감각을 깨우세요</MarketingText>
+            <MarketingText>커리어에 부스터를 장착하세요</MarketingText>
             <MarketingSubText>
               월스트리트저널 원문으로 배우는 프리미엄 비즈니스 영어.
               <br />
@@ -1545,17 +1280,19 @@ export default function Home() {
       <FAQSection>
         <SectionTitle>자주 묻는 질문</SectionTitle>
         <FAQContainer>
-          {faqs.map((faq, index) => (
-            <FAQItem key={index}>
-              <FAQQuestion
-                onClick={() => toggleFAQ(index)}
-                isOpen={openFAQ === index}
-              >
-                {faq.question}
-              </FAQQuestion>
-              <FAQAnswer isOpen={openFAQ === index}>{faq.answer}</FAQAnswer>
-            </FAQItem>
-          ))}
+          {faqs.map(
+            (faq: { question: string; answer: string }, index: number) => (
+              <FAQItem key={index}>
+                <FAQQuestion
+                  onClick={() => toggleFAQ(index)}
+                  isOpen={openFAQ === index}
+                >
+                  {faq.question}
+                </FAQQuestion>
+                <FAQAnswer isOpen={openFAQ === index}>{faq.answer}</FAQAnswer>
+              </FAQItem>
+            )
+          )}
         </FAQContainer>
       </FAQSection>
 

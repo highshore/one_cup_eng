@@ -76,7 +76,7 @@ const LogoLink = styled(Link)`
 `;
 
 const Logo = styled.img`
-  height: 32px;
+  height: 24px;
   margin-right: 8px;
 
   @media (max-width: 768px) {
@@ -445,7 +445,7 @@ export default function GNB({}: GNBProps) {
         <LogoContainer>
           <LogoLink to="/">
             <Logo src={logo} alt="영어 한잔 로고" />
-            <BrandName>영어 한잔</BrandName>
+            <BrandName>1 CUP ENGLISH</BrandName>
           </LogoLink>
         </LogoContainer>
 

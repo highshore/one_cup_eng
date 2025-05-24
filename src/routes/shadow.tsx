@@ -25,6 +25,38 @@ interface SpeechmaticsMessage {
   // Add other potential fields based on documentation or observed data
 }
 
+// Interface for Azure Phoneme-level Pronunciation Result
+interface AzurePhonemePronunciationResult {
+  Phoneme?: string;
+  PronunciationAssessment?: {
+    AccuracyScore?: number;
+  };
+}
+
+// Interface for Azure Syllable-level Pronunciation Result
+interface AzureSyllablePronunciationResult {
+  Syllable: string; // The phonemic representation of the syllable
+  Grapheme?: string; // The written representation of the syllable
+  PronunciationAssessment?: {
+    AccuracyScore?: number;
+  };
+  Phonemes?: AzurePhonemePronunciationResult[];
+}
+
+// Interface for Azure Word-level Pronunciation Result
+interface AzureWordPronunciationResult {
+  Word: string;
+  PronunciationAssessment?: {
+    ErrorType?: string;
+    AccuracyScore?: number;
+  };
+  Syllables?: AzureSyllablePronunciationResult[];
+  Phonemes?: AzurePhonemePronunciationResult[];
+  // Offset and Duration can be added if needed for other UI features later
+  // Offset?: number;
+  // Duration?: number;
+}
+
 const ShadowContainer = styled.div`
   padding: 20px;
   font-family: sans-serif;
@@ -80,6 +112,22 @@ const AzureResultsBox = styled(TranscriptArea)`
   border-color: #0078d4; // Azure blue
 `;
 
+const AzureDetailTable = styled.table`
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  th,
+  td {
+    border: 1px solid #ddd;
+    padding: 4px;
+    text-align: left;
+  }
+  th {
+    background-color: #f2f2f2;
+  }
+`;
+
 const AzureScoreArea = styled.div`
   font-size: 16px;
   margin-top: 10px;
@@ -120,11 +168,15 @@ const ShadowPage: React.FC = () => {
   const azurePushStreamRef = useRef<SpeechSDK.PushAudioInputStream | null>(
     null
   );
-  const [azurePronunciationResult, setAzurePronunciationResult] = useState<
-    any | null
-  >(null);
+  const [azurePronunciationResult, setAzurePronunciationResult] =
+    useState<SpeechSDK.PronunciationAssessmentResult | null>(null);
   const [azureRecognizedText, setAzureRecognizedText] = useState<string>("");
   const [azureError, setAzureError] = useState<string | null>(null);
+  const [azureRawJson, setAzureRawJson] = useState<string | null>(null); // State for raw JSON output
+
+  // Refs for accessing current state within callbacks
+  const azureRecognizerRef = useRef(azureRecognizer);
+  const isRecordingRef = useRef(isRecording);
 
   const clientRef = useRef<RealtimeClient | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -139,6 +191,14 @@ const ShadowPage: React.FC = () => {
   useEffect(() => {
     isSocketOpenRef.current = isSocketOpen;
   }, [isSocketOpen]);
+
+  useEffect(() => {
+    azureRecognizerRef.current = azureRecognizer;
+  }, [azureRecognizer]);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
   useEffect(() => {
     // Cleanup object URL when component unmounts or URL changes
@@ -377,6 +437,7 @@ const ShadowPage: React.FC = () => {
     setAccuracyScore(null);
     setAzurePronunciationResult(null);
     setAzureRecognizedText("");
+    setAzureRawJson(null); // Clear raw JSON on new recording
     setIsRecording(true);
     recordedAudioChunksRef.current = []; // Clear previous audio chunks
     if (recordedAudioUrl) {
@@ -450,14 +511,16 @@ const ShadowPage: React.FC = () => {
             azurePushStreamRef.current
           );
 
+          // Simplified PronunciationAssessmentConfig for debugging
           const pronunciationAssessmentConfig =
             new SpeechSDK.PronunciationAssessmentConfig(
-              targetSentence,
+              targetSentence, // Reference text is still essential
               SpeechSDK.PronunciationAssessmentGradingSystem.HundredMark,
               SpeechSDK.PronunciationAssessmentGranularity.Phoneme,
-              true // enableMiscue
+              true // enableMiscue set to true as per sample
             );
-          pronunciationAssessmentConfig.enableProsodyAssessment = true; // Optionally enable prosody
+          // Re-enable prosody assessment
+          pronunciationAssessmentConfig.enableProsodyAssessment = true;
 
           // Close existing recognizer if any before creating a new one
           if (azureRecognizer) {
@@ -480,24 +543,48 @@ const ShadowPage: React.FC = () => {
             _s: SpeechSDK.Recognizer,
             e: SpeechSDK.SpeechRecognitionEventArgs
           ) => {
+            console.log(
+              `[Azure] RECOGNIZED event triggered. Result reason: ${
+                SpeechSDK.ResultReason[e.result.reason]
+              }`
+            );
             if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
               console.log(`[Azure] RECOGNIZED: Text=${e.result.text}`);
               setAzureRecognizedText(
                 (prev) => prev + (prev ? " " : "") + e.result.text
               );
-              const pronAssessmentResultJson = e.result.properties.getProperty(
-                SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult
-              );
-              if (pronAssessmentResultJson) {
+              const pronunciationResult =
+                SpeechSDK.PronunciationAssessmentResult.fromResult(e.result);
+              if (pronunciationResult) {
                 console.log(
-                  "[Azure] Pronunciation Assessment JSON:",
-                  pronAssessmentResultJson
+                  "[Azure] Pronunciation Assessment Result:",
+                  pronunciationResult
                 );
-                const result = JSON.parse(pronAssessmentResultJson);
-                setAzurePronunciationResult(result); // This will be the full result including NBest
+                setAzurePronunciationResult(pronunciationResult);
+
+                // For debugging, we can still log the raw JSON if necessary
+                const pronAssessmentResultJson =
+                  e.result.properties.getProperty(
+                    SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult
+                  );
+                if (pronAssessmentResultJson) {
+                  setAzureRawJson(pronAssessmentResultJson);
+                }
               }
             } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
-              console.log("[Azure] NOMATCH: Speech could not be recognized.");
+              console.log(
+                "[Azure] NOMATCH: Speech could not be recognized. Details: ",
+                e.result.properties.getProperty(
+                  SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult
+                )
+              );
+            } else {
+              console.log(
+                `[Azure] RECOGNIZED with other reason: ${
+                  SpeechSDK.ResultReason[e.result.reason]
+                }. Full result:`,
+                JSON.stringify(e.result)
+              );
             }
           };
 
@@ -505,11 +592,24 @@ const ShadowPage: React.FC = () => {
             _s: SpeechSDK.Recognizer,
             e: SpeechSDK.SpeechRecognitionCanceledEventArgs
           ) => {
-            console.error(`[Azure] CANCELED: Reason=${e.reason}`);
+            console.error(
+              `[Azure] CANCELED event. Reason: ${
+                SpeechSDK.CancellationReason[e.reason]
+              }`
+            );
             if (e.reason === SpeechSDK.CancellationReason.Error) {
-              console.error(`[Azure] CANCELED: ErrorCode=${e.errorCode}`);
+              console.error(
+                `[Azure] CANCELED: ErrorCode=${e.errorCode} ( ${
+                  SpeechSDK.CancellationErrorCode[e.errorCode]
+                } )`
+              );
               console.error(`[Azure] CANCELED: ErrorDetails=${e.errorDetails}`);
-              setAzureError(`Azure CANCELED: ${e.errorDetails}`);
+              console.error(
+                `[Azure] CANCELED: Did you set the speech resource key and region values?`
+              );
+              setAzureError(
+                `Azure CANCELED: ${e.errorDetails} (Code: ${e.errorCode})`
+              );
             }
             // recognizer.stopContinuousRecognitionAsync(); // Should be handled by sessionStopped
           };
@@ -588,43 +688,64 @@ const ShadowPage: React.FC = () => {
           processorOptions: { sampleRate: audioContextRef.current.sampleRate },
         }
       );
-      // console.log("[AudioSetup] AudioWorkletNode created.");
+      console.log("[AudioSetup] AudioWorkletNode created.");
 
       audioWorkletNodeRef.current.port.onmessage = (
         event: MessageEvent<ArrayBuffer>
       ) => {
+        console.log("[AudioWorklet] port.onmessage triggered."); // Confirm event handler fires
         const dataIsArrayBuffer = event.data instanceof ArrayBuffer;
         const bufferByteLength = dataIsArrayBuffer ? event.data.byteLength : 0;
 
         // Store a copy of the audio data for playback
-        // The audio data from worklet is Float32Array
         if (dataIsArrayBuffer && bufferByteLength > 0) {
-          const float32Data = new Float32Array(event.data.slice(0)); // Important to slice to make a copy
+          const float32Data = new Float32Array(event.data.slice(0));
           recordedAudioChunksRef.current.push(float32Data);
-
-          // Push to Azure stream if available and recognizer is active
-          if (azurePushStreamRef.current && azureRecognizer && isRecording) {
-            // check isRecording
-            try {
-              const int16Buffer = convertFloat32ToInt16(event.data.slice(0)); // Convert a copy
-              azurePushStreamRef.current.write(int16Buffer);
-            } catch (azurePushError: any) {
-              console.error(
-                "[AudioWorklet] Error pushing audio to Azure:",
-                azurePushError
-              );
-              // Only set error if it's a critical push error, e.g. stream closed unexpectedly
-              // if (azurePushError.message.includes("closed")) {
-              //   setAzureError("Azure audio stream closed unexpectedly.");
-              // }
-            }
-          }
         }
 
-        // console.log(
-        //   `[AudioWorklet] port.onmessage. client: ${!!clientRef.current}, socketOpenRef: ${isSocketOpenRef.current}, isBuffer: ${dataIsArrayBuffer}, length: ${bufferByteLength}`
-        // );
+        // Log conditions for pushing to Azure
+        console.log(
+          `[AudioWorklet] Checking conditions: azurePushStreamRef.current: ${!!azurePushStreamRef.current}, azureRecognizerRef.current: ${!!azureRecognizerRef.current}, isRecordingRef.current: ${
+            isRecordingRef.current
+          }, dataIsArrayBuffer: ${dataIsArrayBuffer}, bufferByteLength: ${bufferByteLength}`
+        );
 
+        // Push to Azure stream if available and recognizer is active
+        if (
+          azurePushStreamRef.current &&
+          azureRecognizerRef.current &&
+          isRecordingRef.current &&
+          dataIsArrayBuffer &&
+          bufferByteLength > 0
+        ) {
+          try {
+            const int16Buffer = convertFloat32ToInt16(event.data.slice(0));
+            console.log(
+              `[AudioWorklet] Attempting to write ${int16Buffer.byteLength} bytes to Azure push stream.`
+            );
+            azurePushStreamRef.current.write(int16Buffer);
+            console.log(
+              `[AudioWorklet] Successfully wrote to Azure push stream.`
+            );
+          } catch (azurePushError: any) {
+            console.error(
+              "[AudioWorklet] Error writing audio to Azure push stream:",
+              azurePushError.toString()
+            );
+            if (azurePushError.message?.includes("closed")) {
+              setAzureError(
+                "Azure audio stream closed unexpectedly during write."
+              );
+            }
+          }
+        } else {
+          console.log(
+            "[AudioWorklet] Conditions not met for pushing audio to Azure."
+          );
+        }
+
+        // Speechmatics related audio sending (existing code, ensure it doesn't interfere if enabled)
+        // console.log(
         if (
           clientRef.current &&
           isSocketOpenRef.current &&
@@ -882,49 +1003,88 @@ const ShadowPage: React.FC = () => {
           <AzureScoreArea>
             <p>
               Pronunciation Score:{" "}
-              {azurePronunciationResult.PronScore?.toFixed(1)}
+              {azurePronunciationResult.pronunciationScore?.toFixed(1)}
             </p>
             <p>
               Accuracy Score:{" "}
-              {azurePronunciationResult.AccuracyScore?.toFixed(1)}
+              {azurePronunciationResult.accuracyScore?.toFixed(1)}
             </p>
             <p>
-              Fluency Score: {azurePronunciationResult.FluencyScore?.toFixed(1)}
+              Fluency Score: {azurePronunciationResult.fluencyScore?.toFixed(1)}
             </p>
             <p>
               Completeness Score:{" "}
-              {azurePronunciationResult.CompletenessScore?.toFixed(1)}
+              {azurePronunciationResult.completenessScore?.toFixed(1)}
             </p>
-            {/* Optional: Detailed word-level feedback can be added here */}
-            {azurePronunciationResult.Words &&
-              azurePronunciationResult.Words.length > 0 && (
-                <div style={{ marginTop: "10px" }}>
+            <p>
+              Prosody Score: {azurePronunciationResult.prosodyScore?.toFixed(1)}
+            </p>
+            {/* Detailed Syllable and Phoneme Table */}
+            {azurePronunciationResult.detailResult?.Words &&
+              azurePronunciationResult.detailResult.Words.length > 0 && (
+                <div style={{ marginTop: "15px" }}>
                   <p>
-                    <strong>Word Details (Azure):</strong>
+                    <strong>Syllable & Phoneme Details:</strong>
                   </p>
-                  {azurePronunciationResult.Words.map(
-                    (word: any, index: number) => (
-                      <span
-                        key={index}
-                        style={{
-                          color:
-                            word.PronunciationAssessment?.ErrorType === "None"
-                              ? "green"
-                              : word.PronunciationAssessment?.ErrorType ===
-                                "Mispronunciation"
-                              ? "orange"
-                              : "red",
-                          marginRight: "5px",
-                          display: "inline-block", // Ensures proper spacing and layout
-                        }}
-                      >
-                        {word.Word} (
-                        {word.PronunciationAssessment?.AccuracyScore?.toFixed(
-                          0
-                        )}
-                        )
-                      </span>
-                    )
+                  {azurePronunciationResult.detailResult.Words.map(
+                    (sdkWord, wordIndex: number) => {
+                      const word =
+                        sdkWord as any as AzureWordPronunciationResult;
+                      console.log(
+                        "[UI Render] Word object (after cast):",
+                        JSON.stringify(word, null, 2)
+                      );
+                      return (
+                        <div
+                          key={`word-detail-${wordIndex}`}
+                          style={{ marginBottom: "15px" }}
+                        >
+                          <h4>Word: {word.Word}</h4>
+                          {word.Syllables && word.Syllables.length > 0 ? (
+                            <AzureDetailTable>
+                              <thead>
+                                <tr>
+                                  <th>Syllable</th>
+                                  <th>Phoneme</th>
+                                  <th>Score</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(word.Phonemes as any[])?.map(
+                                  (
+                                    phoneme: AzurePhonemePronunciationResult,
+                                    phonemeIndex: number
+                                  ) => (
+                                    <tr
+                                      key={`word-${wordIndex}-phoneme-${phonemeIndex}`}
+                                    >
+                                      <td>
+                                        {phonemeIndex === 0 &&
+                                          word.Syllables &&
+                                          word.Syllables.length > 0 &&
+                                          (word.Syllables[0].Grapheme ||
+                                            word.Syllables[0].Syllable)}
+                                      </td>
+                                      <td>{phoneme.Phoneme || "N/A"}</td>
+                                      <td>
+                                        {phoneme.PronunciationAssessment?.AccuracyScore?.toFixed(
+                                          0
+                                        ) || "-"}
+                                      </td>
+                                    </tr>
+                                  )
+                                )}
+                              </tbody>
+                            </AzureDetailTable>
+                          ) : (
+                            <p>
+                              No syllable or phoneme data available for this
+                              word.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
                   )}
                 </div>
               )}
@@ -948,6 +1108,25 @@ const ShadowPage: React.FC = () => {
           !azureError &&
           !azureRecognizedText &&
           !targetSentence && <p>-</p>}
+
+        {azureRawJson && (
+          <div style={{ marginTop: "15px", textAlign: "left" }}>
+            <strong>Raw Azure Response JSON:</strong>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+                backgroundColor: "#f0f0f0",
+                padding: "10px",
+                borderRadius: "4px",
+                maxHeight: "300px",
+                overflowY: "auto",
+              }}
+            >
+              {azureRawJson}
+            </pre>
+          </div>
+        )}
       </AzureResultsBox>
     </ShadowContainer>
   );
