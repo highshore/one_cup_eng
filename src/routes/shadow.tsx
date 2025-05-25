@@ -88,7 +88,7 @@ const colors = {
 
 const ShadowContainer = styled.div`
   width: 100%;
-  padding: 2rem 1.5rem;
+  padding: 2rem 0rem;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   display: flex;
@@ -97,7 +97,6 @@ const ShadowContainer = styled.div`
   gap: 2rem;
   max-width: 960px;
   margin: 0 auto;
-  background: ${colors.background};
   min-height: 100vh;
 `;
 
@@ -191,17 +190,14 @@ const Button = styled.button`
 const TranscriptArea = styled.div`
   width: 100%;
   min-height: 120px;
-  border: 1px solid ${colors.border.light};
   padding: 1.5rem;
   background: ${colors.surface};
   white-space: pre-wrap;
   text-align: left;
-  border-radius: 16px;
   font-size: 0.9rem;
   line-height: 1.6;
   color: ${colors.text.secondary};
   box-shadow: ${colors.shadow.sm};
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
     border-color: ${colors.border.medium};
@@ -314,23 +310,19 @@ const TranscriptContainer = styled.div`
   width: 100%;
   margin-top: 1rem;
   background: ${colors.surface};
-  border-radius: 16px;
+  border-radius: 20px;
   line-height: 1.8;
   text-align: left;
   padding: 1.5rem;
-  border: 1px solid ${colors.border.light};
   box-shadow: ${colors.shadow.sm};
 `;
 
 const TranscriptWord = styled.span<{ isActive: boolean }>`
-  padding: 4px 6px;
-  margin: 0 2px;
-  border-radius: 8px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: ${(props) => (props.isActive ? colors.accent : "transparent")};
+  transition: all 0s cubic-bezier(0.4, 0, 0.2, 1);
+  background: ${(props) => (props.isActive ? "#f0f000" : "transparent")};
   color: ${(props) =>
-    props.isActive ? colors.text.inverse : colors.text.secondary};
-  font-weight: ${(props) => (props.isActive ? "600" : "400")};
+    props.isActive ? "#000000" : colors.text.secondary};
+  font-weight: ${(props) => (props.isActive ? "400" : "400")};
   cursor: pointer;
   position: relative;
 
@@ -598,6 +590,106 @@ const ProgressInfo = styled.div`
   font-weight: 500;
 `;
 
+// Step indicator components
+const StepProgressContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // border-radius: 12px;
+  // padding: 3rem 3rem;
+  // background: ${colors.surface};
+  // box-shadow: ${colors.shadow.sm};
+`;
+
+const StepItem = styled.div<{ isActive: boolean; isCompleted: boolean }>`
+  display: flex;
+  align-items: center;
+  position: relative;
+  
+  &:not(:last-child) {
+    margin-right: 2rem;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      right: -2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 2rem;
+      height: 2px;
+      background: ${(props) => 
+        props.isCompleted ? colors.primary : colors.border.light};
+      transition: background 0.3s ease;
+    }
+  }
+`;
+
+const StepCircle = styled.div<{ isActive: boolean; isCompleted: boolean }>`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  
+  ${(props) => {
+    if (props.isActive) {
+      return `
+        background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark});
+        color: ${colors.text.inverse};
+        box-shadow: ${colors.shadow.md};
+        transform: scale(1.1);
+      `;
+    } else if (props.isCompleted) {
+      return `
+        background: ${colors.primary};
+        color: ${colors.text.inverse};
+        &:hover {
+          transform: scale(1.05);
+          box-shadow: ${colors.shadow.sm};
+        }
+      `;
+    } else {
+      return `
+        background: ${colors.border.light};
+        color: ${colors.text.muted};
+        &:hover {
+          background: ${colors.border.medium};
+        }
+      `;
+    }
+  }}
+`;
+
+const StepLabel = styled.div<{ isActive: boolean }>`
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: ${(props) => props.isActive ? colors.primary : colors.text.muted};
+  white-space: nowrap;
+  opacity: ${(props) => props.isActive ? 1 : 0};
+  transition: opacity 0.3s ease;
+  
+  ${StepItem}:hover & {
+    opacity: 1;
+  }
+`;
+
+const StepContent = styled.div`
+  width: 100%;
+  margin-top: 1rem;
+`;
+
 // Modern status indicators
 const StatusIndicator = styled.div<{
   type: "success" | "warning" | "error" | "info";
@@ -668,6 +760,7 @@ const ShadowPage: React.FC = () => {
   const [isRecordingActive, setIsRecordingActive] = useState(false);
   const [audioToAutoplay, setAudioToAutoplay] = useState<number | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
+  const [currentStep, setCurrentStep] = useState(1);
 
   const recordedAudioChunksRef = useRef<Float32Array[]>([]);
 
@@ -689,6 +782,14 @@ const ShadowPage: React.FC = () => {
 
   const AZURE_SPEECH_KEY = import.meta.env.VITE_AZURE_PRIMARY_KEY;
   const AZURE_SPEECH_REGION = "koreacentral";
+
+  // Step definitions
+  const steps = [
+    { id: 1, name: "스크립트 공부", label: "Script Study" },
+    { id: 2, name: "쉐도잉", label: "Shadowing" },
+    { id: 3, name: "내재화", label: "Internalization" },
+    { id: 4, name: "분석", label: "Analysis" }
+  ];
 
   useEffect(() => {
     azureRecognizerRef.current = azureRecognizer;
@@ -1599,146 +1700,197 @@ const ShadowPage: React.FC = () => {
         )}
       </VideoContainer>
 
-      {!youtubeLoading && !youtubeError && videoTimestamps.length > 0 && (
-        <TranscriptContainer ref={transcriptContainerRef}>
-          {videoTimestamps.map((item, index) => (
-            <TranscriptWord
-              key={`${item.word}-${index}-${item.start}`}
-              isActive={index === activeTimestampIndex}
-              onClick={() => {
-                if (playerRef.current && isPlayerReady)
-                  playerRef.current.seekTo(item.start, true);
-              }}
+      {/* Step Progress Indicator */}
+      <StepProgressContainer>
+        {steps.map((step, _index) => (
+          <StepItem 
+            key={step.id}
+            isActive={currentStep === step.id}
+            isCompleted={currentStep > step.id}
+          >
+            <StepCircle
+              isActive={currentStep === step.id}
+              isCompleted={currentStep > step.id}
+              onClick={() => setCurrentStep(step.id)}
             >
-              {item.word}{" "}
-            </TranscriptWord>
-          ))}
-        </TranscriptContainer>
-      )}
+              {step.id}
+            </StepCircle>
+            <StepLabel isActive={currentStep === step.id}>
+              {step.name}
+            </StepLabel>
+          </StepItem>
+        ))}
+      </StepProgressContainer>
 
-      <Title>Practice Sentences</Title>
-      
-      {sentencesToAssess.length > 0 && (
-        <>
-          <CarouselContainer>
-            <CarouselContent>
-              {sentencesToAssess.map((sentence, index) => (
-                <CarouselSlide key={sentence.id} isActive={index === currentSentenceIndex}>
-                  <SentenceRow>
-                    {renderSentenceWithAssessment(sentence)}
-                    <SentenceControls>
-                      <Button
-                        onClick={() => {
-                          if (
-                            isRecordingActive &&
-                            currentRecordingSentenceIndex === currentSentenceIndex
-                          ) {
-                            stopCurrentSentenceRecording();
-                          } else if (!isRecordingActive) {
-                            startSentenceRecording(currentSentenceIndex);
-                          }
-                        }}
-                        disabled={
-                          isRecordingActive && currentRecordingSentenceIndex !== currentSentenceIndex
-                        }
-                      >
-                        <span>
-                          {isRecordingActive &&
-                          currentRecordingSentenceIndex === currentSentenceIndex ? (
-                            <>
-                              <LoadingSpinner />
-                              Stop Recording
-                            </>
-                          ) : (
-                            "Start Recording"
-                          )}
-                        </span>
-                      </Button>
-                      {sentence.recordedSentenceAudioUrl && (
-                        <AudioControls>
-                          <audio
-                            id={`sentence-audio-${index}`}
-                            controls
-                            src={sentence.recordedSentenceAudioUrl}
-                          />
-                        </AudioControls>
-                      )}
-                    </SentenceControls>
-                    {sentence.assessmentError && (
-                      <StatusIndicator type="error">
-                        {sentence.assessmentError}
-                      </StatusIndicator>
-                    )}
-                    {sentence.isAssessing && (
-                      <StatusIndicator type="info">
-                        <LoadingSpinner />
-                        Processing pronunciation assessment...
-                      </StatusIndicator>
-                    )}
-                    {sentence.assessmentResult && (
-                      <AzureResultsBox>
-                        <p>
-                          <strong>Recognized:</strong> "
-                          <em>{sentence.recognizedText || "(No speech recognized)"}</em>
-                          "
-                        </p>
-                        <AzureScoreArea>
-                          <p>
-                            <strong>Pronunciation:</strong>{" "}
-                            {sentence.assessmentResult.pronunciationScore?.toFixed(1)}%
-                            {" | "}
-                            <strong>Accuracy:</strong>{" "}
-                            {sentence.assessmentResult.accuracyScore?.toFixed(1)}%
-                            {" | "}
-                            <strong>Fluency:</strong>{" "}
-                            {sentence.assessmentResult.fluencyScore?.toFixed(1)}%{" | "}
-                            <strong>Completeness:</strong>{" "}
-                            {sentence.assessmentResult.completenessScore?.toFixed(1)}%
-                            {sentence.assessmentResult.prosodyScore &&
-                              ` | Prosody: ${sentence.assessmentResult.prosodyScore.toFixed(
-                                1
-                              )}%`}
-                          </p>
-                        </AzureScoreArea>
-                      </AzureResultsBox>
-                    )}
-                  </SentenceRow>
-                </CarouselSlide>
+      {/* Step-based Content */}
+      <StepContent>
+        {/* Step 1: Script Study */}
+        {currentStep === 1 && !youtubeLoading && !youtubeError && videoTimestamps.length > 0 && (
+          <>
+            <TranscriptContainer ref={transcriptContainerRef}>
+              {videoTimestamps.map((item, index) => (
+                <React.Fragment key={`${item.word}-${index}-${item.start}`}>
+                  <TranscriptWord
+                    isActive={index === activeTimestampIndex}
+                    onClick={() => {
+                      if (playerRef.current && isPlayerReady) {
+                        playerRef.current.seekTo(item.start, true);
+                        setActiveTimestampIndex(index);
+                      }
+                    }}
+                  >
+                    {item.word}
+                  </TranscriptWord>
+                  {index < videoTimestamps.length - 1 && " "}
+                </React.Fragment>
               ))}
-            </CarouselContent>
-          </CarouselContainer>
+            </TranscriptContainer>
+          </>
+        )}
 
-          <CarouselNavigation>
-            <NavigationButton
-              onClick={() => setCurrentSentenceIndex(Math.max(0, currentSentenceIndex - 1))}
-              disabled={currentSentenceIndex === 0}
-            >
-              <span>← Previous</span>
-            </NavigationButton>
+        {/* Step 2: Shadowing Practice */}
+        {currentStep === 2 && sentencesToAssess.length > 0 && (
+          <>
+            <CarouselContainer>
+              <CarouselContent>
+                {sentencesToAssess.map((sentence, index) => (
+                  <CarouselSlide key={sentence.id} isActive={index === currentSentenceIndex}>
+                    <SentenceRow>
+                      {renderSentenceWithAssessment(sentence)}
+                      <SentenceControls>
+                        <Button
+                          onClick={() => {
+                            if (
+                              isRecordingActive &&
+                              currentRecordingSentenceIndex === currentSentenceIndex
+                            ) {
+                              stopCurrentSentenceRecording();
+                            } else if (!isRecordingActive) {
+                              startSentenceRecording(currentSentenceIndex);
+                            }
+                          }}
+                          disabled={
+                            isRecordingActive && currentRecordingSentenceIndex !== currentSentenceIndex
+                          }
+                        >
+                          <span>
+                            {isRecordingActive &&
+                            currentRecordingSentenceIndex === currentSentenceIndex ? (
+                              <>
+                                <LoadingSpinner />
+                                Stop Recording
+                              </>
+                            ) : (
+                              "Start Recording"
+                            )}
+                          </span>
+                        </Button>
+                        {sentence.recordedSentenceAudioUrl && (
+                          <AudioControls>
+                            <audio
+                              id={`sentence-audio-${index}`}
+                              controls
+                              src={sentence.recordedSentenceAudioUrl}
+                            />
+                          </AudioControls>
+                        )}
+                      </SentenceControls>
+                      {sentence.assessmentError && (
+                        <StatusIndicator type="error">
+                          {sentence.assessmentError}
+                        </StatusIndicator>
+                      )}
+                      {sentence.isAssessing && (
+                        <StatusIndicator type="info">
+                          <LoadingSpinner />
+                          Processing pronunciation assessment...
+                        </StatusIndicator>
+                      )}
+                      {sentence.assessmentResult && (
+                        <AzureResultsBox>
+                          <p>
+                            <strong>Recognized:</strong> "
+                            <em>{sentence.recognizedText || "(No speech recognized)"}</em>
+                            "
+                          </p>
+                          <AzureScoreArea>
+                            <p>
+                              <strong>Pronunciation:</strong>{" "}
+                              {sentence.assessmentResult.pronunciationScore?.toFixed(1)}%
+                              {" | "}
+                              <strong>Accuracy:</strong>{" "}
+                              {sentence.assessmentResult.accuracyScore?.toFixed(1)}%
+                              {" | "}
+                              <strong>Fluency:</strong>{" "}
+                              {sentence.assessmentResult.fluencyScore?.toFixed(1)}%{" | "}
+                              <strong>Completeness:</strong>{" "}
+                              {sentence.assessmentResult.completenessScore?.toFixed(1)}%
+                              {sentence.assessmentResult.prosodyScore &&
+                                ` | Prosody: ${sentence.assessmentResult.prosodyScore.toFixed(
+                                  1
+                                )}%`}
+                            </p>
+                          </AzureScoreArea>
+                        </AzureResultsBox>
+                      )}
+                    </SentenceRow>
+                  </CarouselSlide>
+                ))}
+              </CarouselContent>
+            </CarouselContainer>
 
-            <ProgressBarContainer>
-              <ProgressBarFill 
-                progress={((currentSentenceIndex + 1) / sentencesToAssess.length) * 100}
-              />
-            </ProgressBarContainer>
+            <CarouselNavigation>
+              <NavigationButton
+                onClick={() => setCurrentSentenceIndex(Math.max(0, currentSentenceIndex - 1))}
+                disabled={currentSentenceIndex === 0}
+              >
+                <span>← Previous</span>
+              </NavigationButton>
 
-            <NavigationButton
-              onClick={() => 
-                setCurrentSentenceIndex(
-                  Math.min(sentencesToAssess.length - 1, currentSentenceIndex + 1)
-                )
-              }
-              disabled={currentSentenceIndex === sentencesToAssess.length - 1}
-            >
-              <span>Next →</span>
-            </NavigationButton>
-          </CarouselNavigation>
+              <ProgressBarContainer>
+                <ProgressBarFill 
+                  progress={((currentSentenceIndex + 1) / sentencesToAssess.length) * 100}
+                />
+              </ProgressBarContainer>
 
-          <ProgressInfo>
-            Sentence {currentSentenceIndex + 1} of {sentencesToAssess.length}
-          </ProgressInfo>
-        </>
-      )}
+              <NavigationButton
+                onClick={() => 
+                  setCurrentSentenceIndex(
+                    Math.min(sentencesToAssess.length - 1, currentSentenceIndex + 1)
+                  )
+                }
+                disabled={currentSentenceIndex === sentencesToAssess.length - 1}
+              >
+                <span>Next →</span>
+              </NavigationButton>
+            </CarouselNavigation>
+
+            <ProgressInfo>
+              Sentence {currentSentenceIndex + 1} of {sentencesToAssess.length}
+            </ProgressInfo>
+          </>
+        )}
+
+        {/* Step 3: Internalization */}
+        {currentStep === 3 && (
+          <>
+            <Title>내재화</Title>
+            <StatusIndicator type="info">
+              내재화 기능은 준비 중입니다.
+            </StatusIndicator>
+          </>
+        )}
+
+        {/* Step 4: Analysis */}
+        {currentStep === 4 && (
+          <>
+            <Title>분석</Title>
+            <StatusIndicator type="info">
+              분석 기능은 준비 중입니다.
+            </StatusIndicator>
+          </>
+        )}
+      </StepContent>
 
       {overallError && <ErrorMessage>{overallError}</ErrorMessage>}
     </ShadowContainer>
