@@ -356,14 +356,6 @@ const TranscriptWord = styled.span<{ isActive: boolean }>`
   }
 `;
 
-const SentenceListContainer = styled.div`
-  width: 100%;
-  margin-top: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-`;
-
 const SentenceRow = styled.div`
   padding: 2rem;
   border: 1px solid ${colors.border.light};
@@ -510,6 +502,102 @@ const AudioControls = styled.div`
   }
 `;
 
+// Carousel components
+const CarouselContainer = styled.div`
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+`;
+
+const CarouselContent = styled.div`
+  display: flex;
+  width: 100%;
+  min-height: 400px;
+`;
+
+const CarouselSlide = styled.div<{ isActive: boolean }>`
+  width: 100%;
+  flex-shrink: 0;
+  display: ${(props) => (props.isActive ? 'block' : 'none')};
+  animation: ${(props) => (props.isActive ? 'slideIn 0.3s ease-out' : 'none')};
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+`;
+
+const CarouselNavigation = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2rem;
+  gap: 1rem;
+`;
+
+const NavigationButton = styled(Button)`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 120px;
+
+  &:disabled {
+    opacity: 0.5;
+  }
+`;
+
+const ProgressBarContainer = styled.div`
+  flex: 1;
+  height: 8px;
+  background: ${colors.border.light};
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+`;
+
+const ProgressBarFill = styled.div<{ progress: number }>`
+  height: 100%;
+  width: ${(props) => props.progress}%;
+  background: linear-gradient(90deg, ${colors.primary}, ${colors.accent});
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-20px);
+    }
+    100% {
+      transform: translateX(20px);
+    }
+  }
+`;
+
+const ProgressInfo = styled.div`
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: ${colors.text.muted};
+  font-weight: 500;
+`;
+
 // Modern status indicators
 const StatusIndicator = styled.div<{
   type: "success" | "warning" | "error" | "info";
@@ -578,6 +666,8 @@ const ShadowPage: React.FC = () => {
   const [currentRecordingSentenceIndex, setCurrentRecordingSentenceIndex] =
     useState<number | null>(null);
   const [isRecordingActive, setIsRecordingActive] = useState(false);
+  const [audioToAutoplay, setAudioToAutoplay] = useState<number | null>(null);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
 
   const recordedAudioChunksRef = useRef<Float32Array[]>([]);
 
@@ -606,6 +696,22 @@ const ShadowPage: React.FC = () => {
   useEffect(() => {
     isRecordingRef.current = isRecordingActive;
   }, [isRecordingActive]);
+
+  // Autoplay effect
+  useEffect(() => {
+    if (audioToAutoplay !== null) {
+      const audioElement = document.getElementById(
+        `sentence-audio-${audioToAutoplay}`
+      ) as HTMLAudioElement;
+      if (audioElement) {
+        audioElement.play().catch((err) => {
+          console.error("Autoplay failed:", err);
+        });
+      }
+      // Reset after attempting to play
+      setAudioToAutoplay(null);
+    }
+  }, [audioToAutoplay]);
 
   const convertToEmbedUrl = useCallback((url: string): string | null => {
     try {
@@ -950,49 +1056,59 @@ const ShadowPage: React.FC = () => {
             word.PronunciationAssessment.ErrorType !== "None";
           return (
             <span key={`s-${sentence.id}-w-${wordIndex}`}>
-              {word.Syllables && word.Syllables.length > 0 ? (
-                word.Syllables.map((syllable, syllableIndex) => (
-                  <SyllableSpan
-                    key={`s-${sentence.id}-syl-${syllableIndex}`}
-                    color={getAzurePronunciationColor(
-                      syllable.PronunciationAssessment?.AccuracyScore
-                    )}
-                    title={`Syllable: ${
-                      syllable.Syllable || syllable.Grapheme
-                    }\nScore: ${
-                      syllable.PronunciationAssessment?.AccuracyScore?.toFixed(
-                        0
-                      ) || "N/A"
-                    }`}
-                    style={{
-                      textDecoration: hasError ? "underline" : "none",
-                      fontStyle: hasError ? "italic" : "normal",
-                    }}
-                  >
-                    {syllable.Grapheme || syllable.Syllable}
-                  </SyllableSpan>
-                ))
-              ) : (
-                <SyllableSpan
-                  color={getAzurePronunciationColor(
-                    word.PronunciationAssessment?.AccuracyScore
-                  )}
-                  title={`Word: ${word.Word}\nScore: ${
-                    word.PronunciationAssessment?.AccuracyScore?.toFixed(0) ||
-                    "N/A"
-                  }${
-                    hasError
-                      ? `\nError: ${word.PronunciationAssessment?.ErrorType}`
-                      : ""
-                  }`}
-                  style={{
-                    textDecoration: hasError ? "underline" : "none",
-                    fontStyle: hasError ? "italic" : "normal",
-                  }}
-                >
-                  {word.Word}
-                </SyllableSpan>
-              )}
+              {word.Syllables && word.Syllables.length > 0
+                ? word.Syllables.map((syllable, syllableIndex) => {
+                    if (!syllable) return null;
+                    const syllableDisplayText = syllable.Grapheme || syllable.Syllable;
+                    let titleText = `Syllable: ${syllableDisplayText}\nSyllable Score: ${
+                      syllable.PronunciationAssessment?.AccuracyScore?.toFixed(0) || "N/A"
+                    }`;
+
+                    if (syllable.Phonemes && syllable.Phonemes.length > 0) {
+                      titleText += "\nPhonemes:";
+                      for (const phoneme of syllable.Phonemes) {
+                        if (!phoneme) continue;
+                        const phonemeName = phoneme.Phoneme || "Unknown";
+                        const phonemeScore =
+                          typeof phoneme.PronunciationAssessment?.AccuracyScore === "number"
+                            ? phoneme.PronunciationAssessment.AccuracyScore.toFixed(0) + "%"
+                            : "N/A";
+                        titleText += `\n  - ${phonemeName}: ${phonemeScore}`;
+                      }
+                    }
+
+                    return (
+                      <SyllableSpan
+                        key={`s-${sentence.id}-syl-${syllableIndex}`}
+                        color={getAzurePronunciationColor(
+                          syllable.PronunciationAssessment?.AccuracyScore
+                        )}
+                        title={titleText}
+                        style={{
+                          textDecoration: hasError ? "underline" : "none",
+                          fontStyle: hasError ? "italic" : "normal",
+                        }}
+                      >
+                        {syllableDisplayText}
+                      </SyllableSpan>
+                    );
+                  })
+                : word.Word ? ( // Check if word.Word exists before rendering
+                    <SyllableSpan
+                      color={getAzurePronunciationColor(
+                        word.PronunciationAssessment?.AccuracyScore
+                      )}
+                      title={`Word: ${word.Word}\nScore: ${
+                        word.PronunciationAssessment?.AccuracyScore?.toFixed(0) || "N/A"
+                      }${hasError ? `\nError: ${word.PronunciationAssessment?.ErrorType}` : ""}`}
+                      style={{
+                        textDecoration: hasError ? "underline" : "none",
+                        fontStyle: hasError ? "italic" : "normal",
+                      }}
+                    >
+                      {word.Word}
+                    </SyllableSpan>
+                  ) : null} {/* If no syllables and no word.Word, render nothing */}
               {wordIndex < words.length - 1 && " "}
             </span>
           );
@@ -1072,6 +1188,7 @@ const ShadowPage: React.FC = () => {
           true
         );
       pronunciationAssessmentConfig.enableProsodyAssessment = true;
+      pronunciationAssessmentConfig.enableMiscue = true; // Enable miscue calculation
 
       if (azureRecognizerRef.current) azureRecognizerRef.current.close();
       const recognizer = new SpeechSDK.SpeechRecognizer(
@@ -1442,18 +1559,12 @@ const ShadowPage: React.FC = () => {
     );
 
     // 5. Autoplay the recorded audio for the specific sentence
-    // We need to find the audio element in the DOM for this sentence if newAudioUrl is available
-    // This is a bit tricky as the audio element is part of the map.
-    // A direct .play() after URL set might work if React re-renders quickly enough.
-    // Or, we can use a temporary state to trigger play in a useEffect that watches recordedSentenceAudioUrl for that sentence.
-    // For now, let's log and address autoplay in UI refinement if needed.
     if (newAudioUrl) {
       console.log(
-        `[Autoplay] Would attempt to autoplay: ${newAudioUrl} for sentence ${recordingIdx}`
+        `[Autoplay] Triggering autoplay for sentence ${recordingIdx}`
       );
-      // To implement autoplay, you might need to add a ref to each audio element in the map
-      // or use a state variable to signal which audio should play.
-      // For simplicity, direct autoplay is omitted here but can be added if audio elements have unique IDs or refs.
+      // Trigger autoplay using state
+      setAudioToAutoplay(recordingIdx);
     }
   };
 
@@ -1506,91 +1617,128 @@ const ShadowPage: React.FC = () => {
       )}
 
       <Title>Practice Sentences</Title>
-      <SentenceListContainer>
-        {sentencesToAssess.map((sentence, index) => (
-          <SentenceRow key={sentence.id}>
-            {renderSentenceWithAssessment(sentence)}
-            <SentenceControls>
-              <Button
-                onClick={() => {
-                  if (
-                    isRecordingActive &&
-                    currentRecordingSentenceIndex === index
-                  ) {
-                    stopCurrentSentenceRecording();
-                  } else if (!isRecordingActive) {
-                    startSentenceRecording(index);
-                  }
-                }}
-                disabled={
-                  isRecordingActive && currentRecordingSentenceIndex !== index
-                } // Disable if another sentence is recording
-              >
-                <span>
-                  {isRecordingActive &&
-                  currentRecordingSentenceIndex === index ? (
-                    <>
-                      <LoadingSpinner />
-                      Stop Recording
-                    </>
-                  ) : (
-                    "Start Recording"
-                  )}
-                </span>
-              </Button>
-              {sentence.recordedSentenceAudioUrl && (
-                <AudioControls>
-                  <audio
-                    id={`sentence-audio-${index}`}
-                    controls
-                    src={sentence.recordedSentenceAudioUrl}
-                  />
-                </AudioControls>
-              )}
-            </SentenceControls>
-            {sentence.assessmentError && (
-              <StatusIndicator type="error">
-                {sentence.assessmentError}
-              </StatusIndicator>
-            )}
-            {sentence.isAssessing && (
-              <StatusIndicator type="info">
-                <LoadingSpinner />
-                Processing pronunciation assessment...
-              </StatusIndicator>
-            )}
-            {/* Display detailed Azure scores if available in sentence.assessmentResult */}
-            {sentence.assessmentResult && (
-              <AzureResultsBox>
-                <p>
-                  <strong>Recognized:</strong> "
-                  <em>{sentence.recognizedText || "(No speech recognized)"}</em>
-                  "
-                </p>
-                <AzureScoreArea>
-                  <p>
-                    <strong>Pronunciation:</strong>{" "}
-                    {sentence.assessmentResult.pronunciationScore?.toFixed(1)}%
-                    {" | "}
-                    <strong>Accuracy:</strong>{" "}
-                    {sentence.assessmentResult.accuracyScore?.toFixed(1)}%
-                    {" | "}
-                    <strong>Fluency:</strong>{" "}
-                    {sentence.assessmentResult.fluencyScore?.toFixed(1)}%{" | "}
-                    <strong>Completeness:</strong>{" "}
-                    {sentence.assessmentResult.completenessScore?.toFixed(1)}%
-                    {sentence.assessmentResult.prosodyScore &&
-                      ` | Prosody: ${sentence.assessmentResult.prosodyScore.toFixed(
-                        1
-                      )}%`}
-                  </p>
-                </AzureScoreArea>
-                {/* Optionally, add a button to show detailed phoneme/syllable table using AzureDetailTable and sentence.rawJson */}
-              </AzureResultsBox>
-            )}
-          </SentenceRow>
-        ))}
-      </SentenceListContainer>
+      
+      {sentencesToAssess.length > 0 && (
+        <>
+          <CarouselContainer>
+            <CarouselContent>
+              {sentencesToAssess.map((sentence, index) => (
+                <CarouselSlide key={sentence.id} isActive={index === currentSentenceIndex}>
+                  <SentenceRow>
+                    {renderSentenceWithAssessment(sentence)}
+                    <SentenceControls>
+                      <Button
+                        onClick={() => {
+                          if (
+                            isRecordingActive &&
+                            currentRecordingSentenceIndex === currentSentenceIndex
+                          ) {
+                            stopCurrentSentenceRecording();
+                          } else if (!isRecordingActive) {
+                            startSentenceRecording(currentSentenceIndex);
+                          }
+                        }}
+                        disabled={
+                          isRecordingActive && currentRecordingSentenceIndex !== currentSentenceIndex
+                        }
+                      >
+                        <span>
+                          {isRecordingActive &&
+                          currentRecordingSentenceIndex === currentSentenceIndex ? (
+                            <>
+                              <LoadingSpinner />
+                              Stop Recording
+                            </>
+                          ) : (
+                            "Start Recording"
+                          )}
+                        </span>
+                      </Button>
+                      {sentence.recordedSentenceAudioUrl && (
+                        <AudioControls>
+                          <audio
+                            id={`sentence-audio-${index}`}
+                            controls
+                            src={sentence.recordedSentenceAudioUrl}
+                          />
+                        </AudioControls>
+                      )}
+                    </SentenceControls>
+                    {sentence.assessmentError && (
+                      <StatusIndicator type="error">
+                        {sentence.assessmentError}
+                      </StatusIndicator>
+                    )}
+                    {sentence.isAssessing && (
+                      <StatusIndicator type="info">
+                        <LoadingSpinner />
+                        Processing pronunciation assessment...
+                      </StatusIndicator>
+                    )}
+                    {sentence.assessmentResult && (
+                      <AzureResultsBox>
+                        <p>
+                          <strong>Recognized:</strong> "
+                          <em>{sentence.recognizedText || "(No speech recognized)"}</em>
+                          "
+                        </p>
+                        <AzureScoreArea>
+                          <p>
+                            <strong>Pronunciation:</strong>{" "}
+                            {sentence.assessmentResult.pronunciationScore?.toFixed(1)}%
+                            {" | "}
+                            <strong>Accuracy:</strong>{" "}
+                            {sentence.assessmentResult.accuracyScore?.toFixed(1)}%
+                            {" | "}
+                            <strong>Fluency:</strong>{" "}
+                            {sentence.assessmentResult.fluencyScore?.toFixed(1)}%{" | "}
+                            <strong>Completeness:</strong>{" "}
+                            {sentence.assessmentResult.completenessScore?.toFixed(1)}%
+                            {sentence.assessmentResult.prosodyScore &&
+                              ` | Prosody: ${sentence.assessmentResult.prosodyScore.toFixed(
+                                1
+                              )}%`}
+                          </p>
+                        </AzureScoreArea>
+                      </AzureResultsBox>
+                    )}
+                  </SentenceRow>
+                </CarouselSlide>
+              ))}
+            </CarouselContent>
+          </CarouselContainer>
+
+          <CarouselNavigation>
+            <NavigationButton
+              onClick={() => setCurrentSentenceIndex(Math.max(0, currentSentenceIndex - 1))}
+              disabled={currentSentenceIndex === 0}
+            >
+              <span>← Previous</span>
+            </NavigationButton>
+
+            <ProgressBarContainer>
+              <ProgressBarFill 
+                progress={((currentSentenceIndex + 1) / sentencesToAssess.length) * 100}
+              />
+            </ProgressBarContainer>
+
+            <NavigationButton
+              onClick={() => 
+                setCurrentSentenceIndex(
+                  Math.min(sentencesToAssess.length - 1, currentSentenceIndex + 1)
+                )
+              }
+              disabled={currentSentenceIndex === sentencesToAssess.length - 1}
+            >
+              <span>Next →</span>
+            </NavigationButton>
+          </CarouselNavigation>
+
+          <ProgressInfo>
+            Sentence {currentSentenceIndex + 1} of {sentencesToAssess.length}
+          </ProgressInfo>
+        </>
+      )}
 
       {overallError && <ErrorMessage>{overallError}</ErrorMessage>}
     </ShadowContainer>
