@@ -690,6 +690,151 @@ const StepContent = styled.div`
   margin-top: 1rem;
 `;
 
+const AudioModeToggle = styled(Button)`
+  background: ${colors.primaryDark};
+  margin-bottom: 1rem;
+
+  &.active {
+    background: ${colors.accent};
+  }
+`;
+
+// Word definition modal components
+const DefinitionModalOverlay = styled.div<{ isOpen: boolean }>`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: ${(props) => (props.isOpen ? 1 : 0)};
+  visibility: ${(props) => (props.isOpen ? "visible" : "hidden")};
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+`;
+
+const DefinitionModalContent = styled.div`
+  background: ${colors.background};
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  padding: 1.8rem;
+  max-width: 90%;
+  width: 450px;
+  position: relative;
+  transform: scale(1);
+  transition: transform 0.3s ease;
+  border-left: 5px solid ${colors.accent};
+  border: 1px solid ${colors.border.light};
+  overflow-y: auto;
+  max-height: 90vh;
+
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+    width: 80%;
+    max-height: 80vh;
+  }
+
+  @media (max-width: 480px) {
+    padding: 1.2rem;
+    width: 90%;
+    max-height: 75vh;
+  }
+`;
+
+const CloseButton = styled.button`
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: ${colors.text.muted};
+  cursor: pointer;
+  padding: 0.3rem;
+  line-height: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  @media (max-width: 768px) {
+    top: 0.8rem;
+    right: 0.8rem;
+  }
+
+  &:hover {
+    color: ${colors.primary};
+    background: ${colors.border.light};
+  }
+`;
+
+const WordDefinitionTitle = styled.div`
+  font-weight: bold;
+  color: ${colors.primary};
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid ${colors.border.light};
+`;
+
+const WordDefinitionContent = styled.div`
+  color: ${colors.text.secondary};
+  font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  line-height: 1.6;
+  white-space: pre-line;
+  font-size: 1rem;
+`;
+
+const LoadingDefinitionContent = styled.div`
+  color: ${colors.text.muted};
+  font-style: italic;
+  padding: 1rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+`;
+
+// Define styled sections for definitions
+const DefinitionSection = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const DefinitionLabel = styled.div`
+  font-size: 1rem;
+  font-weight: 600;
+  color: ${colors.primary};
+  margin-bottom: 0.5rem;
+`;
+
+const Collapsible = styled.details`
+  margin-top: 1rem;
+
+  summary {
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    &:hover {
+      color: ${colors.primaryDark};
+    }
+  }
+
+  ul {
+    padding-left: 1.2rem;
+    margin: 0.5rem 0;
+    list-style: disc;
+    font-size: 0.9rem;
+    color: ${colors.text.secondary};
+  }
+`;
+
 // Modern status indicators
 const StatusIndicator = styled.div<{
   type: "success" | "warning" | "error" | "info";
@@ -761,6 +906,15 @@ const ShadowPage: React.FC = () => {
   const [audioToAutoplay, setAudioToAutoplay] = useState<number | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isAudioMode, setIsAudioMode] = useState(false);
+  const [wordDefinitionModal, setWordDefinitionModal] = useState({
+    isOpen: false,
+    word: "",
+    definition: "",
+    isLoading: false,
+  });
+  const [enEntry, setEnEntry] = useState<any | null>(null);
+  const [enEntryLoading, setEnEntryLoading] = useState(false);
 
   const recordedAudioChunksRef = useRef<Float32Array[]>([]);
 
@@ -1669,6 +1823,251 @@ const ShadowPage: React.FC = () => {
     }
   };
 
+  // Get word definition function
+  const getWordDefinition = async (
+    word: string,
+    context: string
+  ): Promise<string> => {
+    try {
+      // For shadow page, we'll use a simpler approach without Firestore caching
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey) {
+        return "API 키가 설정되지 않았습니다.";
+      }
+
+      const url = "https://api.openai.com/v1/chat/completions";
+
+      const prompt = `다음 문장에서 '${word}'의 정의를 한국어로 제공해주세요. 단어의 의미를 문장의 맥락에 맞게 설명해주세요. 반드시 존대말로 작성해주세요.
+
+문장: "${context}"
+
+* 결과 형식:
+뜻풀이: [문장 문맥에 맞는 단어 정의]
+`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 300,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error("GPT API Error:", error);
+      return `뜻풀이를 가져오는 중 오류가 발생했습니다: ${error}`;
+    }
+  };
+
+  // Fetch English dictionary entry from Firestore
+  const fetchEnDictEntry = async (word: string) => {
+    setEnEntryLoading(true);
+    try {
+      const dictRef = doc(db, "en_dict", word.toLowerCase());
+      const dictSnap = await getDoc(dictRef);
+      if (dictSnap.exists()) {
+        setEnEntry(dictSnap.data());
+      } else setEnEntry(null);
+    } catch (err) {
+      console.error("Error fetching English definitions:", err);
+      setEnEntry(null);
+    } finally {
+      setEnEntryLoading(false);
+    }
+  };
+
+  // Extract word from clicked position
+  const extractWordFromText = (
+    element: HTMLElement,
+    clickX: number,
+    clickY: number
+  ): { word: string; rect?: DOMRect } => {
+    try {
+      const range = document.caretRangeFromPoint(clickX, clickY);
+      if (!range) return { word: "" };
+
+      const textContainer = element.closest(".transcript-text");
+      if (!textContainer) return { word: "" };
+
+      const fullText = textContainer.textContent || "";
+      const clickedNode = range.startContainer;
+      const clickOffset = range.startOffset;
+
+      let currentPosition = 0;
+      let clickPosition = -1;
+
+      const findPosition = (node: Node) => {
+        if (clickPosition >= 0) return;
+
+        if (node === clickedNode) {
+          clickPosition = currentPosition + clickOffset;
+          return;
+        }
+
+        if (node.nodeType === Node.TEXT_NODE) {
+          currentPosition += node.textContent?.length || 0;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          for (const child of Array.from(node.childNodes)) {
+            findPosition(child);
+          }
+        }
+      };
+
+      findPosition(textContainer);
+
+      if (clickPosition < 0) return { word: "" };
+
+      let startPos = clickPosition;
+      let endPos = clickPosition;
+
+      while (
+        startPos > 0 &&
+        fullText[startPos - 1] !== " " &&
+        fullText[startPos - 1] !== "—"
+      ) {
+        startPos--;
+      }
+
+      while (
+        endPos < fullText.length &&
+        fullText[endPos] !== " " &&
+        fullText[endPos] !== "—"
+      ) {
+        endPos++;
+      }
+
+      let word = fullText.substring(startPos, endPos);
+      word = word.replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
+
+      return {
+        word,
+        rect:
+          (range.startContainer.nodeType === Node.TEXT_NODE
+            ? range.startContainer.parentElement
+            : (range.startContainer as Element)
+          )?.getBoundingClientRect() || undefined,
+      };
+    } catch (error) {
+      console.error("Error extracting word from text:", error);
+      return { word: "" };
+    }
+  };
+
+  // Handle word click in transcript
+  const handleTranscriptWordClick = async (e: React.MouseEvent) => {
+    if (isAudioMode) {
+      // In audio mode, handle YouTube seeking (existing functionality)
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const target = e.target as HTMLElement;
+    const transcriptContainer = target.closest(".transcript-text") as HTMLElement | null;
+    if (!transcriptContainer) return;
+
+    const fullText = transcriptContainer.textContent || "";
+    if (!fullText) return;
+
+    window.getSelection()?.removeAllRanges();
+
+    const { word: clickedWord } = extractWordFromText(
+      transcriptContainer,
+      e.clientX,
+      e.clientY
+    );
+    // Determine original form (lemma)
+    const originalWord = getOriginalForm(clickedWord);
+
+    if (!originalWord || originalWord.length > 30 || originalWord.split(/\s+/).length > 1) {
+      return;
+    }
+
+    // Get surrounding context
+    const sentenceRegex = new RegExp(
+      `[^.!?]*\\b${originalWord.replace(/[.*+?^${}()|\[\]\\]/g, "\\$&")}\\b[^.!?]*[.!?]`,
+      "i"
+    );
+    const sentenceMatch = fullText.match(sentenceRegex);
+    const context = sentenceMatch ? sentenceMatch[0].trim() : fullText;
+
+    // Open modal with original word
+    setWordDefinitionModal({
+       isOpen: true,
+       word: originalWord,
+       definition: "",
+       isLoading: true,
+    });
+    // Fetch English definitions for original form
+    fetchEnDictEntry(originalWord);
+
+    document.body.style.overflow = "hidden";
+
+    try {
+      const definition = await getWordDefinition(originalWord, context);
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        definition: definition,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Definition error:", error);
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        definition: "뜻풀이를 가져오는 중 오류가 발생했습니다.",
+        isLoading: false,
+      }));
+    }
+  };
+
+  // Close definition modal
+  const closeDefinitionModal = () => {
+    setWordDefinitionModal((prev) => ({
+      ...prev,
+      isOpen: false,
+    }));
+    setEnEntry(null);
+    document.body.style.overflow = "";
+  };
+
+  // Toggle audio mode
+  const toggleAudioMode = () => {
+    setIsAudioMode(!isAudioMode);
+  };
+
+  // Clear highlight when audio mode is turned off
+  useEffect(() => {
+    if (!isAudioMode) {
+      setActiveTimestampIndex(null);
+    }
+  }, [isAudioMode]);
+
+  // Helper to get original form (basic lemmatization)
+  const getOriginalForm = (word: string): string => {
+    const w = word.toLowerCase();
+    if (w.endsWith('ies') && w.length > 3) return w.slice(0, -3) + 'y';
+    if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) return w.slice(0, -1);
+    return w;
+  };
+
   return (
     <ShadowContainer>
       <VideoContainer>
@@ -1727,13 +2126,26 @@ const ShadowPage: React.FC = () => {
         {/* Step 1: Script Study */}
         {currentStep === 1 && !youtubeLoading && !youtubeError && videoTimestamps.length > 0 && (
           <>
-            <TranscriptContainer ref={transcriptContainerRef}>
+            <AudioModeToggle
+              onClick={toggleAudioMode}
+              className={isAudioMode ? "active" : ""}
+            >
+              <span>
+                {isAudioMode ? "✕ 오디오 모드 해제" : "🎧 오디오 모드"}
+              </span>
+            </AudioModeToggle>
+            <TranscriptContainer 
+              ref={transcriptContainerRef}
+              className="transcript-text"
+              onClick={handleTranscriptWordClick}
+            >
               {videoTimestamps.map((item, index) => (
                 <React.Fragment key={`${item.word}-${index}-${item.start}`}>
                   <TranscriptWord
                     isActive={index === activeTimestampIndex}
-                    onClick={() => {
-                      if (playerRef.current && isPlayerReady) {
+                    onClick={(e) => {
+                      if (isAudioMode && playerRef.current && isPlayerReady) {
+                        e.stopPropagation();
                         playerRef.current.seekTo(item.start, true);
                         setActiveTimestampIndex(index);
                       }
@@ -1893,6 +2305,51 @@ const ShadowPage: React.FC = () => {
       </StepContent>
 
       {overallError && <ErrorMessage>{overallError}</ErrorMessage>}
+
+      {/* Word definition modal */}
+      <DefinitionModalOverlay
+        isOpen={wordDefinitionModal.isOpen}
+        onClick={closeDefinitionModal}
+      >
+        <DefinitionModalContent
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        >
+          <CloseButton onClick={closeDefinitionModal}>×</CloseButton>
+          <WordDefinitionTitle>
+            {wordDefinitionModal.word}
+          </WordDefinitionTitle>
+          {wordDefinitionModal.isLoading ? (
+            <LoadingDefinitionContent>
+              뜻풀이 생각 중...
+            </LoadingDefinitionContent>
+          ) : (
+            <>
+              <DefinitionSection>
+                <DefinitionLabel>한국어 정의</DefinitionLabel>
+                <WordDefinitionContent>
+                  {wordDefinitionModal.definition}
+                </WordDefinitionContent>
+              </DefinitionSection>
+              {enEntryLoading ? (
+                <LoadingDefinitionContent>
+                  Loading English definitions...
+                </LoadingDefinitionContent>
+              ) : enEntry && enEntry.senses ? (
+                <Collapsible>
+                  <summary>English Definitions ({enEntry.senses.length})</summary>
+                  <ul>
+                    {enEntry.senses.map((sense: any, idx: number) => (
+                      <li key={idx}>
+                        {sense.pos} {sense.order}{sense.label || ''}: {sense.definition.en}
+                      </li>
+                    ))}
+                  </ul>
+                </Collapsible>
+              ) : null}
+            </>
+          )}
+        </DefinitionModalContent>
+      </DefinitionModalOverlay>
     </ShadowContainer>
   );
 };
