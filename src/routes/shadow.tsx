@@ -319,12 +319,13 @@ const TranscriptContainer = styled.div`
 
 const TranscriptWord = styled.span<{ isActive: boolean }>`
   transition: all 0s cubic-bezier(0.4, 0, 0.2, 1);
-  background: ${(props) => (props.isActive ? "#f0f000" : "transparent")};
-  color: ${(props) =>
-    props.isActive ? "#000000" : colors.text.secondary};
+  background: ${(props) => (props.isActive ? "#fafa00" : "transparent")};
+  color: ${(props) => (props.isActive ? "#000000" : colors.text.secondary)};
   font-weight: ${(props) => (props.isActive ? "400" : "400")};
   cursor: pointer;
   position: relative;
+  padding: 0.1em 0.1em; // Added padding for buffer
+  border-radius: 4px; // Added border-radius for the active highlight
 
   &::before {
     content: "";
@@ -510,8 +511,8 @@ const CarouselContent = styled.div`
 const CarouselSlide = styled.div<{ isActive: boolean }>`
   width: 100%;
   flex-shrink: 0;
-  display: ${(props) => (props.isActive ? 'block' : 'none')};
-  animation: ${(props) => (props.isActive ? 'slideIn 0.3s ease-out' : 'none')};
+  display: ${(props) => (props.isActive ? "block" : "none")};
+  animation: ${(props) => (props.isActive ? "slideIn 0.3s ease-out" : "none")};
 
   @keyframes slideIn {
     from {
@@ -562,7 +563,7 @@ const ProgressBarFill = styled.div<{ progress: number }>`
   position: relative;
 
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     right: 0;
@@ -605,19 +606,19 @@ const StepItem = styled.div<{ isActive: boolean; isCompleted: boolean }>`
   display: flex;
   align-items: center;
   position: relative;
-  
+
   &:not(:last-child) {
     margin-right: 2rem;
-    
+
     &::after {
-      content: '';
+      content: "";
       position: absolute;
       right: -2rem;
       top: 50%;
       transform: translateY(-50%);
       width: 2rem;
       height: 2px;
-      background: ${(props) => 
+      background: ${(props) =>
         props.isCompleted ? colors.primary : colors.border.light};
       transition: background 0.3s ease;
     }
@@ -637,7 +638,7 @@ const StepCircle = styled.div<{ isActive: boolean; isCompleted: boolean }>`
   cursor: pointer;
   position: relative;
   z-index: 1;
-  
+
   ${(props) => {
     if (props.isActive) {
       return `
@@ -675,11 +676,11 @@ const StepLabel = styled.div<{ isActive: boolean }>`
   margin-top: 0.75rem;
   font-size: 0.875rem;
   font-weight: 700;
-  color: ${(props) => props.isActive ? colors.primary : colors.text.muted};
+  color: ${(props) => (props.isActive ? colors.primary : colors.text.muted)};
   white-space: nowrap;
-  opacity: ${(props) => props.isActive ? 1 : 0};
+  opacity: ${(props) => (props.isActive ? 1 : 0)};
   transition: opacity 0.3s ease;
-  
+
   ${StepItem}:hover & {
     opacity: 1;
   }
@@ -753,7 +754,9 @@ const CloseButton = styled.button`
   font-size: 1.5rem;
   color: ${colors.text.muted};
   cursor: pointer;
-  padding: 0.3rem;
+  width: 2.1rem; // Explicit width
+  height: 2.1rem; // Explicit height, same as width
+  padding: 0; // Remove padding, flexbox will center content
   line-height: 1;
   border-radius: 50%;
   display: flex;
@@ -764,6 +767,8 @@ const CloseButton = styled.button`
   @media (max-width: 768px) {
     top: 0.8rem;
     right: 0.8rem;
+    width: 2rem; // Adjust size for smaller screens
+    height: 2rem; // Adjust size for smaller screens
   }
 
   &:hover {
@@ -910,11 +915,10 @@ const ShadowPage: React.FC = () => {
   const [wordDefinitionModal, setWordDefinitionModal] = useState({
     isOpen: false,
     word: "",
-    definition: "",
+    apiData: null as any | null,
+    gptDefinition: "", // Added to store Korean definition from GPT
     isLoading: false,
   });
-  const [enEntry, setEnEntry] = useState<any | null>(null);
-  const [enEntryLoading, setEnEntryLoading] = useState(false);
 
   const recordedAudioChunksRef = useRef<Float32Array[]>([]);
 
@@ -942,7 +946,7 @@ const ShadowPage: React.FC = () => {
     { id: 1, name: "스크립트 공부", label: "Script Study" },
     { id: 2, name: "쉐도잉", label: "Shadowing" },
     { id: 3, name: "내재화", label: "Internalization" },
-    { id: 4, name: "분석", label: "Analysis" }
+    { id: 4, name: "분석", label: "Analysis" },
   ];
 
   useEffect(() => {
@@ -1311,59 +1315,71 @@ const ShadowPage: React.FC = () => {
             word.PronunciationAssessment.ErrorType !== "None";
           return (
             <span key={`s-${sentence.id}-w-${wordIndex}`}>
-              {word.Syllables && word.Syllables.length > 0
-                ? word.Syllables.map((syllable, syllableIndex) => {
-                    if (!syllable) return null;
-                    const syllableDisplayText = syllable.Grapheme || syllable.Syllable;
-                    let titleText = `Syllable: ${syllableDisplayText}\nSyllable Score: ${
-                      syllable.PronunciationAssessment?.AccuracyScore?.toFixed(0) || "N/A"
-                    }`;
+              {word.Syllables && word.Syllables.length > 0 ? (
+                word.Syllables.map((syllable, syllableIndex) => {
+                  if (!syllable) return null;
+                  const syllableDisplayText =
+                    syllable.Grapheme || syllable.Syllable;
+                  let titleText = `Syllable: ${syllableDisplayText}\nSyllable Score: ${
+                    syllable.PronunciationAssessment?.AccuracyScore?.toFixed(
+                      0
+                    ) || "N/A"
+                  }`;
 
-                    if (syllable.Phonemes && syllable.Phonemes.length > 0) {
-                      titleText += "\nPhonemes:";
-                      for (const phoneme of syllable.Phonemes) {
-                        if (!phoneme) continue;
-                        const phonemeName = phoneme.Phoneme || "Unknown";
-                        const phonemeScore =
-                          typeof phoneme.PronunciationAssessment?.AccuracyScore === "number"
-                            ? phoneme.PronunciationAssessment.AccuracyScore.toFixed(0) + "%"
-                            : "N/A";
-                        titleText += `\n  - ${phonemeName}: ${phonemeScore}`;
-                      }
+                  if (syllable.Phonemes && syllable.Phonemes.length > 0) {
+                    titleText += "\nPhonemes:";
+                    for (const phoneme of syllable.Phonemes) {
+                      if (!phoneme) continue;
+                      const phonemeName = phoneme.Phoneme || "Unknown";
+                      const phonemeScore =
+                        typeof phoneme.PronunciationAssessment
+                          ?.AccuracyScore === "number"
+                          ? phoneme.PronunciationAssessment.AccuracyScore.toFixed(
+                              0
+                            ) + "%"
+                          : "N/A";
+                      titleText += `\n  - ${phonemeName}: ${phonemeScore}`;
                     }
+                  }
 
-                    return (
-                      <SyllableSpan
-                        key={`s-${sentence.id}-syl-${syllableIndex}`}
-                        color={getAzurePronunciationColor(
-                          syllable.PronunciationAssessment?.AccuracyScore
-                        )}
-                        title={titleText}
-                        style={{
-                          textDecoration: hasError ? "underline" : "none",
-                          fontStyle: hasError ? "italic" : "normal",
-                        }}
-                      >
-                        {syllableDisplayText}
-                      </SyllableSpan>
-                    );
-                  })
-                : word.Word ? ( // Check if word.Word exists before rendering
+                  return (
                     <SyllableSpan
+                      key={`s-${sentence.id}-syl-${syllableIndex}`}
                       color={getAzurePronunciationColor(
-                        word.PronunciationAssessment?.AccuracyScore
+                        syllable.PronunciationAssessment?.AccuracyScore
                       )}
-                      title={`Word: ${word.Word}\nScore: ${
-                        word.PronunciationAssessment?.AccuracyScore?.toFixed(0) || "N/A"
-                      }${hasError ? `\nError: ${word.PronunciationAssessment?.ErrorType}` : ""}`}
+                      title={titleText}
                       style={{
                         textDecoration: hasError ? "underline" : "none",
                         fontStyle: hasError ? "italic" : "normal",
                       }}
                     >
-                      {word.Word}
+                      {syllableDisplayText}
                     </SyllableSpan>
-                  ) : null} {/* If no syllables and no word.Word, render nothing */}
+                  );
+                })
+              ) : word.Word ? ( // Check if word.Word exists before rendering
+                <SyllableSpan
+                  color={getAzurePronunciationColor(
+                    word.PronunciationAssessment?.AccuracyScore
+                  )}
+                  title={`Word: ${word.Word}\nScore: ${
+                    word.PronunciationAssessment?.AccuracyScore?.toFixed(0) ||
+                    "N/A"
+                  }${
+                    hasError
+                      ? `\nError: ${word.PronunciationAssessment?.ErrorType}`
+                      : ""
+                  }`}
+                  style={{
+                    textDecoration: hasError ? "underline" : "none",
+                    fontStyle: hasError ? "italic" : "normal",
+                  }}
+                >
+                  {word.Word}
+                </SyllableSpan>
+              ) : null}{" "}
+              {/* If no syllables and no word.Word, render nothing */}
               {wordIndex < words.length - 1 && " "}
             </span>
           );
@@ -1876,20 +1892,27 @@ const ShadowPage: React.FC = () => {
     }
   };
 
-  // Fetch English dictionary entry from Firestore
-  const fetchEnDictEntry = async (word: string) => {
-    setEnEntryLoading(true);
+  // Function to fetch word definition from Free Dictionary API
+  const fetchWordFromDictionaryApi = async (
+    word: string
+  ): Promise<any | null> => {
     try {
-      const dictRef = doc(db, "en_dict", word.toLowerCase());
-      const dictSnap = await getDoc(dictRef);
-      if (dictSnap.exists()) {
-        setEnEntry(dictSnap.data());
-      } else setEnEntry(null);
-    } catch (err) {
-      console.error("Error fetching English definitions:", err);
-      setEnEntry(null);
-    } finally {
-      setEnEntryLoading(false);
+      const response = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`
+      );
+      if (!response.ok) {
+        // The API returns a specific JSON structure for "No Definitions Found"
+        if (response.status === 404) {
+          console.warn(`No definitions found for "${word}" from API.`);
+          return null; // Or you could return the error JSON if you want to display it
+        }
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+      return data; // This will be an array of entries
+    } catch (error) {
+      console.error("Free Dictionary API Error:", error);
+      return null;
     }
   };
 
@@ -1981,7 +2004,9 @@ const ShadowPage: React.FC = () => {
     e.stopPropagation();
 
     const target = e.target as HTMLElement;
-    const transcriptContainer = target.closest(".transcript-text") as HTMLElement | null;
+    const transcriptContainer = target.closest(
+      ".transcript-text"
+    ) as HTMLElement | null;
     if (!transcriptContainer) return;
 
     const fullText = transcriptContainer.textContent || "";
@@ -1997,13 +2022,20 @@ const ShadowPage: React.FC = () => {
     // Determine original form (lemma)
     const originalWord = getOriginalForm(clickedWord);
 
-    if (!originalWord || originalWord.length > 30 || originalWord.split(/\s+/).length > 1) {
+    if (
+      !originalWord ||
+      originalWord.length > 30 ||
+      originalWord.split(/\s+/).length > 1
+    ) {
       return;
     }
 
     // Get surrounding context
     const sentenceRegex = new RegExp(
-      `[^.!?]*\\b${originalWord.replace(/[.*+?^${}()|\[\]\\]/g, "\\$&")}\\b[^.!?]*[.!?]`,
+      `[^.!?]*\b${originalWord.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      )}\b[^.!?]*[.!?]`,
       "i"
     );
     const sentenceMatch = fullText.match(sentenceRegex);
@@ -2011,28 +2043,34 @@ const ShadowPage: React.FC = () => {
 
     // Open modal with original word
     setWordDefinitionModal({
-       isOpen: true,
-       word: originalWord,
-       definition: "",
-       isLoading: true,
+      isOpen: true,
+      word: originalWord,
+      apiData: null,
+      gptDefinition: "", // Initialize GPT definition
+      isLoading: true,
     });
-    // Fetch English definitions for original form
-    fetchEnDictEntry(originalWord);
 
     document.body.style.overflow = "hidden";
 
     try {
-      const definition = await getWordDefinition(originalWord, context);
+      // Fetch definition from GPT (Korean)
+      const gptDefinition = await getWordDefinition(originalWord, context);
+      // Fetch dictionary data from the new API
+      const dictionaryApiData = await fetchWordFromDictionaryApi(originalWord);
+
       setWordDefinitionModal((prev) => ({
         ...prev,
-        definition: definition,
+        gptDefinition: gptDefinition,
+        apiData: dictionaryApiData,
         isLoading: false,
       }));
     } catch (error) {
-      console.error("Definition error:", error);
+      console.error("Definition or API error:", error);
       setWordDefinitionModal((prev) => ({
         ...prev,
-        definition: "뜻풀이를 가져오는 중 오류가 발생했습니다.",
+        gptDefinition:
+          prev.gptDefinition || "뜻풀이를 가져오는 중 오류가 발생했습니다.",
+        apiData: null,
         isLoading: false,
       }));
     }
@@ -2043,8 +2081,9 @@ const ShadowPage: React.FC = () => {
     setWordDefinitionModal((prev) => ({
       ...prev,
       isOpen: false,
+      apiData: null,
+      gptDefinition: "", // Reset GPT definition as well
     }));
-    setEnEntry(null);
     document.body.style.overflow = "";
   };
 
@@ -2063,8 +2102,9 @@ const ShadowPage: React.FC = () => {
   // Helper to get original form (basic lemmatization)
   const getOriginalForm = (word: string): string => {
     const w = word.toLowerCase();
-    if (w.endsWith('ies') && w.length > 3) return w.slice(0, -3) + 'y';
-    if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) return w.slice(0, -1);
+    if (w.endsWith("ies") && w.length > 3) return w.slice(0, -3) + "y";
+    if (w.endsWith("s") && !w.endsWith("ss") && w.length > 3)
+      return w.slice(0, -1);
     return w;
   };
 
@@ -2088,7 +2128,7 @@ const ShadowPage: React.FC = () => {
             src={youtubeUrl}
             title="YouTube video player"
             frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           ></iframe>
         )}
@@ -2102,7 +2142,7 @@ const ShadowPage: React.FC = () => {
       {/* Step Progress Indicator */}
       <StepProgressContainer>
         {steps.map((step, _index) => (
-          <StepItem 
+          <StepItem
             key={step.id}
             isActive={currentStep === step.id}
             isCompleted={currentStep > step.id}
@@ -2124,41 +2164,44 @@ const ShadowPage: React.FC = () => {
       {/* Step-based Content */}
       <StepContent>
         {/* Step 1: Script Study */}
-        {currentStep === 1 && !youtubeLoading && !youtubeError && videoTimestamps.length > 0 && (
-          <>
-            <AudioModeToggle
-              onClick={toggleAudioMode}
-              className={isAudioMode ? "active" : ""}
-            >
-              <span>
-                {isAudioMode ? "✕ 오디오 모드 해제" : "🎧 오디오 모드"}
-              </span>
-            </AudioModeToggle>
-            <TranscriptContainer 
-              ref={transcriptContainerRef}
-              className="transcript-text"
-              onClick={handleTranscriptWordClick}
-            >
-              {videoTimestamps.map((item, index) => (
-                <React.Fragment key={`${item.word}-${index}-${item.start}`}>
-                  <TranscriptWord
-                    isActive={index === activeTimestampIndex}
-                    onClick={(e) => {
-                      if (isAudioMode && playerRef.current && isPlayerReady) {
-                        e.stopPropagation();
-                        playerRef.current.seekTo(item.start, true);
-                        setActiveTimestampIndex(index);
-                      }
-                    }}
-                  >
-                    {item.word}
-                  </TranscriptWord>
-                  {index < videoTimestamps.length - 1 && " "}
-                </React.Fragment>
-              ))}
-            </TranscriptContainer>
-          </>
-        )}
+        {currentStep === 1 &&
+          !youtubeLoading &&
+          !youtubeError &&
+          videoTimestamps.length > 0 && (
+            <>
+              <AudioModeToggle
+                onClick={toggleAudioMode}
+                className={isAudioMode ? "active" : ""}
+              >
+                <span>
+                  {isAudioMode ? "✕ 오디오 모드 해제" : "🎧 오디오 모드"}
+                </span>
+              </AudioModeToggle>
+              <TranscriptContainer
+                ref={transcriptContainerRef}
+                className="transcript-text"
+                onClick={handleTranscriptWordClick}
+              >
+                {videoTimestamps.map((item, index) => (
+                  <React.Fragment key={`${item.word}-${index}-${item.start}`}>
+                    <TranscriptWord
+                      isActive={index === activeTimestampIndex}
+                      onClick={(e) => {
+                        if (isAudioMode && playerRef.current && isPlayerReady) {
+                          e.stopPropagation();
+                          playerRef.current.seekTo(item.start, true);
+                          setActiveTimestampIndex(index);
+                        }
+                      }}
+                    >
+                      {item.word}
+                    </TranscriptWord>
+                    {index < videoTimestamps.length - 1 && " "}
+                  </React.Fragment>
+                ))}
+              </TranscriptContainer>
+            </>
+          )}
 
         {/* Step 2: Shadowing Practice */}
         {currentStep === 2 && sentencesToAssess.length > 0 && (
@@ -2166,7 +2209,10 @@ const ShadowPage: React.FC = () => {
             <CarouselContainer>
               <CarouselContent>
                 {sentencesToAssess.map((sentence, index) => (
-                  <CarouselSlide key={sentence.id} isActive={index === currentSentenceIndex}>
+                  <CarouselSlide
+                    key={sentence.id}
+                    isActive={index === currentSentenceIndex}
+                  >
                     <SentenceRow>
                       {renderSentenceWithAssessment(sentence)}
                       <SentenceControls>
@@ -2174,7 +2220,8 @@ const ShadowPage: React.FC = () => {
                           onClick={() => {
                             if (
                               isRecordingActive &&
-                              currentRecordingSentenceIndex === currentSentenceIndex
+                              currentRecordingSentenceIndex ===
+                                currentSentenceIndex
                             ) {
                               stopCurrentSentenceRecording();
                             } else if (!isRecordingActive) {
@@ -2182,12 +2229,15 @@ const ShadowPage: React.FC = () => {
                             }
                           }}
                           disabled={
-                            isRecordingActive && currentRecordingSentenceIndex !== currentSentenceIndex
+                            isRecordingActive &&
+                            currentRecordingSentenceIndex !==
+                              currentSentenceIndex
                           }
                         >
                           <span>
                             {isRecordingActive &&
-                            currentRecordingSentenceIndex === currentSentenceIndex ? (
+                            currentRecordingSentenceIndex ===
+                              currentSentenceIndex ? (
                               <>
                                 <LoadingSpinner />
                                 Stop Recording
@@ -2222,21 +2272,34 @@ const ShadowPage: React.FC = () => {
                         <AzureResultsBox>
                           <p>
                             <strong>Recognized:</strong> "
-                            <em>{sentence.recognizedText || "(No speech recognized)"}</em>
+                            <em>
+                              {sentence.recognizedText ||
+                                "(No speech recognized)"}
+                            </em>
                             "
                           </p>
                           <AzureScoreArea>
                             <p>
                               <strong>Pronunciation:</strong>{" "}
-                              {sentence.assessmentResult.pronunciationScore?.toFixed(1)}%
-                              {" | "}
+                              {sentence.assessmentResult.pronunciationScore?.toFixed(
+                                1
+                              )}
+                              %{" | "}
                               <strong>Accuracy:</strong>{" "}
-                              {sentence.assessmentResult.accuracyScore?.toFixed(1)}%
-                              {" | "}
+                              {sentence.assessmentResult.accuracyScore?.toFixed(
+                                1
+                              )}
+                              %{" | "}
                               <strong>Fluency:</strong>{" "}
-                              {sentence.assessmentResult.fluencyScore?.toFixed(1)}%{" | "}
+                              {sentence.assessmentResult.fluencyScore?.toFixed(
+                                1
+                              )}
+                              %{" | "}
                               <strong>Completeness:</strong>{" "}
-                              {sentence.assessmentResult.completenessScore?.toFixed(1)}%
+                              {sentence.assessmentResult.completenessScore?.toFixed(
+                                1
+                              )}
+                              %
                               {sentence.assessmentResult.prosodyScore &&
                                 ` | Prosody: ${sentence.assessmentResult.prosodyScore.toFixed(
                                   1
@@ -2253,22 +2316,30 @@ const ShadowPage: React.FC = () => {
 
             <CarouselNavigation>
               <NavigationButton
-                onClick={() => setCurrentSentenceIndex(Math.max(0, currentSentenceIndex - 1))}
+                onClick={() =>
+                  setCurrentSentenceIndex(Math.max(0, currentSentenceIndex - 1))
+                }
                 disabled={currentSentenceIndex === 0}
               >
                 <span>← Previous</span>
               </NavigationButton>
 
               <ProgressBarContainer>
-                <ProgressBarFill 
-                  progress={((currentSentenceIndex + 1) / sentencesToAssess.length) * 100}
+                <ProgressBarFill
+                  progress={
+                    ((currentSentenceIndex + 1) / sentencesToAssess.length) *
+                    100
+                  }
                 />
               </ProgressBarContainer>
 
               <NavigationButton
-                onClick={() => 
+                onClick={() =>
                   setCurrentSentenceIndex(
-                    Math.min(sentencesToAssess.length - 1, currentSentenceIndex + 1)
+                    Math.min(
+                      sentencesToAssess.length - 1,
+                      currentSentenceIndex + 1
+                    )
                   )
                 }
                 disabled={currentSentenceIndex === sentencesToAssess.length - 1}
@@ -2315,37 +2386,253 @@ const ShadowPage: React.FC = () => {
           onClick={(e: React.MouseEvent) => e.stopPropagation()}
         >
           <CloseButton onClick={closeDefinitionModal}>×</CloseButton>
-          <WordDefinitionTitle>
-            {wordDefinitionModal.word}
-          </WordDefinitionTitle>
-          {wordDefinitionModal.isLoading ? (
+          <WordDefinitionTitle>{wordDefinitionModal.word}</WordDefinitionTitle>
+          {/* Combined loading state for initial fetch */}
+          {wordDefinitionModal.isLoading &&
+          !wordDefinitionModal.apiData &&
+          !wordDefinitionModal.gptDefinition ? (
             <LoadingDefinitionContent>
-              뜻풀이 생각 중...
+              뜻풀이 및 영어 정의 검색 중...
             </LoadingDefinitionContent>
           ) : (
             <>
+              {/* Korean Definition (GPT) Section */}
               <DefinitionSection>
-                <DefinitionLabel>한국어 정의</DefinitionLabel>
-                <WordDefinitionContent>
-                  {wordDefinitionModal.definition}
-                </WordDefinitionContent>
+                {wordDefinitionModal.isLoading &&
+                !wordDefinitionModal.gptDefinition ? (
+                  <LoadingDefinitionContent>
+                    GPT 뜻풀이 검색 중...
+                  </LoadingDefinitionContent>
+                ) : wordDefinitionModal.gptDefinition ? (
+                  <WordDefinitionContent>
+                    {wordDefinitionModal.gptDefinition}
+                  </WordDefinitionContent>
+                ) : (
+                  <WordDefinitionContent>
+                    한국어 뜻풀이를 가져오지 못했습니다.
+                  </WordDefinitionContent>
+                )}
               </DefinitionSection>
-              {enEntryLoading ? (
+
+              {/* English Definitions (Dictionary API) Section */}
+              {wordDefinitionModal.isLoading && !wordDefinitionModal.apiData ? (
                 <LoadingDefinitionContent>
-                  Loading English definitions...
+                  Loading English definitions from API...
                 </LoadingDefinitionContent>
-              ) : enEntry && enEntry.senses ? (
+              ) : wordDefinitionModal.apiData &&
+                Array.isArray(wordDefinitionModal.apiData) &&
+                wordDefinitionModal.apiData.length > 0 ? (
                 <Collapsible>
-                  <summary>English Definitions ({enEntry.senses.length})</summary>
-                  <ul>
-                    {enEntry.senses.map((sense: any, idx: number) => (
-                      <li key={idx}>
-                        {sense.pos} {sense.order}{sense.label || ''}: {sense.definition.en}
-                      </li>
-                    ))}
-                  </ul>
+                  <summary>📖 영어 사전 확인하기</summary>
+
+                  {wordDefinitionModal.apiData.map(
+                    (entry: any, entryIdx: number) => (
+                      <div
+                        key={`entry-${entryIdx}`}
+                        style={{
+                          marginTop: "1rem",
+                          borderBottom:
+                            entryIdx < wordDefinitionModal.apiData.length - 1
+                              ? "1px solid #eee"
+                              : "none",
+                          paddingBottom:
+                            entryIdx < wordDefinitionModal.apiData.length - 1
+                              ? "1rem"
+                              : "0",
+                        }}
+                      >
+                        {/* All Phonetics with Audio */}
+                        {entry.phonetics &&
+                          entry.phonetics.filter((p: any) => p.text).length >
+                            0 && (
+                            <DefinitionSection>
+                              <DefinitionLabel style={{ fontSize: "0.9rem" }}>
+                                Pronunciation
+                              </DefinitionLabel>
+                              {entry.phonetics.map(
+                                (p: any, pIdx: number) =>
+                                  p.text && ( // Only render if phonetic text exists
+                                    <div
+                                      key={`phonetic-${pIdx}`}
+                                      style={{
+                                        marginBottom: "0.3rem",
+                                        display: "flex",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      {p.audio && (
+                                        <audio
+                                          controls
+                                          src={p.audio}
+                                          style={{
+                                            height: "30px",
+                                            minWidth: "100%",
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                  )
+                              )}
+                            </DefinitionSection>
+                          )}
+
+                        {/* Meanings */}
+                        {entry.meanings && entry.meanings.length > 0 && (
+                          <DefinitionSection>
+                            <DefinitionLabel style={{ fontSize: "0.9rem" }}>
+                              Meanings
+                            </DefinitionLabel>
+                            {entry.meanings.map(
+                              (meaning: any, mIdx: number) => (
+                                <div
+                                  key={`meaning-${mIdx}`}
+                                  style={{ marginBottom: "0.8rem" }}
+                                >
+                                  <WordDefinitionContent
+                                    style={{
+                                      fontWeight: "bold",
+                                      color: colors.primaryDark,
+                                    }}
+                                  >
+                                    {meaning.partOfSpeech}
+                                  </WordDefinitionContent>
+
+                                  {meaning.definitions &&
+                                    meaning.definitions.length > 0 && (
+                                      <ul
+                                        style={{
+                                          marginTop: "0.3rem",
+                                          paddingLeft: "0px", // Changed from "20px"
+                                          listStyleType: "disc",
+                                        }}
+                                      >
+                                        {meaning.definitions.map(
+                                          (def: any, dIdx: number) => (
+                                            <li
+                                              key={`def-${dIdx}`}
+                                              style={{ marginBottom: "0.4rem" }}
+                                            >
+                                              {def.definition}
+                                              {def.example && (
+                                                <div
+                                                  style={{
+                                                    fontStyle: "italic",
+                                                    color: colors.text.muted,
+                                                    fontSize: "0.9em",
+                                                    marginLeft: "0px", // Changed from "10px"
+                                                    overflowWrap: "break-word",
+                                                    wordBreak: "break-word",
+                                                  }}
+                                                >
+                                                  e.g. "{def.example}"
+                                                </div>
+                                              )}
+                                              {def.synonyms &&
+                                                def.synonyms.length > 0 && (
+                                                  <div
+                                                    style={{
+                                                      fontSize: "0.85em",
+                                                      color:
+                                                        colors.text.secondary,
+                                                      marginTop: "0.2rem",
+                                                      overflowWrap:
+                                                        "break-word",
+                                                      wordBreak: "break-word",
+                                                    }}
+                                                  >
+                                                    <strong>Synonyms:</strong>{" "}
+                                                    {def.synonyms.join(", ")}
+                                                  </div>
+                                                )}
+                                              {def.antonyms &&
+                                                def.antonyms.length > 0 && (
+                                                  <div
+                                                    style={{
+                                                      fontSize: "0.85em",
+                                                      color:
+                                                        colors.text.secondary,
+                                                      marginTop: "0.2rem",
+                                                      overflowWrap:
+                                                        "break-word",
+                                                      wordBreak: "break-word",
+                                                    }}
+                                                  >
+                                                    <strong>Antonyms:</strong>{" "}
+                                                    {def.antonyms.join(", ")}
+                                                  </div>
+                                                )}
+                                            </li>
+                                          )
+                                        )}
+                                      </ul>
+                                    )}
+                                  {/* Display meaning-level synonyms */}
+                                  {meaning.synonyms &&
+                                    meaning.synonyms.length > 0 && (
+                                      <div
+                                        style={{
+                                          fontSize: "0.85em",
+                                          color: colors.text.secondary,
+                                          marginTop: "0.3rem",
+                                          paddingLeft: "0px", // Changed from "20px"
+                                          overflowWrap: "break-word",
+                                          wordBreak: "break-word",
+                                        }}
+                                      >
+                                        <strong>Synonyms:</strong>{" "}
+                                        {meaning.synonyms.join(", ")}
+                                      </div>
+                                    )}
+
+                                  {/* Display meaning-level antonyms */}
+                                  {meaning.antonyms &&
+                                    meaning.antonyms.length > 0 && (
+                                      <div
+                                        style={{
+                                          fontSize: "0.85em",
+                                          color: colors.text.secondary,
+                                          marginTop: "0.3rem",
+                                          paddingLeft: "0px", // Changed from "20px"
+                                          overflowWrap: "break-word",
+                                          wordBreak: "break-word",
+                                        }}
+                                      >
+                                        <strong>Antonyms:</strong>{" "}
+                                        {meaning.antonyms.join(", ")}
+                                      </div>
+                                    )}
+                                </div>
+                              )
+                            )}
+                          </DefinitionSection>
+                        )}
+                        {/* Source URLs */}
+                        {entry.sourceUrls && entry.sourceUrls.length > 0 && (
+                          <DefinitionSection>
+                            <DefinitionLabel style={{ fontSize: "0.9rem" }}>
+                              Source: Wikitionary
+                            </DefinitionLabel>
+                          </DefinitionSection>
+                        )}
+                      </div>
+                    )
+                  )}
                 </Collapsible>
-              ) : null}
+              ) : /* Check for the specific "No Definitions Found" title from the API response */
+              wordDefinitionModal.apiData &&
+                wordDefinitionModal.apiData.title === "No Definitions Found" ? (
+                <LoadingDefinitionContent>
+                  No English definitions found for "{wordDefinitionModal.word}"
+                  via API.
+                </LoadingDefinitionContent>
+              ) : (
+                !wordDefinitionModal.isLoading && ( // Only show if not loading
+                  <LoadingDefinitionContent>
+                    Could not load English definitions for "
+                    {wordDefinitionModal.word}".
+                  </LoadingDefinitionContent>
+                )
+              )}
             </>
           )}
         </DefinitionModalContent>
