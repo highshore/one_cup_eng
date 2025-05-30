@@ -458,6 +458,9 @@ export default function GNB({
           <MenuItem to="/guide" isTransparent={makeTransparent}>
             가이드
           </MenuItem>
+          <MenuItem to="/library" isTransparent={makeTransparent}>
+            라이브러리
+          </MenuItem>
           {/* <MenuItem to="/meetup">밋업</MenuItem>
           <MenuItem to="/community">커뮤니티</MenuItem> */}
         </MenuContainer>
@@ -489,6 +492,9 @@ export default function GNB({
         <MobileMenuContainer className="mobile-menu" isOpen={isMenuOpen}>
           <MobileMenuItem to="/guide" onClick={() => setIsMenuOpen(false)}>
             가이드
+          </MobileMenuItem>
+          <MobileMenuItem to="/library" onClick={() => setIsMenuOpen(false)}>
+            라이브러리
           </MobileMenuItem>
           {/* <MobileMenuItem to="/meetup" onClick={() => setIsMenuOpen(false)}>
             밋업
