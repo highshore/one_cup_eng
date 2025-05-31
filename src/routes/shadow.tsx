@@ -4,320 +4,33 @@ import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
-// Interface for Azure Phoneme-level Pronunciation Result
-interface AzurePhonemePronunciationResult {
-  Phoneme?: string;
-  PronunciationAssessment?: {
-    AccuracyScore?: number;
-  };
-}
+// Import extracted components and utilities
+import {
+  AzureWordPronunciationResult,
+  VideoTimestamp,
+  SentenceForAssessment,
+  InternalizationSentence,
+  SentenceCreationWord,
+  Step,
+  WordDefinitionModalState,
+} from "../types/shadow";
+import {
+  colors,
+  ShadowContainer,
+  Button,
+  ColorCodedSentence,
+  ErrorMessage,
+  LoadingSpinner,
+  LoadingContainer,
+  VideoContainer,
+  StatusIndicator,
+} from "../styles/shadowStyles";
+import WordDefinitionModal from "../components/WordDefinitionModal";
+import SentenceAssessment from "../components/SentenceAssessment";
+import AnalysisReport from "../components/AnalysisReport";
+import { convertToEmbedUrl } from "../utils/shadowUtils";
 
-// Interface for Azure Syllable-level Pronunciation Result
-interface AzureSyllablePronunciationResult {
-  Syllable: string; // The phonemic representation of the syllable
-  Grapheme?: string; // The written representation of the syllable
-  PronunciationAssessment?: {
-    AccuracyScore?: number;
-  };
-  Phonemes?: AzurePhonemePronunciationResult[];
-}
-
-// Interface for Azure Word-level Pronunciation Result
-interface AzureWordPronunciationResult {
-  Word: string;
-  PronunciationAssessment?: {
-    ErrorType?: string;
-    AccuracyScore?: number;
-  };
-  Syllables?: AzureSyllablePronunciationResult[];
-  Phonemes?: AzurePhonemePronunciationResult[];
-  // Offset and Duration can be added if needed for other UI features later
-  // Offset?: number;
-  // Duration?: number;
-}
-
-interface VideoTimestamp {
-  start: number;
-  end: number;
-  word: string;
-}
-
-interface SentenceForAssessment {
-  id: string;
-  text: string;
-  words: VideoTimestamp[];
-  assessmentResult: SpeechSDK.PronunciationAssessmentResult | null;
-  recordedSentenceAudioUrl: string | null;
-  isAssessing: boolean;
-  assessmentError: string | null;
-  recognizedText?: string;
-  rawJson?: string;
-}
-
-// Modern color palette
-const colors = {
-  primary: "#3c2e26",
-  primaryDark: "#2c1810",
-  primaryLight: "#5d4037",
-  secondary: "#8d6e63",
-  accent: "#d4a574",
-  success: "#4e7c59",
-  warning: "#c17817",
-  error: "#a8423f",
-  background: "#faf8f6",
-  surface: "#ffffff",
-  surfaceElevated: "#ffffff",
-  text: {
-    primary: "#2c1810",
-    secondary: "#3c2e26",
-    muted: "#8d6e63",
-    inverse: "#ffffff",
-  },
-  border: {
-    light: "#e8ddd4",
-    medium: "#d7c7b8",
-    dark: "#a69080",
-  },
-  shadow: {
-    sm: "0 1px 3px rgba(44, 24, 16, 0.1), 0 1px 2px rgba(44, 24, 16, 0.06)",
-    md: "0 4px 6px rgba(44, 24, 16, 0.07), 0 2px 4px rgba(44, 24, 16, 0.06)",
-    lg: "0 10px 15px rgba(44, 24, 16, 0.1), 0 4px 6px rgba(44, 24, 16, 0.05)",
-    xl: "0 20px 25px rgba(44, 24, 16, 0.1), 0 10px 10px rgba(44, 24, 16, 0.04)",
-  },
-};
-
-const ShadowContainer = styled.div`
-  width: 100%;
-  padding: 2rem 0rem;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2rem;
-  max-width: 960px;
-  margin: 0 auto;
-  min-height: 100vh;
-`;
-
-const Title = styled.h1`
-  color: ${colors.text.primary};
-  width: 100%;
-  text-align: center;
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin: 0;
-  background: linear-gradient(
-    135deg,
-    ${colors.primary},
-    ${colors.primaryLight}
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.02em;
-
-  @media (max-width: 768px) {
-    font-size: 2rem;
-  }
-`;
-
-const Button = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark});
-  color: ${colors.text.inverse};
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: ${colors.shadow.sm};
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      135deg,
-      ${colors.primaryLight},
-      ${colors.accent}
-    );
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-
-  &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: ${colors.shadow.lg};
-
-    &::before {
-      opacity: 1;
-    }
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: ${colors.shadow.md};
-  }
-
-  &:disabled {
-    background: ${colors.border.medium};
-    color: ${colors.text.muted};
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-
-    &::before {
-      display: none;
-    }
-  }
-
-  span {
-    position: relative;
-    z-index: 1;
-  }
-`;
-
-const TranscriptArea = styled.div`
-  width: 100%;
-  min-height: 120px;
-  padding: 1.5rem;
-  background: ${colors.surface};
-  white-space: pre-wrap;
-  text-align: left;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: ${colors.text.secondary};
-  box-shadow: ${colors.shadow.sm};
-
-  &:hover {
-    border-color: ${colors.border.medium};
-    box-shadow: ${colors.shadow.md};
-  }
-`;
-
-const AzureResultsBox = styled(TranscriptArea)`
-  background: linear-gradient(135deg, ${colors.surface}, ${colors.background});
-  border: 1px solid ${colors.primary}33;
-  border-left: 4px solid ${colors.primary};
-  box-shadow: ${colors.shadow.md};
-`;
-
-const AzureScoreArea = styled.div`
-  font-size: 0.875rem;
-  margin-top: 1rem;
-  padding: 1rem;
-  background: ${colors.background};
-  border-radius: 12px;
-  border: 1px solid ${colors.border.light};
-
-  p {
-    margin: 0.5rem 0;
-    color: ${colors.text.secondary};
-    font-weight: 500;
-  }
-`;
-
-const ColorCodedSentence = styled.div`
-  margin: 1.5rem 0;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, ${colors.surface}, ${colors.background});
-  border-radius: 16px;
-  line-height: 2;
-  font-size: 1.1rem;
-  box-shadow: ${colors.shadow.md};
-  border: 1px solid ${colors.border.light};
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${colors.shadow.lg};
-  }
-`;
-
-const SyllableSpan = styled.span<{
-  color: string;
-  isOmitted?: boolean;
-  isInserted?: boolean;
-}>`
-  color: ${(props) => {
-    if (props.isOmitted) return colors.text.muted;
-    switch (props.color) {
-      case "green":
-        return colors.success;
-      case "orange":
-        return colors.warning;
-      case "red":
-        return colors.error;
-      default:
-        return colors.text.muted;
-    }
-  }};
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 8px;
-  margin: 0 2px;
-  background: ${(props) => {
-    if (props.isInserted) return `${colors.accent}20`;
-    if (props.isOmitted) return `${colors.text.muted}10`;
-    switch (props.color) {
-      case "green":
-        return `${colors.success}15`;
-      case "orange":
-        return `${colors.warning}15`;
-      case "red":
-        return `${colors.error}15`;
-      default:
-        return "transparent";
-    }
-  }};
-  border: 1px solid
-    ${(props) => {
-      if (props.isInserted) return `${colors.accent}50`;
-      if (props.isOmitted) return `${colors.text.muted}30`;
-      switch (props.color) {
-        case "green":
-          return `${colors.success}30`;
-        case "orange":
-          return `${colors.warning}30`;
-        case "red":
-          return `${colors.error}30`;
-        default:
-          return "transparent";
-      }
-    }};
-  transition: all 0.2s ease;
-  text-decoration: ${(props) => (props.isOmitted ? "line-through" : "none")};
-  font-style: ${(props) => (props.isOmitted ? "italic" : "normal")};
-  opacity: ${(props) => (props.isOmitted ? 0.7 : 1)};
-
-  &:hover {
-    transform: scale(1.05);
-  }
-`;
-
-const ErrorMessage = styled.p`
-  color: ${colors.error};
-  width: 100%;
-  text-align: center;
-  font-weight: 500;
-  padding: 1rem;
-  background: ${colors.error}10;
-  border: 1px solid ${colors.error}30;
-  border-radius: 12px;
-  margin: 1rem 0;
-  box-shadow: ${colors.shadow.sm};
-`;
-
+// Remaining styled components that are specific to this page
 const TranscriptContainer = styled.div`
   width: 100%;
   margin-top: 1rem;
@@ -336,8 +49,8 @@ const TranscriptWord = styled.span<{ isActive: boolean }>`
   font-weight: ${(props) => (props.isActive ? "400" : "400")};
   cursor: pointer;
   position: relative;
-  padding: 0.1em 0.1em; // Added padding for buffer
-  border-radius: 4px; // Added border-radius for the active highlight
+  padding: 0.1em 0.1em;
+  border-radius: 4px;
 
   &::before {
     content: "";
@@ -396,115 +109,11 @@ const SentenceRow = styled.div`
   }
 `;
 
-const SentenceTextDisplay = styled.div`
-  font-size: 1.15rem;
-  line-height: 1.7;
-  margin-bottom: 1rem;
-  color: ${colors.text.primary};
-  font-weight: 400;
-  letter-spacing: 0.01em;
-`;
-
 const SentenceControls = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
-`;
-
-// Add modern YouTube container styling
-const VideoContainer = styled.div`
-  margin-bottom: 2rem;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  position: relative;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: ${colors.shadow.xl};
-  background: linear-gradient(135deg, ${colors.background}, ${colors.surface});
-  border: 1px solid ${colors.border.light};
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${colors.shadow.xl}, 0 0 0 1px ${colors.primary}20;
-  }
-
-  iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    border-radius: 20px;
-  }
-`;
-
-// Add loading spinner component
-const LoadingSpinner = styled.div`
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 2px solid ${colors.border.light};
-  border-radius: 50%;
-  border-top-color: ${colors.primary};
-  animation: spin 1s ease-in-out infinite;
-  margin-right: 0.5rem;
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-`;
-
-// Add loading state for page
-const LoadingContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  gap: 1rem;
-
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid ${colors.border.light};
-    border-radius: 50%;
-    border-top-color: ${colors.primary};
-    animation: spin 1s ease-in-out infinite;
-  }
-
-  .text {
-    font-size: 1.1rem;
-    color: ${colors.text.secondary};
-    font-weight: 500;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-`;
-
-// Add modern audio controls styling
-const AudioControls = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-
-  audio {
-    border-radius: 12px;
-    height: 40px;
-    background: ${colors.surface};
-    border: 1px solid ${colors.border.light};
-    box-shadow: ${colors.shadow.sm};
-
-    &::-webkit-media-controls-panel {
-      background: ${colors.surface};
-      border-radius: 12px;
-    }
-  }
 `;
 
 // Carousel components
@@ -542,7 +151,7 @@ const CarouselNavigation = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 1rem; // Reduced from 2rem
+  margin-top: 1rem;
   gap: 1rem;
 `;
 
@@ -608,10 +217,6 @@ const StepProgressContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  // border-radius: 12px;
-  // padding: 3rem 3rem;
-  // background: ${colors.surface};
-  // box-shadow: ${colors.shadow.sm};
 `;
 
 const StepItem = styled.div<{ isActive: boolean; isCompleted: boolean }>`
@@ -712,191 +317,6 @@ const AudioModeToggle = styled(Button)`
   }
 `;
 
-// Word definition modal components
-const DefinitionModalOverlay = styled.div<{ isOpen: boolean }>`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  opacity: ${(props) => (props.isOpen ? 1 : 0)};
-  visibility: ${(props) => (props.isOpen ? "visible" : "hidden")};
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-`;
-
-const DefinitionModalContent = styled.div`
-  background: ${colors.background};
-  border-radius: 12px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-  padding: 1.8rem;
-  max-width: 90%;
-  width: 450px;
-  position: relative;
-  transform: scale(1);
-  transition: transform 0.3s ease;
-  border-left: 5px solid ${colors.accent};
-  border: 1px solid ${colors.border.light};
-  overflow-y: auto;
-  max-height: 90vh;
-
-  @media (max-width: 768px) {
-    padding: 1.5rem;
-    width: 80%;
-    max-height: 80vh;
-  }
-
-  @media (max-width: 480px) {
-    padding: 1.2rem;
-    width: 90%;
-    max-height: 75vh;
-  }
-`;
-
-const CloseButton = styled.button`
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: ${colors.text.muted};
-  cursor: pointer;
-  width: 2.1rem; // Explicit width
-  height: 2.1rem; // Explicit height, same as width
-  padding: 0; // Remove padding, flexbox will center content
-  line-height: 1;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-
-  @media (max-width: 768px) {
-    top: 0.8rem;
-    right: 0.8rem;
-    width: 2rem; // Adjust size for smaller screens
-    height: 2rem; // Adjust size for smaller screens
-  }
-
-  &:hover {
-    color: ${colors.primary};
-    background: ${colors.border.light};
-  }
-`;
-
-const WordDefinitionTitle = styled.div`
-  font-weight: bold;
-  color: ${colors.primary};
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
-  padding-bottom: 0.7rem;
-  border-bottom: 1px solid ${colors.border.light};
-`;
-
-const WordDefinitionContent = styled.div`
-  color: ${colors.text.secondary};
-  font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  line-height: 1.6;
-  white-space: pre-line;
-  font-size: 1rem;
-`;
-
-const LoadingDefinitionContent = styled.div`
-  color: ${colors.text.muted};
-  font-style: italic;
-  padding: 1rem 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100px;
-`;
-
-// Define styled sections for definitions
-const DefinitionSection = styled.div`
-  margin-bottom: 1.5rem;
-`;
-
-const DefinitionLabel = styled.div`
-  font-size: 1rem;
-  font-weight: 600;
-  color: ${colors.primary};
-  margin-bottom: 0.5rem;
-`;
-
-const Collapsible = styled.details`
-  margin-top: 1rem;
-
-  summary {
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    &:hover {
-      color: ${colors.primaryDark};
-    }
-  }
-
-  ul {
-    padding-left: 1.2rem;
-    margin: 0.5rem 0;
-    list-style: disc;
-    font-size: 0.9rem;
-    color: ${colors.text.secondary};
-  }
-`;
-
-// Modern status indicators
-const StatusIndicator = styled.div<{
-  type: "success" | "warning" | "error" | "info";
-}>`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin-top: 0.5rem;
-  border: 1px solid;
-
-  ${(props) => {
-    switch (props.type) {
-      case "success":
-        return `
-          background: ${colors.success}10;
-          border-color: ${colors.success}30;
-          color: ${colors.success};
-        `;
-      case "warning":
-        return `
-          background: ${colors.warning}10;
-          border-color: ${colors.warning}30;
-          color: ${colors.warning};
-        `;
-      case "error":
-        return `
-          background: ${colors.error}10;
-          border-color: ${colors.error}30;
-          color: ${colors.error};
-        `;
-      case "info":
-      default:
-        return `
-          background: ${colors.primary}10;
-          border-color: ${colors.primary}30;
-          color: ${colors.primary};
-        `;
-    }
-  }}
-`;
-
 const ShadowPage: React.FC = () => {
   const [overallError, setOverallError] = useState<string | null>(null);
 
@@ -924,13 +344,63 @@ const ShadowPage: React.FC = () => {
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [currentStep, setCurrentStep] = useState(1);
   const [isAudioMode, setIsAudioMode] = useState(false);
-  const [wordDefinitionModal, setWordDefinitionModal] = useState({
-    isOpen: false,
-    word: "",
-    apiData: null as any | null,
-    gptDefinition: "", // Added to store Korean definition from GPT
-    isLoading: false,
-  });
+  const [wordDefinitionModal, setWordDefinitionModal] =
+    useState<WordDefinitionModalState>({
+      isOpen: false,
+      word: "",
+      apiData: null,
+      gptDefinition: "",
+      isLoading: false,
+    });
+
+  // Internalization state
+  const [internalizationSentences] = useState<InternalizationSentence[]>([
+    {
+      id: "intern-1",
+      text: "People with very high expectations have very low resilience.",
+      blankIndex: 7, // "low"
+      originalWord: "low",
+    },
+    {
+      id: "intern-2",
+      text: "You want to train, you want to refine the character of your company.",
+      blankIndex: 7, // "refine" - corrected from 6 to 7
+      originalWord: "refine",
+    },
+    {
+      id: "intern-3",
+      text: "Greatness comes from character.",
+      blankIndex: 3, // "character"
+      originalWord: "character",
+    },
+  ]);
+  const [currentInternalizationIndex, setCurrentInternalizationIndex] =
+    useState(0);
+  const [internalizationResults, setInternalizationResults] = useState<
+    InternalizationSentence[]
+  >(internalizationSentences);
+
+  // Sentence creation state
+  const [sentenceCreationWords] = useState<SentenceCreationWord[]>([
+    { id: "word-1", word: "Resilience", inputMode: "write" },
+    { id: "word-2", word: "Refine", inputMode: "write" },
+    { id: "word-3", word: "Character", inputMode: "write" },
+    { id: "word-4", word: "Setback", inputMode: "write" },
+    { id: "word-5", word: "Ample", inputMode: "write" },
+  ]);
+  const [sentenceCreationResults, setSentenceCreationResults] = useState<
+    SentenceCreationWord[]
+  >(sentenceCreationWords);
+  const [currentCreationIndex, setCurrentCreationIndex] = useState(0);
+  const [internalizationMode, setInternalizationMode] = useState<
+    "fill-blank" | "create-sentences"
+  >("fill-blank");
+
+  // OpenAI WebSocket state
+  const openaiWebSocketRef = useRef<WebSocket | null>(null);
+  const [isOpenAIRecording, setIsOpenAIRecording] = useState(false);
+  const [currentOpenAIRecordingIndex, setCurrentOpenAIRecordingIndex] =
+    useState<number | null>(null);
 
   const recordedAudioChunksRef = useRef<Float32Array[]>([]);
 
@@ -952,14 +422,132 @@ const ShadowPage: React.FC = () => {
 
   const AZURE_SPEECH_KEY = import.meta.env.VITE_AZURE_PRIMARY_KEY;
   const AZURE_SPEECH_REGION = "koreacentral";
+  const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
   // Step definitions
-  const steps = [
+  const steps: Step[] = [
     { id: 1, name: "스크립트 공부", label: "Script Study" },
     { id: 2, name: "쉐도잉", label: "Shadowing" },
     { id: 3, name: "내재화", label: "Internalization" },
     { id: 4, name: "분석", label: "Analysis" },
   ];
+
+  // Helper function to check if scores meet the criteria to proceed
+  const checkScoreCriteria = (): boolean => {
+    if (currentSentenceIndex === null || sentencesToAssess.length === 0) {
+      return false;
+    }
+    const sentence = sentencesToAssess[currentSentenceIndex];
+    if (
+      !sentence ||
+      !sentence.assessmentResult ||
+      !sentence.assessmentResult.detailResult
+    ) {
+      return false; // Cannot proceed if not assessed or no detailResult
+    }
+
+    const originalTextWords = sentence.text.trim().split(/\s+/);
+    const azureWords =
+      (sentence.assessmentResult?.detailResult
+        ?.Words as AzureWordPronunciationResult[]) || [];
+    const threshold = 70;
+    let azureWordIdx = 0;
+
+    // Helper to normalize words for comparison, same as in renderSentenceWithAssessment
+    const normalizeWord = (word: string) =>
+      word.toLowerCase().replace(/[.,!?;:'"()[\]{}]|…/g, "");
+
+    // Skip leading Azure insertions, they don't affect original word scores for progression
+    while (
+      azureWordIdx < azureWords.length &&
+      azureWords[azureWordIdx]?.PronunciationAssessment?.ErrorType ===
+        "Insertion"
+    ) {
+      azureWordIdx++;
+    }
+
+    for (const originalWord of originalTextWords) {
+      let matchedAzureWord: AzureWordPronunciationResult | null = null;
+      let isExplicitOmissionByAzure = false;
+
+      const normalizedOriginalWord = normalizeWord(originalWord);
+
+      if (azureWordIdx < azureWords.length) {
+        const currentAzureWord = azureWords[azureWordIdx];
+        const normalizedAzureWord = normalizeWord(currentAzureWord.Word);
+        const currentAzureErrorType =
+          currentAzureWord.PronunciationAssessment?.ErrorType;
+
+        if (
+          currentAzureErrorType !== "Insertion" &&
+          normalizedOriginalWord === normalizedAzureWord
+        ) {
+          matchedAzureWord = currentAzureWord;
+          if (currentAzureErrorType === "Omission") {
+            isExplicitOmissionByAzure = true;
+          }
+          azureWordIdx++; // Consume this Azure word
+        } else if (
+          currentAzureErrorType === "Omission" &&
+          normalizedOriginalWord === normalizedAzureWord
+        ) {
+          // This case handles if Azure explicitly marks an aligned word as Omission
+          isExplicitOmissionByAzure = true;
+          // matchedAzureWord remains null, or we could assign currentAzureWord for its properties if needed
+          azureWordIdx++; // Consume this Azure word
+        }
+        // If currentAzureWord is an Insertion but doesn't match, it will be skipped in the next iteration's while loop or by original word moving on
+      }
+
+      if (isExplicitOmissionByAzure) {
+        return false; // Explicit omission by Azure means this word fails criteria
+      }
+
+      if (matchedAzureWord) {
+        const accuracyScore =
+          matchedAzureWord.PronunciationAssessment?.AccuracyScore;
+        if (accuracyScore === undefined || accuracyScore < threshold) {
+          return false; // Score below threshold or undefined
+        }
+        // If matched and score is good, continue to next original word
+      } else {
+        // No match found for this originalWord, and it wasn't an Azure-insertion that we skipped.
+        // This means it's an omission from our logic's perspective.
+        return false; // Implicit omission means this word fails criteria
+      }
+
+      // After processing an original word, skip any subsequent Azure insertions
+      while (
+        azureWordIdx < azureWords.length &&
+        azureWords[azureWordIdx]?.PronunciationAssessment?.ErrorType ===
+          "Insertion"
+      ) {
+        azureWordIdx++;
+      }
+    }
+
+    // If we've looped through all original words and all passed, the criteria are met.
+    // We also need to ensure no *trailing* Azure words exist that are not insertions,
+    // as that would imply a misalignment or unexpected Azure output.
+    // However, current logic focuses on original words being scored >= 80.
+    // If azureWordIdx < azureWords.length, it means there are trailing Azure words.
+    // We should ensure these are all insertions if we want to be strict.
+    while (azureWordIdx < azureWords.length) {
+      if (
+        azureWords[azureWordIdx]?.PronunciationAssessment?.ErrorType !==
+        "Insertion"
+      ) {
+        // Found a non-insertion Azure word that wasn't matched to an original word.
+        // This indicates a potential issue or a very strange result from Azure.
+        // For now, we can consider this a failure for strictness, though it's an edge case.
+        // console.warn("[checkScoreCriteria] Trailing non-insertion Azure word found:", azureWords[azureWordIdx]);
+        // return false; // Optional: be stricter about trailing non-insertions
+      }
+      azureWordIdx++;
+    }
+
+    return true; // All original words met the criteria
+  };
 
   useEffect(() => {
     azureRecognizerRef.current = azureRecognizer;
@@ -967,6 +555,9 @@ const ShadowPage: React.FC = () => {
   useEffect(() => {
     isRecordingRef.current = isRecordingActive;
   }, [isRecordingActive]);
+
+  // Convert YouTube URL to embed URL using imported utility
+  const convertToEmbedUrlCallback = useCallback(convertToEmbedUrl, []);
 
   // Autoplay effect
   useEffect(() => {
@@ -983,40 +574,6 @@ const ShadowPage: React.FC = () => {
       setAudioToAutoplay(null);
     }
   }, [audioToAutoplay]);
-
-  const convertToEmbedUrl = useCallback((url: string): string | null => {
-    try {
-      const urlObj = new URL(url);
-      let videoId: string | null = null;
-      if (urlObj.hostname === "youtu.be")
-        videoId = urlObj.pathname.substring(1);
-      else if (
-        urlObj.hostname === "www.youtube.com" ||
-        urlObj.hostname === "youtube.com"
-      ) {
-        if (urlObj.pathname === "/embed") {
-          const pathPart = urlObj.pathname.split("/").pop(); // .pop() can return undefined
-          videoId = pathPart !== undefined ? pathPart : null; // Explicitly handle undefined
-        } else if (urlObj.pathname === "/watch")
-          videoId = urlObj.searchParams.get("v");
-      }
-      if (videoId) {
-        const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
-        embedUrl.searchParams.set("enablejsapi", "1");
-        urlObj.searchParams.forEach((value, key) => {
-          const lowerKey = key.toLowerCase();
-          if (!["v", "feature", "si", "enablejsapi"].includes(lowerKey))
-            embedUrl.searchParams.set(key, value);
-        });
-        return embedUrl.toString();
-      }
-      console.warn("Could not extract videoId from URL:", url);
-      return null;
-    } catch (e) {
-      console.error("Error parsing YouTube URL for embed:", e);
-      return null;
-    }
-  }, []);
 
   useEffect(() => {
     const segmentSentences = (
@@ -1048,6 +605,7 @@ const ShadowPage: React.FC = () => {
             assessmentError: null,
             recognizedText: "",
             rawJson: "",
+            isAssessmentFinalized: false, // New flag
           });
           currentSentenceText = "";
           currentSentenceWords = [];
@@ -1116,7 +674,7 @@ const ShadowPage: React.FC = () => {
       if (timeUpdateIntervalRef.current)
         clearInterval(timeUpdateIntervalRef.current);
     };
-  }, [convertToEmbedUrl]);
+  }, [convertToEmbedUrlCallback]);
 
   useEffect(() => {
     if (!youtubeUrl || youtubeLoading || youtubeError) {
@@ -1300,127 +858,6 @@ const ShadowPage: React.FC = () => {
     return new Blob([view], { type: "audio/wav" });
   }
 
-  // Function to get color based on Azure pronunciation score
-  const getAzurePronunciationColor = (score?: number): string => {
-    if (score === undefined) return "gray";
-    if (score >= 80) return "green";
-    if (score >= 60) return "orange";
-    return "red";
-  };
-
-  // Function to render color-coded sentence based on Azure results
-  const renderSentenceWithAssessment = (sentence: SentenceForAssessment) => {
-    // Log the assessment result received by this function
-    // console.log(`[Render] Sentence ID: ${sentence.id}, Assessment Result:`, sentence.assessmentResult);
-    // console.log(`[Render] Sentence ID: ${sentence.id}, DetailResult Words:`, sentence.assessmentResult?.detailResult?.Words);
-
-    if (!sentence.assessmentResult?.detailResult?.Words || !sentence.text) {
-      return <SentenceTextDisplay>{sentence.text}</SentenceTextDisplay>;
-    }
-    const words = sentence.assessmentResult.detailResult
-      .Words as any as AzureWordPronunciationResult[];
-    return (
-      <ColorCodedSentence>
-        {words.map((word, wordIndex) => {
-          const errorType = word.PronunciationAssessment?.ErrorType;
-          const isOmission = errorType === "Omission";
-          const isInsertion = errorType === "Insertion";
-          const isMispronunciation = errorType === "Mispronunciation";
-
-          let wordDisplayText = word.Word;
-          if (isInsertion) {
-            wordDisplayText = `+ ${word.Word}`;
-          }
-
-          return (
-            <span key={`s-${sentence.id}-w-${wordIndex}`}>
-              {word.Syllables &&
-              word.Syllables.length > 0 &&
-              !isOmission &&
-              !isInsertion ? (
-                word.Syllables.map((syllable, syllableIndex) => {
-                  if (!syllable) return null;
-                  const syllableDisplayText =
-                    syllable.Grapheme || syllable.Syllable;
-                  let titleText = `Syllable: ${syllableDisplayText}\nSyllable Score: ${
-                    syllable.PronunciationAssessment?.AccuracyScore?.toFixed(
-                      0
-                    ) || "N/A"
-                  }`;
-
-                  if (syllable.Phonemes && syllable.Phonemes.length > 0) {
-                    titleText += "\nPhonemes:";
-                    for (const phoneme of syllable.Phonemes) {
-                      if (!phoneme) continue;
-                      const phonemeName = phoneme.Phoneme || "Unknown";
-                      const phonemeScore =
-                        typeof phoneme.PronunciationAssessment
-                          ?.AccuracyScore === "number"
-                          ? phoneme.PronunciationAssessment.AccuracyScore.toFixed(
-                              0
-                            ) + "%"
-                          : "N/A";
-                      titleText += `\n  - ${phonemeName}: ${phonemeScore}`;
-                    }
-                  }
-
-                  return (
-                    <SyllableSpan
-                      key={`s-${sentence.id}-syl-${syllableIndex}`}
-                      color={getAzurePronunciationColor(
-                        syllable.PronunciationAssessment?.AccuracyScore
-                      )}
-                      title={titleText}
-                      style={
-                        {
-                          // textDecoration: hasError ? "underline" : "none", // Handled by isOmitted now
-                          // fontStyle: hasError ? "italic" : "normal", // Handled by isOmitted now
-                        }
-                      }
-                    >
-                      {syllableDisplayText}
-                    </SyllableSpan>
-                  );
-                })
-              ) : word.Word ? ( // Check if word.Word exists before rendering
-                <SyllableSpan
-                  color={getAzurePronunciationColor(
-                    word.PronunciationAssessment?.AccuracyScore
-                  )}
-                  title={`Word: ${word.Word}\nScore: ${
-                    word.PronunciationAssessment?.AccuracyScore?.toFixed(0) ||
-                    "N/A"
-                  }${
-                    isOmission
-                      ? "\nError: Omitted"
-                      : isInsertion
-                      ? "\nType: Inserted Word"
-                      : isMispronunciation
-                      ? `\nError: ${word.PronunciationAssessment?.ErrorType}`
-                      : ""
-                  }`}
-                  isOmitted={isOmission}
-                  isInserted={isInsertion}
-                >
-                  {wordDisplayText}
-                </SyllableSpan>
-              ) : null}{" "}
-              {/* If no syllables and no word.Word, render nothing */}
-              {/* Conditionally render space only if it's not the last word or if the next word is not an insertion */}
-              {/* This logic might need refinement based on how Azure structures insertions adjacent to other words */}
-              {wordIndex < words.length - 1 &&
-                !(
-                  words[wordIndex + 1]?.PronunciationAssessment?.ErrorType ===
-                  "Insertion"
-                ) &&
-                " "}
-            </span>
-          );
-        })}
-      </ColorCodedSentence>
-    );
-  };
-
   // Function to convert Float32Array PCM data to Int16Array ArrayBuffer (needed for Azure)
   function convertFloat32ToInt16(buffer: ArrayBuffer): ArrayBuffer {
     const l = buffer.byteLength / 4; // Float32 is 4 bytes
@@ -1458,6 +895,7 @@ const ShadowPage: React.FC = () => {
               recognizedText: "",
               rawJson: "",
               isAssessing: true,
+              isAssessmentFinalized: false, // New flag
             }
           : s
       )
@@ -1501,8 +939,28 @@ const ShadowPage: React.FC = () => {
       );
       pronunciationAssessmentConfig.applyTo(recognizer);
 
-      recognizer.recognizing = (_s, _e) => {
-        /* console.log(`RECOGNIZING: Text=${_e.result.text}`); */
+      recognizer.recognizing = (
+        _sender: SpeechSDK.Recognizer,
+        event: SpeechSDK.SpeechRecognitionEventArgs
+      ) => {
+        // sentenceIndex is captured from the startSentenceRecording function's scope
+        if (event.result.reason === SpeechSDK.ResultReason.RecognizingSpeech) {
+          const intermediatePronunciationResult =
+            SpeechSDK.PronunciationAssessmentResult.fromResult(event.result);
+          setSentencesToAssess((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? {
+                    ...s,
+                    recognizedText: event.result.text,
+                    assessmentResult: intermediatePronunciationResult,
+                    assessmentError: null,
+                    isAssessmentFinalized: false, // Keep false during recognizing
+                  }
+                : s
+            )
+          );
+        }
       };
 
       recognizer.recognized = (_s, e) => {
@@ -1515,32 +973,6 @@ const ShadowPage: React.FC = () => {
           console.log(`[Azure Recognized] Text: ${e.result.text}`);
           const pronunciationResult =
             SpeechSDK.PronunciationAssessmentResult.fromResult(e.result);
-
-          // --- Detailed Logging ---
-          console.log(
-            "[Azure Recognized] Full e.result Object:",
-            JSON.stringify(e.result)
-          ); // Log the whole result object if possible (might be large)
-          console.log(
-            "[Azure Recognized] PronunciationAssessmentResult Object:",
-            pronunciationResult
-          );
-          if (pronunciationResult && pronunciationResult.detailResult) {
-            console.log(
-              "[Azure Recognized] pronunciationResult.detailResult:",
-              pronunciationResult.detailResult
-            );
-            console.log(
-              "[Azure Recognized] pronunciationResult.detailResult.Words:",
-              pronunciationResult.detailResult.Words
-            );
-          } else {
-            console.warn(
-              "[Azure Recognized] pronunciationResult OR detailResult is missing!"
-            );
-          }
-          // --- End Detailed Logging ---
-
           const resultJson = e.result.properties.getProperty(
             SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult
           );
@@ -1552,6 +984,8 @@ const ShadowPage: React.FC = () => {
                     assessmentResult: pronunciationResult,
                     recognizedText: e.result.text,
                     rawJson: resultJson,
+                    isAssessing: false,
+                    isAssessmentFinalized: true,
                   }
                 : s
             )
@@ -1566,6 +1000,8 @@ const ShadowPage: React.FC = () => {
                 ? {
                     ...s,
                     assessmentError: "Speech could not be recognized by Azure.",
+                    isAssessing: false,
+                    isAssessmentFinalized: true,
                   }
                 : s
             )
@@ -1575,6 +1011,13 @@ const ShadowPage: React.FC = () => {
             `[Azure Recognized] Other reason: ${
               SpeechSDK.ResultReason[e.result.reason]
             }`
+          );
+          setSentencesToAssess((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? { ...s, isAssessing: false, isAssessmentFinalized: true }
+                : s
+            )
           );
         }
       };
@@ -1588,27 +1031,28 @@ const ShadowPage: React.FC = () => {
             SpeechSDK.CancellationReason[e.reason]
           }`
         );
+        let cancellationError = "Azure CANCELED: Unknown reason";
         if (e.reason === SpeechSDK.CancellationReason.Error) {
+          cancellationError = `Azure CANCELED: ${e.errorDetails} (Code: ${e.errorCode})`;
           console.error(
             `[Azure] CANCELED: ErrorCode=${e.errorCode} ( ${
               SpeechSDK.CancellationErrorCode[e.errorCode]
             } )`
           );
           console.error(`[Azure] CANCELED: ErrorDetails=${e.errorDetails}`);
-          console.error(
-            `[Azure] CANCELED: Did you set the speech resource key and region values?`
-          );
-          setSentencesToAssess((prev) =>
-            prev.map((s, i) =>
-              i === sentenceIndex
-                ? {
-                    ...s,
-                    assessmentError: `Azure CANCELED: ${e.errorDetails} (Code: ${e.errorCode})`,
-                  }
-                : s
-            )
-          );
         }
+        setSentencesToAssess((prev) =>
+          prev.map((s, i) =>
+            i === sentenceIndex
+              ? {
+                  ...s,
+                  assessmentError: cancellationError,
+                  isAssessing: false,
+                  isAssessmentFinalized: true,
+                }
+              : s
+          )
+        );
       };
 
       recognizer.sessionStarted = (
@@ -1644,6 +1088,7 @@ const ShadowPage: React.FC = () => {
                     ...s,
                     assessmentError: `Azure SDK Error starting recognition: ${err}`,
                     isAssessing: false,
+                    isAssessmentFinalized: false, // New flag
                   }
                 : s
             )
@@ -1654,6 +1099,24 @@ const ShadowPage: React.FC = () => {
       setAzureRecognizer(recognizer); // Set the new recognizer instance
       console.log(
         "[Azure] Azure Recognizer instance created and recognition started."
+      );
+
+      // Ensure isAssessing is true and isAssessmentFinalized is false for the current sentence
+      setSentencesToAssess((prev) =>
+        prev.map((s, i) =>
+          i === sentenceIndex
+            ? {
+                ...s,
+                isAssessing: true,
+                assessmentResult: null, // Clear previous results
+                recordedSentenceAudioUrl: null,
+                assessmentError: null,
+                recognizedText: "",
+                rawJson: "",
+                isAssessmentFinalized: false, // Explicitly set to false on start
+              }
+            : s
+        )
       );
 
       // 2. Web Audio API Setup
@@ -1688,10 +1151,9 @@ const ShadowPage: React.FC = () => {
           const float32Data = new Float32Array(event.data.slice(0));
           recordedAudioChunksRef.current.push(float32Data);
 
-          // Push to Azure stream - THIS BLOCK NEEDS TO BE RESTORED/ENSURED
           if (
             azurePushStreamRef.current &&
-            azureRecognizerRef.current && // Check if recognizer is active
+            azureRecognizerRef.current &&
             isRecordingRef.current &&
             bufferByteLength > 0
           ) {
@@ -1703,24 +1165,21 @@ const ShadowPage: React.FC = () => {
                 "[AudioWorklet] Error writing audio to Azure push stream:",
                 azurePushError.toString()
               );
-              if (azurePushError.message?.includes("closed")) {
-                setSentencesToAssess((prev) =>
-                  prev.map((s, i) =>
-                    i === sentenceIndex
-                      ? {
-                          ...s,
-                          assessmentError:
-                            "Azure audio stream closed unexpectedly during write.",
-                        }
-                      : s
-                  )
-                );
-              }
+              // This error is critical, try to update the specific sentence
+              setSentencesToAssess((prev) =>
+                prev.map((s, k) =>
+                  k === sentenceIndex
+                    ? {
+                        ...s,
+                        assessmentError:
+                          "Azure audio stream closed unexpectedly during write.",
+                        isAssessing: false,
+                        isAssessmentFinalized: true,
+                      }
+                    : s
+                )
+              );
             }
-          } else {
-            // console.log(
-            //   "[AudioWorklet] Conditions not met for pushing audio to Azure."
-            // );
           }
         }
       };
@@ -1728,11 +1187,16 @@ const ShadowPage: React.FC = () => {
     } catch (err: any) {
       console.error("Error starting sentence recording:", err);
       const errorMsg = err.message || "Failed to start recording.";
-      setOverallError(errorMsg); // General error for now
+      setOverallError(errorMsg);
       setSentencesToAssess((prev) =>
         prev.map((s, i) =>
           i === sentenceIndex
-            ? { ...s, assessmentError: errorMsg, isAssessing: false }
+            ? {
+                ...s,
+                assessmentError: errorMsg,
+                isAssessing: false,
+                isAssessmentFinalized: true,
+              }
             : s
         )
       );
@@ -1857,6 +1321,7 @@ const ShadowPage: React.FC = () => {
               ...s,
               isAssessing: false, // Assessment attempt is complete
               recordedSentenceAudioUrl: newAudioUrl, // Set the new audio URL (or null if WAV failed)
+              isAssessmentFinalized: false, // New flag
             }
           : s
       )
@@ -2109,17 +1574,6 @@ const ShadowPage: React.FC = () => {
     }
   };
 
-  // Close definition modal
-  const closeDefinitionModal = () => {
-    setWordDefinitionModal((prev) => ({
-      ...prev,
-      isOpen: false,
-      apiData: null,
-      gptDefinition: "", // Reset GPT definition as well
-    }));
-    document.body.style.overflow = "";
-  };
-
   // Toggle audio mode
   const toggleAudioMode = () => {
     setIsAudioMode(!isAudioMode);
@@ -2139,6 +1593,810 @@ const ShadowPage: React.FC = () => {
     if (w.endsWith("s") && !w.endsWith("ss") && w.length > 3)
       return w.slice(0, -1);
     return w;
+  };
+
+  // Function to render internalization sentence with blank
+  const renderInternalizationSentence = (
+    sentence: InternalizationSentence,
+    index: number
+  ): React.ReactNode => {
+    const words = sentence.text.split(" ");
+    const displayElements: React.ReactNode[] = [];
+
+    words.forEach((word, wordIndex) => {
+      if (wordIndex === sentence.blankIndex) {
+        // Show blank with underline
+        displayElements.push(
+          <span
+            key={`blank-${wordIndex}`}
+            style={{
+              textDecoration: "underline",
+              textDecorationStyle: "solid",
+              textDecorationThickness: "2px",
+              color: colors.primary,
+              fontWeight: "bold",
+              minWidth: "100px",
+              display: "inline-block",
+              textAlign: "center",
+              margin: "0 4px",
+            }}
+          >
+            {sentence.userResponse || "________"}
+          </span>
+        );
+      } else {
+        displayElements.push(
+          <span key={`word-${wordIndex}`} style={{ margin: "0 4px" }}>
+            {word}
+          </span>
+        );
+      }
+    });
+
+    return (
+      <ColorCodedSentence>
+        <div
+          style={{
+            fontSize: "1.2rem",
+            lineHeight: "1.8",
+            marginBottom: "1rem",
+          }}
+        >
+          {displayElements}
+        </div>
+
+        {sentence.isRecording && (
+          <div
+            style={{
+              marginTop: "0.5rem",
+              fontSize: "0.9rem",
+              color: colors.text.muted,
+            }}
+          >
+            <i>Recording... Say a word to fill the blank</i>
+          </div>
+        )}
+
+        {sentence.userResponse && (
+          <div
+            style={{
+              marginTop: "1rem",
+              paddingTop: "1rem",
+              borderTop: `1px solid ${colors.border.light}`,
+              fontSize: "0.9rem",
+            }}
+          >
+            <p>
+              <strong>Your Answer:</strong> "{sentence.userResponse}"
+            </p>
+            <p>
+              <strong>Original Word:</strong> "{sentence.originalWord}"
+            </p>
+            {sentence.isCorrect !== undefined && (
+              <StatusIndicator
+                type={sentence.isCorrect ? "success" : "warning"}
+              >
+                {sentence.isCorrect
+                  ? "✓ Good! You used a different word."
+                  : "Try using a different word than the original."}
+              </StatusIndicator>
+            )}
+          </div>
+        )}
+
+        {sentence.recordedAudioUrl && (
+          <div style={{ marginTop: "0.75rem" }}>
+            <audio
+              id={`intern-audio-${index}`}
+              controls
+              src={sentence.recordedAudioUrl}
+              style={{ width: "100%" }}
+            />
+          </div>
+        )}
+      </ColorCodedSentence>
+    );
+  };
+
+  // Function to get OpenAI ephemeral token
+  const getOpenAIEphemeralToken = async (): Promise<string> => {
+    if (!OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is not configured");
+    }
+
+    const response = await fetch(
+      "https://api.openai.com/v1/realtime/transcription_sessions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get ephemeral token: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.client_secret;
+  };
+
+  // Function to start OpenAI recording
+  const startOpenAIRecording = async (sentenceIndex: number) => {
+    if (isOpenAIRecording) return;
+
+    setIsOpenAIRecording(true);
+    setCurrentOpenAIRecordingIndex(sentenceIndex);
+    recordedAudioChunksRef.current = [];
+
+    // Update sentence state
+    setInternalizationResults((prev) =>
+      prev.map((s, i) =>
+        i === sentenceIndex
+          ? {
+              ...s,
+              isRecording: true,
+              userResponse: "",
+              transcriptionError: "",
+              isCorrect: undefined,
+            }
+          : s
+      )
+    );
+
+    try {
+      // Get ephemeral token for WebSocket authentication
+      const token = await getOpenAIEphemeralToken();
+
+      // Create WebSocket connection with authentication
+      const ws = new WebSocket(
+        `wss://api.openai.com/v1/realtime?intent=transcription&authorization=Bearer+${token}`
+      );
+      openaiWebSocketRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("[OpenAI] WebSocket connected");
+
+        // Send configuration (authentication is handled in the WebSocket URL)
+        ws.send(
+          JSON.stringify({
+            type: "transcription_session.update",
+            input_audio_format: "pcm16",
+            input_audio_transcription: {
+              model: "gpt-4o-mini-transcribe",
+              prompt: "",
+              language: "en",
+            },
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 500,
+            },
+            input_audio_noise_reduction: {
+              type: "near_field",
+            },
+          })
+        );
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        console.log("[OpenAI] Received message:", message);
+
+        if (message.type === "input_audio_buffer.committed") {
+          console.log("[OpenAI] Audio buffer committed");
+        } else if (message.type === "transcription.text.delta") {
+          // Update partial transcription
+          setInternalizationResults((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? { ...s, userResponse: message.text || "" }
+                : s
+            )
+          );
+        } else if (message.type === "transcription.text.done") {
+          // Final transcription
+          const transcribedText = message.text?.trim() || "";
+          const originalWord =
+            internalizationResults[sentenceIndex]?.originalWord;
+          const isCorrect =
+            transcribedText.toLowerCase() !== originalWord?.toLowerCase();
+
+          setInternalizationResults((prev) =>
+            prev.map((s, i) =>
+              i === sentenceIndex
+                ? {
+                    ...s,
+                    userResponse: transcribedText,
+                    isCorrect,
+                    isRecording: false,
+                  }
+                : s
+            )
+          );
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("[OpenAI] WebSocket error:", error);
+        setInternalizationResults((prev) =>
+          prev.map((s, i) =>
+            i === sentenceIndex
+              ? {
+                  ...s,
+                  transcriptionError: "WebSocket connection error",
+                  isRecording: false,
+                }
+              : s
+          )
+        );
+      };
+
+      ws.onclose = () => {
+        console.log("[OpenAI] WebSocket closed");
+        setIsOpenAIRecording(false);
+        setCurrentOpenAIRecordingIndex(null);
+      };
+
+      // Start Web Audio API for recording
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+      await audioContextRef.current.audioWorklet.addModule(
+        "/audio-processor.js"
+      );
+
+      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      microphoneSourceRef.current =
+        audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
+
+      audioWorkletNodeRef.current = new AudioWorkletNode(
+        audioContextRef.current,
+        "audio-processor",
+        { processorOptions: { sampleRate: audioContextRef.current.sampleRate } }
+      );
+
+      audioWorkletNodeRef.current.port.onmessage = (
+        event: MessageEvent<ArrayBuffer>
+      ) => {
+        if (event.data instanceof ArrayBuffer && event.data.byteLength > 0) {
+          const float32Data = new Float32Array(event.data.slice(0));
+          recordedAudioChunksRef.current.push(float32Data);
+
+          // Convert to PCM16 and send to OpenAI
+          if (openaiWebSocketRef.current?.readyState === WebSocket.OPEN) {
+            const int16Buffer = convertFloat32ToInt16(event.data.slice(0));
+            const base64Audio = btoa(
+              String.fromCharCode(...new Uint8Array(int16Buffer))
+            );
+
+            openaiWebSocketRef.current.send(
+              JSON.stringify({
+                type: "input_audio_buffer.append",
+                audio: base64Audio,
+              })
+            );
+          }
+        }
+      };
+
+      microphoneSourceRef.current.connect(audioWorkletNodeRef.current);
+    } catch (error: any) {
+      console.error("Error starting OpenAI recording:", error);
+      setInternalizationResults((prev) =>
+        prev.map((s, i) =>
+          i === sentenceIndex
+            ? { ...s, transcriptionError: error.message, isRecording: false }
+            : s
+        )
+      );
+      setIsOpenAIRecording(false);
+      setCurrentOpenAIRecordingIndex(null);
+    }
+  };
+
+  // Function to stop OpenAI recording
+  const stopOpenAIRecording = async () => {
+    if (!isOpenAIRecording || currentOpenAIRecordingIndex === null) return;
+
+    const recordingIndex = currentOpenAIRecordingIndex;
+
+    // Stop Web Audio API
+    if (audioWorkletNodeRef.current) {
+      audioWorkletNodeRef.current.port.onmessage = null;
+      audioWorkletNodeRef.current.disconnect();
+      audioWorkletNodeRef.current = null;
+    }
+    if (microphoneSourceRef.current) {
+      microphoneSourceRef.current.disconnect();
+      microphoneSourceRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      await audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    // Close OpenAI WebSocket
+    if (openaiWebSocketRef.current) {
+      openaiWebSocketRef.current.close();
+      openaiWebSocketRef.current = null;
+    }
+
+    // Create audio URL from recorded chunks
+    let audioUrl: string | null = null;
+    if (recordedAudioChunksRef.current.length > 0) {
+      try {
+        const totalLength = recordedAudioChunksRef.current.reduce(
+          (acc, val) => acc + val.length,
+          0
+        );
+        const concatenatedPcm = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of recordedAudioChunksRef.current) {
+          concatenatedPcm.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const wavBlob = encodeWAV(concatenatedPcm, 16000);
+        audioUrl = URL.createObjectURL(wavBlob);
+      } catch (error) {
+        console.error("Error encoding WAV:", error);
+      }
+    }
+    recordedAudioChunksRef.current = [];
+
+    // Update state
+    setIsOpenAIRecording(false);
+    setCurrentOpenAIRecordingIndex(null);
+    setInternalizationResults((prev) =>
+      prev.map((s, i) =>
+        i === recordingIndex
+          ? { ...s, recordedAudioUrl: audioUrl, isRecording: false }
+          : s
+      )
+    );
+  };
+
+  // Function to render sentence creation exercise
+  const renderSentenceCreation = (
+    wordItem: SentenceCreationWord,
+    index: number
+  ): React.ReactNode => {
+    return (
+      <ColorCodedSentence>
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <h3
+            style={{
+              color: colors.primary,
+              fontSize: "2rem",
+              margin: "1rem 0",
+            }}
+          >
+            {wordItem.word}
+          </h3>
+          <p style={{ color: colors.text.secondary, fontSize: "1rem" }}>
+            Create a sentence using this word. You can write or speak your
+            response.
+          </p>
+        </div>
+
+        {/* Input Mode Toggle */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "1rem",
+            marginBottom: "2rem",
+          }}
+        >
+          <Button
+            onClick={() => handleInputModeChange(index, "write")}
+            style={{
+              background:
+                wordItem.inputMode === "write"
+                  ? `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`
+                  : colors.border.medium,
+              color:
+                wordItem.inputMode === "write"
+                  ? colors.text.inverse
+                  : colors.text.muted,
+            }}
+          >
+            <span>✏️ Write</span>
+          </Button>
+          <Button
+            onClick={() => handleInputModeChange(index, "speak")}
+            style={{
+              background:
+                wordItem.inputMode === "speak"
+                  ? `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`
+                  : colors.border.medium,
+              color:
+                wordItem.inputMode === "speak"
+                  ? colors.text.inverse
+                  : colors.text.muted,
+            }}
+          >
+            <span>🎤 Speak</span>
+          </Button>
+        </div>
+
+        {/* Input Area */}
+        {wordItem.inputMode === "write" ? (
+          <div style={{ marginBottom: "1rem" }}>
+            <textarea
+              value={wordItem.userSentence || ""}
+              onChange={(e) => handleTextInput(index, e.target.value)}
+              placeholder={`Write a sentence using "${wordItem.word}"...`}
+              style={{
+                width: "100%",
+                minHeight: "100px",
+                padding: "1rem",
+                fontSize: "1rem",
+                border: `1px solid ${colors.border.medium}`,
+                borderRadius: "8px",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+        ) : (
+          <div style={{ marginBottom: "1rem" }}>
+            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+              <Button
+                onClick={() => {
+                  if (wordItem.isRecording) {
+                    stopSentenceCreationRecording();
+                  } else {
+                    startSentenceCreationRecording(index);
+                  }
+                }}
+                disabled={isOpenAIRecording && !wordItem.isRecording}
+              >
+                <span>
+                  {wordItem.isRecording ? (
+                    <>
+                      <LoadingSpinner />
+                      Stop Recording
+                    </>
+                  ) : (
+                    "🎤 Record Sentence"
+                  )}
+                </span>
+              </Button>
+            </div>
+
+            {wordItem.isRecording && (
+              <div
+                style={{
+                  textAlign: "center",
+                  fontSize: "0.9rem",
+                  color: colors.text.muted,
+                }}
+              >
+                <i>Recording... Speak your sentence using "{wordItem.word}"</i>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Display Results */}
+        {(wordItem.userSentence || wordItem.spokenSentence) && (
+          <div
+            style={{
+              marginTop: "1rem",
+              paddingTop: "1rem",
+              borderTop: `1px solid ${colors.border.light}`,
+              fontSize: "0.95rem",
+            }}
+          >
+            <p>
+              <strong>Your Sentence:</strong>
+            </p>
+            <div
+              style={{
+                background: colors.background,
+                padding: "1rem",
+                borderRadius: "8px",
+                margin: "0.5rem 0",
+                fontStyle: "italic",
+              }}
+            >
+              "
+              {wordItem.inputMode === "write"
+                ? wordItem.userSentence
+                : wordItem.spokenSentence}
+              "
+            </div>
+
+            {wordItem.userSentence || wordItem.spokenSentence ? (
+              <StatusIndicator type="success">
+                ✓ Sentence created successfully!
+              </StatusIndicator>
+            ) : null}
+          </div>
+        )}
+
+        {wordItem.recordedAudioUrl && (
+          <div style={{ marginTop: "0.75rem" }}>
+            <audio
+              id={`creation-audio-${index}`}
+              controls
+              src={wordItem.recordedAudioUrl}
+              style={{ width: "100%" }}
+            />
+          </div>
+        )}
+
+        {wordItem.transcriptionError && (
+          <StatusIndicator type="error">
+            {wordItem.transcriptionError}
+          </StatusIndicator>
+        )}
+      </ColorCodedSentence>
+    );
+  };
+
+  // Function to handle input mode change
+  const handleInputModeChange = (index: number, mode: "write" | "speak") => {
+    setSentenceCreationResults((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, inputMode: mode } : item))
+    );
+  };
+
+  // Function to handle text input
+  const handleTextInput = (index: number, text: string) => {
+    setSentenceCreationResults((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? { ...item, userSentence: text, isCompleted: text.trim().length > 0 }
+          : item
+      )
+    );
+  };
+
+  // Function to start sentence creation recording
+  const startSentenceCreationRecording = async (wordIndex: number) => {
+    if (isOpenAIRecording) return;
+
+    setIsOpenAIRecording(true);
+    setCurrentOpenAIRecordingIndex(wordIndex);
+    recordedAudioChunksRef.current = [];
+
+    // Update word state
+    setSentenceCreationResults((prev) =>
+      prev.map((word, i) =>
+        i === wordIndex
+          ? {
+              ...word,
+              isRecording: true,
+              spokenSentence: "",
+              transcriptionError: "",
+            }
+          : word
+      )
+    );
+
+    try {
+      // Get ephemeral token for WebSocket authentication
+      const token = await getOpenAIEphemeralToken();
+
+      // Create WebSocket connection with authentication
+      const ws = new WebSocket(
+        `wss://api.openai.com/v1/realtime?intent=transcription&authorization=Bearer+${token}`
+      );
+      openaiWebSocketRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("[OpenAI] WebSocket connected for sentence creation");
+
+        // Send configuration (authentication is handled in the WebSocket URL)
+        ws.send(
+          JSON.stringify({
+            type: "transcription_session.update",
+            input_audio_format: "pcm16",
+            input_audio_transcription: {
+              model: "gpt-4o-mini-transcribe",
+              prompt: "",
+              language: "en",
+            },
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 1000, // Longer silence for sentences
+            },
+            input_audio_noise_reduction: {
+              type: "near_field",
+            },
+          })
+        );
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        console.log(
+          "[OpenAI] Received message for sentence creation:",
+          message
+        );
+
+        if (message.type === "input_audio_buffer.committed") {
+          console.log("[OpenAI] Audio buffer committed for sentence creation");
+        } else if (message.type === "transcription.text.delta") {
+          // Update partial transcription
+          setSentenceCreationResults((prev) =>
+            prev.map((word, i) =>
+              i === wordIndex
+                ? { ...word, spokenSentence: message.text || "" }
+                : word
+            )
+          );
+        } else if (message.type === "transcription.text.done") {
+          // Final transcription
+          const transcribedText = message.text?.trim() || "";
+
+          setSentenceCreationResults((prev) =>
+            prev.map((word, i) =>
+              i === wordIndex
+                ? {
+                    ...word,
+                    spokenSentence: transcribedText,
+                    isCompleted: transcribedText.length > 0,
+                    isRecording: false,
+                  }
+                : word
+            )
+          );
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("[OpenAI] WebSocket error for sentence creation:", error);
+        setSentenceCreationResults((prev) =>
+          prev.map((word, i) =>
+            i === wordIndex
+              ? {
+                  ...word,
+                  transcriptionError: "WebSocket connection error",
+                  isRecording: false,
+                }
+              : word
+          )
+        );
+      };
+
+      ws.onclose = () => {
+        console.log("[OpenAI] WebSocket closed for sentence creation");
+        setIsOpenAIRecording(false);
+        setCurrentOpenAIRecordingIndex(null);
+      };
+
+      // Start Web Audio API for recording
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+      await audioContextRef.current.audioWorklet.addModule(
+        "/audio-processor.js"
+      );
+
+      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      microphoneSourceRef.current =
+        audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
+
+      audioWorkletNodeRef.current = new AudioWorkletNode(
+        audioContextRef.current,
+        "audio-processor",
+        { processorOptions: { sampleRate: audioContextRef.current.sampleRate } }
+      );
+
+      audioWorkletNodeRef.current.port.onmessage = (
+        event: MessageEvent<ArrayBuffer>
+      ) => {
+        if (event.data instanceof ArrayBuffer && event.data.byteLength > 0) {
+          const float32Data = new Float32Array(event.data.slice(0));
+          recordedAudioChunksRef.current.push(float32Data);
+
+          // Convert to PCM16 and send to OpenAI
+          if (openaiWebSocketRef.current?.readyState === WebSocket.OPEN) {
+            const int16Buffer = convertFloat32ToInt16(event.data.slice(0));
+            const base64Audio = btoa(
+              String.fromCharCode(...new Uint8Array(int16Buffer))
+            );
+
+            openaiWebSocketRef.current.send(
+              JSON.stringify({
+                type: "input_audio_buffer.append",
+                audio: base64Audio,
+              })
+            );
+          }
+        }
+      };
+
+      microphoneSourceRef.current.connect(audioWorkletNodeRef.current);
+    } catch (error: any) {
+      console.error("Error starting sentence creation recording:", error);
+      setSentenceCreationResults((prev) =>
+        prev.map((word, i) =>
+          i === wordIndex
+            ? { ...word, transcriptionError: error.message, isRecording: false }
+            : word
+        )
+      );
+      setIsOpenAIRecording(false);
+      setCurrentOpenAIRecordingIndex(null);
+    }
+  };
+
+  // Function to stop sentence creation recording
+  const stopSentenceCreationRecording = async () => {
+    if (!isOpenAIRecording || currentOpenAIRecordingIndex === null) return;
+
+    const recordingIndex = currentOpenAIRecordingIndex;
+
+    // Stop Web Audio API
+    if (audioWorkletNodeRef.current) {
+      audioWorkletNodeRef.current.port.onmessage = null;
+      audioWorkletNodeRef.current.disconnect();
+      audioWorkletNodeRef.current = null;
+    }
+    if (microphoneSourceRef.current) {
+      microphoneSourceRef.current.disconnect();
+      microphoneSourceRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      await audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    // Close OpenAI WebSocket
+    if (openaiWebSocketRef.current) {
+      openaiWebSocketRef.current.close();
+      openaiWebSocketRef.current = null;
+    }
+
+    // Create audio URL from recorded chunks
+    let audioUrl: string | null = null;
+    if (recordedAudioChunksRef.current.length > 0) {
+      try {
+        const totalLength = recordedAudioChunksRef.current.reduce(
+          (acc, val) => acc + val.length,
+          0
+        );
+        const concatenatedPcm = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of recordedAudioChunksRef.current) {
+          concatenatedPcm.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const wavBlob = encodeWAV(concatenatedPcm, 16000);
+        audioUrl = URL.createObjectURL(wavBlob);
+      } catch (error) {
+        console.error("Error encoding WAV for sentence creation:", error);
+      }
+    }
+    recordedAudioChunksRef.current = [];
+
+    // Update state
+    setIsOpenAIRecording(false);
+    setCurrentOpenAIRecordingIndex(null);
+    setSentenceCreationResults((prev) =>
+      prev.map((word, i) =>
+        i === recordingIndex
+          ? { ...word, recordedAudioUrl: audioUrl, isRecording: false }
+          : word
+      )
+    );
   };
 
   return (
@@ -2247,7 +2505,8 @@ const ShadowPage: React.FC = () => {
                     isActive={index === currentSentenceIndex}
                   >
                     <SentenceRow>
-                      {renderSentenceWithAssessment(sentence)}
+                      <SentenceAssessment sentence={sentence} index={index} />
+
                       <SentenceControls>
                         <Button
                           onClick={() => {
@@ -2280,66 +2539,11 @@ const ShadowPage: React.FC = () => {
                             )}
                           </span>
                         </Button>
-                        {sentence.recordedSentenceAudioUrl && (
-                          <AudioControls>
-                            <audio
-                              id={`sentence-audio-${index}`}
-                              controls
-                              src={sentence.recordedSentenceAudioUrl}
-                            />
-                          </AudioControls>
-                        )}
                       </SentenceControls>
                       {sentence.assessmentError && (
                         <StatusIndicator type="error">
                           {sentence.assessmentError}
                         </StatusIndicator>
-                      )}
-                      {sentence.isAssessing && (
-                        <StatusIndicator type="info">
-                          <LoadingSpinner />
-                          Processing pronunciation assessment...
-                        </StatusIndicator>
-                      )}
-                      {sentence.assessmentResult && (
-                        <AzureResultsBox>
-                          <p>
-                            <strong>Recognized:</strong> "
-                            <em>
-                              {sentence.recognizedText ||
-                                "(No speech recognized)"}
-                            </em>
-                            "
-                          </p>
-                          <AzureScoreArea>
-                            <p>
-                              <strong>Pronunciation:</strong>{" "}
-                              {sentence.assessmentResult.pronunciationScore?.toFixed(
-                                1
-                              )}
-                              %{" | "}
-                              <strong>Accuracy:</strong>{" "}
-                              {sentence.assessmentResult.accuracyScore?.toFixed(
-                                1
-                              )}
-                              %{" | "}
-                              <strong>Fluency:</strong>{" "}
-                              {sentence.assessmentResult.fluencyScore?.toFixed(
-                                1
-                              )}
-                              %{" | "}
-                              <strong>Completeness:</strong>{" "}
-                              {sentence.assessmentResult.completenessScore?.toFixed(
-                                1
-                              )}
-                              %
-                              {sentence.assessmentResult.prosodyScore &&
-                                ` | Prosody: ${sentence.assessmentResult.prosodyScore.toFixed(
-                                  1
-                                )}%`}
-                            </p>
-                          </AzureScoreArea>
-                        </AzureResultsBox>
                       )}
                     </SentenceRow>
                   </CarouselSlide>
@@ -2375,7 +2579,10 @@ const ShadowPage: React.FC = () => {
                     )
                   )
                 }
-                disabled={currentSentenceIndex === sentencesToAssess.length - 1}
+                disabled={
+                  currentSentenceIndex === sentencesToAssess.length - 1 ||
+                  !checkScoreCriteria()
+                }
               >
                 <span>Next →</span>
               </NavigationButton>
@@ -2390,286 +2597,240 @@ const ShadowPage: React.FC = () => {
         {/* Step 3: Internalization */}
         {currentStep === 3 && (
           <>
-            <Title>내재화</Title>
-            <StatusIndicator type="info">
-              내재화 기능은 준비 중입니다.
-            </StatusIndicator>
+            {/* Mode Toggle */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "1rem",
+                marginBottom: "2rem",
+              }}
+            >
+              <Button
+                onClick={() => setInternalizationMode("fill-blank")}
+                style={{
+                  background:
+                    internalizationMode === "fill-blank"
+                      ? `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`
+                      : colors.border.medium,
+                  color:
+                    internalizationMode === "fill-blank"
+                      ? colors.text.inverse
+                      : colors.text.muted,
+                }}
+              >
+                <span>Fill in the Blank</span>
+              </Button>
+              <Button
+                onClick={() => setInternalizationMode("create-sentences")}
+                style={{
+                  background:
+                    internalizationMode === "create-sentences"
+                      ? `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`
+                      : colors.border.medium,
+                  color:
+                    internalizationMode === "create-sentences"
+                      ? colors.text.inverse
+                      : colors.text.muted,
+                }}
+              >
+                <span>Create Sentences</span>
+              </Button>
+            </div>
+
+            {/* Fill in the Blank Mode */}
+            {internalizationMode === "fill-blank" && (
+              <>
+                <CarouselContainer>
+                  <CarouselContent>
+                    {internalizationResults.map((sentence, index) => (
+                      <CarouselSlide
+                        key={sentence.id}
+                        isActive={index === currentInternalizationIndex}
+                      >
+                        <SentenceRow>
+                          {renderInternalizationSentence(sentence, index)}
+
+                          <SentenceControls>
+                            <Button
+                              onClick={() => {
+                                if (
+                                  isOpenAIRecording &&
+                                  currentOpenAIRecordingIndex ===
+                                    currentInternalizationIndex
+                                ) {
+                                  stopOpenAIRecording();
+                                } else if (!isOpenAIRecording) {
+                                  startOpenAIRecording(
+                                    currentInternalizationIndex
+                                  );
+                                }
+                              }}
+                              disabled={
+                                isOpenAIRecording &&
+                                currentOpenAIRecordingIndex !==
+                                  currentInternalizationIndex
+                              }
+                            >
+                              <span>
+                                {isOpenAIRecording &&
+                                currentOpenAIRecordingIndex ===
+                                  currentInternalizationIndex ? (
+                                  <>
+                                    <LoadingSpinner />
+                                    Stop Recording
+                                  </>
+                                ) : (
+                                  "Record Answer"
+                                )}
+                              </span>
+                            </Button>
+                          </SentenceControls>
+
+                          {sentence.transcriptionError && (
+                            <StatusIndicator type="error">
+                              {sentence.transcriptionError}
+                            </StatusIndicator>
+                          )}
+                        </SentenceRow>
+                      </CarouselSlide>
+                    ))}
+                  </CarouselContent>
+                </CarouselContainer>
+
+                <CarouselNavigation>
+                  <NavigationButton
+                    onClick={() =>
+                      setCurrentInternalizationIndex(
+                        Math.max(0, currentInternalizationIndex - 1)
+                      )
+                    }
+                    disabled={currentInternalizationIndex === 0}
+                  >
+                    <span>← Previous</span>
+                  </NavigationButton>
+
+                  <ProgressBarContainer>
+                    <ProgressBarFill
+                      progress={
+                        ((currentInternalizationIndex + 1) /
+                          internalizationResults.length) *
+                        100
+                      }
+                    />
+                  </ProgressBarContainer>
+
+                  <NavigationButton
+                    onClick={() =>
+                      setCurrentInternalizationIndex(
+                        Math.min(
+                          internalizationResults.length - 1,
+                          currentInternalizationIndex + 1
+                        )
+                      )
+                    }
+                    disabled={
+                      currentInternalizationIndex ===
+                      internalizationResults.length - 1
+                    }
+                  >
+                    <span>Next →</span>
+                  </NavigationButton>
+                </CarouselNavigation>
+
+                <ProgressInfo>
+                  Sentence {currentInternalizationIndex + 1} of{" "}
+                  {internalizationResults.length}
+                </ProgressInfo>
+              </>
+            )}
+
+            {/* Create Sentences Mode */}
+            {internalizationMode === "create-sentences" && (
+              <>
+                <CarouselContainer>
+                  <CarouselContent>
+                    {sentenceCreationResults.map((wordItem, index) => (
+                      <CarouselSlide
+                        key={wordItem.id}
+                        isActive={index === currentCreationIndex}
+                      >
+                        <SentenceRow>
+                          {renderSentenceCreation(wordItem, index)}
+                        </SentenceRow>
+                      </CarouselSlide>
+                    ))}
+                  </CarouselContent>
+                </CarouselContainer>
+
+                <CarouselNavigation>
+                  <NavigationButton
+                    onClick={() =>
+                      setCurrentCreationIndex(
+                        Math.max(0, currentCreationIndex - 1)
+                      )
+                    }
+                    disabled={currentCreationIndex === 0}
+                  >
+                    <span>← Previous</span>
+                  </NavigationButton>
+
+                  <ProgressBarContainer>
+                    <ProgressBarFill
+                      progress={
+                        ((currentCreationIndex + 1) /
+                          sentenceCreationResults.length) *
+                        100
+                      }
+                    />
+                  </ProgressBarContainer>
+
+                  <NavigationButton
+                    onClick={() =>
+                      setCurrentCreationIndex(
+                        Math.min(
+                          sentenceCreationResults.length - 1,
+                          currentCreationIndex + 1
+                        )
+                      )
+                    }
+                    disabled={
+                      currentCreationIndex ===
+                      sentenceCreationResults.length - 1
+                    }
+                  >
+                    <span>Next →</span>
+                  </NavigationButton>
+                </CarouselNavigation>
+
+                <ProgressInfo>
+                  Word {currentCreationIndex + 1} of{" "}
+                  {sentenceCreationResults.length}
+                </ProgressInfo>
+              </>
+            )}
           </>
         )}
 
         {/* Step 4: Analysis */}
-        {currentStep === 4 && (
-          <>
-            <Title>분석</Title>
-            <StatusIndicator type="info">
-              분석 기능은 준비 중입니다.
-            </StatusIndicator>
-          </>
-        )}
+        {currentStep === 4 && <AnalysisReport sentences={sentencesToAssess} />}
       </StepContent>
 
       {overallError && <ErrorMessage>{overallError}</ErrorMessage>}
 
       {/* Word definition modal */}
-      <DefinitionModalOverlay
-        isOpen={wordDefinitionModal.isOpen}
-        onClick={closeDefinitionModal}
-      >
-        <DefinitionModalContent
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        >
-          <CloseButton onClick={closeDefinitionModal}>×</CloseButton>
-          <WordDefinitionTitle>{wordDefinitionModal.word}</WordDefinitionTitle>
-          {/* Combined loading state for initial fetch */}
-          {wordDefinitionModal.isLoading &&
-          !wordDefinitionModal.apiData &&
-          !wordDefinitionModal.gptDefinition ? (
-            <LoadingDefinitionContent>
-              뜻풀이 및 영어 정의 검색 중...
-            </LoadingDefinitionContent>
-          ) : (
-            <>
-              {/* Korean Definition (GPT) Section */}
-              <DefinitionSection>
-                {wordDefinitionModal.isLoading &&
-                !wordDefinitionModal.gptDefinition ? (
-                  <LoadingDefinitionContent>
-                    GPT 뜻풀이 검색 중...
-                  </LoadingDefinitionContent>
-                ) : wordDefinitionModal.gptDefinition ? (
-                  <WordDefinitionContent>
-                    {wordDefinitionModal.gptDefinition}
-                  </WordDefinitionContent>
-                ) : (
-                  <WordDefinitionContent>
-                    한국어 뜻풀이를 가져오지 못했습니다.
-                  </WordDefinitionContent>
-                )}
-              </DefinitionSection>
-
-              {/* English Definitions (Dictionary API) Section */}
-              {wordDefinitionModal.isLoading && !wordDefinitionModal.apiData ? (
-                <LoadingDefinitionContent>
-                  Loading English definitions from API...
-                </LoadingDefinitionContent>
-              ) : wordDefinitionModal.apiData &&
-                Array.isArray(wordDefinitionModal.apiData) &&
-                wordDefinitionModal.apiData.length > 0 ? (
-                <Collapsible>
-                  <summary>📖 영어 사전 확인하기</summary>
-
-                  {wordDefinitionModal.apiData.map(
-                    (entry: any, entryIdx: number) => (
-                      <div
-                        key={`entry-${entryIdx}`}
-                        style={{
-                          marginTop: "1rem",
-                          borderBottom:
-                            entryIdx < wordDefinitionModal.apiData.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          paddingBottom:
-                            entryIdx < wordDefinitionModal.apiData.length - 1
-                              ? "1rem"
-                              : "0",
-                        }}
-                      >
-                        {/* All Phonetics with Audio */}
-                        {entry.phonetics &&
-                          entry.phonetics.filter((p: any) => p.text).length >
-                            0 && (
-                            <DefinitionSection>
-                              <DefinitionLabel style={{ fontSize: "0.9rem" }}>
-                                Pronunciation
-                              </DefinitionLabel>
-                              {entry.phonetics.map(
-                                (p: any, pIdx: number) =>
-                                  p.text && ( // Only render if phonetic text exists
-                                    <div
-                                      key={`phonetic-${pIdx}`}
-                                      style={{
-                                        marginBottom: "0.3rem",
-                                        display: "flex",
-                                        alignItems: "center",
-                                      }}
-                                    >
-                                      {p.audio && (
-                                        <audio
-                                          controls
-                                          src={p.audio}
-                                          style={{
-                                            height: "30px",
-                                            minWidth: "100%",
-                                          }}
-                                        />
-                                      )}
-                                    </div>
-                                  )
-                              )}
-                            </DefinitionSection>
-                          )}
-
-                        {/* Meanings */}
-                        {entry.meanings && entry.meanings.length > 0 && (
-                          <DefinitionSection>
-                            <DefinitionLabel style={{ fontSize: "0.9rem" }}>
-                              Meanings
-                            </DefinitionLabel>
-                            {entry.meanings.map(
-                              (meaning: any, mIdx: number) => (
-                                <div
-                                  key={`meaning-${mIdx}`}
-                                  style={{ marginBottom: "0.8rem" }}
-                                >
-                                  <WordDefinitionContent
-                                    style={{
-                                      fontWeight: "bold",
-                                      color: colors.primaryDark,
-                                    }}
-                                  >
-                                    {meaning.partOfSpeech}
-                                  </WordDefinitionContent>
-
-                                  {meaning.definitions &&
-                                    meaning.definitions.length > 0 && (
-                                      <ul
-                                        style={{
-                                          marginTop: "0.3rem",
-                                          paddingLeft: "0px", // Changed from "20px"
-                                          listStyleType: "disc",
-                                        }}
-                                      >
-                                        {meaning.definitions.map(
-                                          (def: any, dIdx: number) => (
-                                            <li
-                                              key={`def-${dIdx}`}
-                                              style={{ marginBottom: "0.4rem" }}
-                                            >
-                                              {def.definition}
-                                              {def.example && (
-                                                <div
-                                                  style={{
-                                                    fontStyle: "italic",
-                                                    color: colors.text.muted,
-                                                    fontSize: "0.9em",
-                                                    marginLeft: "0px", // Changed from "10px"
-                                                    overflowWrap: "break-word",
-                                                    wordBreak: "break-word",
-                                                  }}
-                                                >
-                                                  e.g. "{def.example}"
-                                                </div>
-                                              )}
-                                              {def.synonyms &&
-                                                def.synonyms.length > 0 && (
-                                                  <div
-                                                    style={{
-                                                      fontSize: "0.85em",
-                                                      color:
-                                                        colors.text.secondary,
-                                                      marginTop: "0.2rem",
-                                                      overflowWrap:
-                                                        "break-word",
-                                                      wordBreak: "break-word",
-                                                    }}
-                                                  >
-                                                    <strong>Synonyms:</strong>{" "}
-                                                    {def.synonyms.join(", ")}
-                                                  </div>
-                                                )}
-                                              {def.antonyms &&
-                                                def.antonyms.length > 0 && (
-                                                  <div
-                                                    style={{
-                                                      fontSize: "0.85em",
-                                                      color:
-                                                        colors.text.secondary,
-                                                      marginTop: "0.2rem",
-                                                      overflowWrap:
-                                                        "break-word",
-                                                      wordBreak: "break-word",
-                                                    }}
-                                                  >
-                                                    <strong>Antonyms:</strong>{" "}
-                                                    {def.antonyms.join(", ")}
-                                                  </div>
-                                                )}
-                                            </li>
-                                          )
-                                        )}
-                                      </ul>
-                                    )}
-                                  {/* Display meaning-level synonyms */}
-                                  {meaning.synonyms &&
-                                    meaning.synonyms.length > 0 && (
-                                      <div
-                                        style={{
-                                          fontSize: "0.85em",
-                                          color: colors.text.secondary,
-                                          marginTop: "0.3rem",
-                                          paddingLeft: "0px", // Changed from "20px"
-                                          overflowWrap: "break-word",
-                                          wordBreak: "break-word",
-                                        }}
-                                      >
-                                        <strong>Synonyms:</strong>{" "}
-                                        {meaning.synonyms.join(", ")}
-                                      </div>
-                                    )}
-
-                                  {/* Display meaning-level antonyms */}
-                                  {meaning.antonyms &&
-                                    meaning.antonyms.length > 0 && (
-                                      <div
-                                        style={{
-                                          fontSize: "0.85em",
-                                          color: colors.text.secondary,
-                                          marginTop: "0.3rem",
-                                          paddingLeft: "0px", // Changed from "20px"
-                                          overflowWrap: "break-word",
-                                          wordBreak: "break-word",
-                                        }}
-                                      >
-                                        <strong>Antonyms:</strong>{" "}
-                                        {meaning.antonyms.join(", ")}
-                                      </div>
-                                    )}
-                                </div>
-                              )
-                            )}
-                          </DefinitionSection>
-                        )}
-                        {/* Source URLs */}
-                        {entry.sourceUrls && entry.sourceUrls.length > 0 && (
-                          <DefinitionSection>
-                            <DefinitionLabel style={{ fontSize: "0.9rem" }}>
-                              Source: Wikitionary
-                            </DefinitionLabel>
-                          </DefinitionSection>
-                        )}
-                      </div>
-                    )
-                  )}
-                </Collapsible>
-              ) : /* Check for the specific "No Definitions Found" title from the API response */
-              wordDefinitionModal.apiData &&
-                wordDefinitionModal.apiData.title === "No Definitions Found" ? (
-                <LoadingDefinitionContent>
-                  No English definitions found for "{wordDefinitionModal.word}"
-                  via API.
-                </LoadingDefinitionContent>
-              ) : (
-                !wordDefinitionModal.isLoading && ( // Only show if not loading
-                  <LoadingDefinitionContent>
-                    Could not load English definitions for "
-                    {wordDefinitionModal.word}".
-                  </LoadingDefinitionContent>
-                )
-              )}
-            </>
-          )}
-        </DefinitionModalContent>
-      </DefinitionModalOverlay>
+      <WordDefinitionModal
+        modalState={wordDefinitionModal}
+        onClose={() => {
+          setWordDefinitionModal((prev) => ({
+            ...prev,
+            isOpen: false,
+            apiData: null,
+            gptDefinition: "",
+          }));
+          document.body.style.overflow = "";
+        }}
+      />
     </ShadowContainer>
   );
 };
