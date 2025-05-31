@@ -244,8 +244,13 @@ const ColorCodedSentence = styled.div`
   }
 `;
 
-const SyllableSpan = styled.span<{ color: string }>`
+const SyllableSpan = styled.span<{
+  color: string;
+  isOmitted?: boolean;
+  isInserted?: boolean;
+}>`
   color: ${(props) => {
+    if (props.isOmitted) return colors.text.muted;
     switch (props.color) {
       case "green":
         return colors.success;
@@ -262,6 +267,8 @@ const SyllableSpan = styled.span<{ color: string }>`
   border-radius: 8px;
   margin: 0 2px;
   background: ${(props) => {
+    if (props.isInserted) return `${colors.accent}20`;
+    if (props.isOmitted) return `${colors.text.muted}10`;
     switch (props.color) {
       case "green":
         return `${colors.success}15`;
@@ -275,6 +282,8 @@ const SyllableSpan = styled.span<{ color: string }>`
   }};
   border: 1px solid
     ${(props) => {
+      if (props.isInserted) return `${colors.accent}50`;
+      if (props.isOmitted) return `${colors.text.muted}30`;
       switch (props.color) {
         case "green":
           return `${colors.success}30`;
@@ -287,6 +296,9 @@ const SyllableSpan = styled.span<{ color: string }>`
       }
     }};
   transition: all 0.2s ease;
+  text-decoration: ${(props) => (props.isOmitted ? "line-through" : "none")};
+  font-style: ${(props) => (props.isOmitted ? "italic" : "normal")};
+  opacity: ${(props) => (props.isOmitted ? 0.7 : 1)};
 
   &:hover {
     transform: scale(1.05);
@@ -530,7 +542,7 @@ const CarouselNavigation = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 2rem;
+  margin-top: 1rem; // Reduced from 2rem
   gap: 1rem;
 `;
 
@@ -1310,12 +1322,22 @@ const ShadowPage: React.FC = () => {
     return (
       <ColorCodedSentence>
         {words.map((word, wordIndex) => {
-          const hasError =
-            word.PronunciationAssessment?.ErrorType &&
-            word.PronunciationAssessment.ErrorType !== "None";
+          const errorType = word.PronunciationAssessment?.ErrorType;
+          const isOmission = errorType === "Omission";
+          const isInsertion = errorType === "Insertion";
+          const isMispronunciation = errorType === "Mispronunciation";
+
+          let wordDisplayText = word.Word;
+          if (isInsertion) {
+            wordDisplayText = `+ ${word.Word}`;
+          }
+
           return (
             <span key={`s-${sentence.id}-w-${wordIndex}`}>
-              {word.Syllables && word.Syllables.length > 0 ? (
+              {word.Syllables &&
+              word.Syllables.length > 0 &&
+              !isOmission &&
+              !isInsertion ? (
                 word.Syllables.map((syllable, syllableIndex) => {
                   if (!syllable) return null;
                   const syllableDisplayText =
@@ -1349,10 +1371,12 @@ const ShadowPage: React.FC = () => {
                         syllable.PronunciationAssessment?.AccuracyScore
                       )}
                       title={titleText}
-                      style={{
-                        textDecoration: hasError ? "underline" : "none",
-                        fontStyle: hasError ? "italic" : "normal",
-                      }}
+                      style={
+                        {
+                          // textDecoration: hasError ? "underline" : "none", // Handled by isOmitted now
+                          // fontStyle: hasError ? "italic" : "normal", // Handled by isOmitted now
+                        }
+                      }
                     >
                       {syllableDisplayText}
                     </SyllableSpan>
@@ -1367,20 +1391,29 @@ const ShadowPage: React.FC = () => {
                     word.PronunciationAssessment?.AccuracyScore?.toFixed(0) ||
                     "N/A"
                   }${
-                    hasError
+                    isOmission
+                      ? "\nError: Omitted"
+                      : isInsertion
+                      ? "\nType: Inserted Word"
+                      : isMispronunciation
                       ? `\nError: ${word.PronunciationAssessment?.ErrorType}`
                       : ""
                   }`}
-                  style={{
-                    textDecoration: hasError ? "underline" : "none",
-                    fontStyle: hasError ? "italic" : "normal",
-                  }}
+                  isOmitted={isOmission}
+                  isInserted={isInsertion}
                 >
-                  {word.Word}
+                  {wordDisplayText}
                 </SyllableSpan>
               ) : null}{" "}
               {/* If no syllables and no word.Word, render nothing */}
-              {wordIndex < words.length - 1 && " "}
+              {/* Conditionally render space only if it's not the last word or if the next word is not an insertion */}
+              {/* This logic might need refinement based on how Azure structures insertions adjacent to other words */}
+              {wordIndex < words.length - 1 &&
+                !(
+                  words[wordIndex + 1]?.PronunciationAssessment?.ErrorType ===
+                  "Insertion"
+                ) &&
+                " "}
             </span>
           );
         })}
