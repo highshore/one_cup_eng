@@ -15,6 +15,12 @@ type VideoItem = {
   difficulty: "novice" | "intermediate" | "advanced";
 };
 
+// Define row data type
+type RowData = {
+  title: string;
+  videos: VideoItem[];
+};
+
 // Define colors matching the layout.tsx palette
 const colors = {
   primary: "#2C1810",
@@ -79,7 +85,7 @@ const TabScrollButton = styled.button<{
   justify-content: center;
   cursor: pointer;
   z-index: 5; // Lower z-index than video buttons, but still above tabs
-  opacity: ${(props) => (props.disabled ? 0.2 : 0.7)};
+  opacity: ${(props) => (props.disabled ? 0.0 : 0.7)};
   pointer-events: ${(props) => (props.disabled ? "none" : "auto")};
   transition: all 0.2s ease;
 
@@ -492,157 +498,212 @@ const LibraryPage: React.FC = () => {
     canScrollRight: boolean;
   }>({ canScrollLeft: false, canScrollRight: false });
 
-  const videosByRow: { [key: string]: VideoItem[][] } = {
-    All: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-      ],
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
+  const videosByRow: { [key: string]: RowData[] } = {
+    "모든 영상": [
+      {
+        title: "젠슨 황처럼 말하기",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "lXLBTBBil2U", difficulty: "intermediate" as const },
+          { id: "c-XAL2oYelI", difficulty: "advanced" as const },
+          { id: "G6R7UOFx1bw", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+        ],
+      },
+      {
+        title: "스티브 잡스처럼 말하기",
+        videos: [
+          { id: "UF8uR6Z6KLc", difficulty: "intermediate" as const },
+          { id: "kYfNvmF0Bqw", difficulty: "advanced" as const },
+          { id: "f60dheI4ARg", difficulty: "novice" as const },
+          { id: "CeSAjK2CBEA", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
     ],
     비즈니스: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-      ],
+      {
+        title: "Startup Insights",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
+      {
+        title: "Marketing Strategies",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+        ],
+      },
     ],
     연설: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-      ],
+      {
+        title: "Inspiring Talks",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
+      {
+        title: "Famous Speeches",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+        ],
+      },
     ],
     인터뷰: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-      ],
+      {
+        title: "Tech Leaders",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
+      {
+        title: "Creator Chats",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+        ],
+      },
     ],
     발표: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-      ],
+      {
+        title: "Product Demos",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
+      {
+        title: "Conference Keynotes",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+        ],
+      },
     ],
     IT: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-      ],
+      {
+        title: "Coding Tutorials",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
+      {
+        title: "Software Reviews",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+        ],
+      },
     ],
     영화: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-      ],
+      {
+        title: "Movie Clips",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
+      {
+        title: "Trailers",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+        ],
+      },
     ],
     드라마: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
+      {
+        title: "Popular Series",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
     ],
-    국정정세: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
+    "국제 정세": [
+      {
+        title: "News Analysis",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "advanced" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
     ],
     금융: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
+      {
+        title: "Market Updates",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
     ],
     의료: [
-      [
-        { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
-        { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
-      ],
+      {
+        title: "Health & Wellness",
+        videos: [
+          { id: "vOvQSqY7Jgc", difficulty: "novice" as const },
+          { id: "vOvQSqY7Jgc", difficulty: "intermediate" as const },
+        ],
+      },
     ],
   };
 
   const currentVideos =
-    videosByRow[activeTab as keyof typeof videosByRow] || videosByRow["All"];
+    videosByRow[activeTab as keyof typeof videosByRow] ||
+    videosByRow["모든 영상"];
 
   const updateVideoScrollState = (rowIndex: number) => {
     const container = videoContainersRef.current[rowIndex];
@@ -713,14 +774,17 @@ const LibraryPage: React.FC = () => {
     }
   };
 
-  const filterVideosByDifficulty = (videos: VideoItem[][]): VideoItem[][] => {
-    if (difficultyFilter === "all") return videos;
+  const filterVideosByDifficulty = (rows: RowData[]): RowData[] => {
+    if (difficultyFilter === "all") return rows;
 
-    return videos
-      .map((row) =>
-        row.filter((video) => video.difficulty === difficultyFilter)
-      )
-      .filter((row) => row.length > 0); // Remove empty rows
+    return rows
+      .map((row) => {
+        const filteredRowVideos = row.videos.filter(
+          (video) => video.difficulty === difficultyFilter
+        );
+        return { ...row, videos: filteredRowVideos };
+      })
+      .filter((row) => row.videos.length > 0); // Remove rows with no videos after filtering
   };
 
   const filteredVideos = filterVideosByDifficulty(currentVideos);
@@ -868,11 +932,11 @@ const LibraryPage: React.FC = () => {
         </FilterWrapper>
       </ControlsRow>
 
-      {filteredVideos.map((videos, rowIndex) => (
-        <SliderRow key={`${activeTab}-${difficultyFilter}-${rowIndex}`}>
-          <RowTitle>
-            {activeTab} Videos - Row {rowIndex + 1}
-          </RowTitle>
+      {filteredVideos.map((rowData, rowIndex) => (
+        <SliderRow
+          key={`${activeTab}-${difficultyFilter}-${rowData.title}-${rowIndex}`}
+        >
+          <RowTitle>{rowData.title}</RowTitle>
           <VideosContainerWrapper>
             <ScrollButton
               direction="left"
@@ -888,7 +952,7 @@ const LibraryPage: React.FC = () => {
               }}
               onScroll={() => updateVideoScrollState(rowIndex)}
             >
-              {videos.map((video: VideoItem) => (
+              {rowData.videos.map((video: VideoItem) => (
                 <VideoCardWrapperLink key={video.id} to="/shadow">
                   <VideoCard>
                     <VideoFrame
