@@ -1,36 +1,34 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import Layout from "./components/layout";
-import Home from "./routes/home.tsx";
-import Profile from "./routes/profile.tsx";
-
-import Article from "./routes/article.tsx";
-import Admin from "./routes/admin.tsx";
-import Auth from "./routes/auth.tsx";
+import {
+  Layout,
+  LoadingScreen,
+  ProtectedRoute,
+  AuthProvider,
+  HomePage,
+  ArticlePage,
+  PolicyPage,
+  GuidePage,
+  SampleArticlePage,
+  KakaoCallbackPage,
+} from "./shared";
+import { AuthPage } from "./features/auth";
+import { AdminPage } from "./features/admin";
+import { ProfilePage } from "./features/profile";
+import { PaymentPage, PaymentResultPage } from "./features/payment";
+import { CommunityPage, NewTopicPage, TopicDetailPage } from "./features/community";
+import { ShadowPage } from "./features/shadow";
+import { LibraryPage } from "./features/library";
+import { MeetupPage, EventDetailPage } from "./features/meetup";
 import styled, { createGlobalStyle } from "styled-components";
 import reset from "styled-reset";
 import { useEffect, useState } from "react";
-import LoadingScreen from "./components/loading_screen";
 import { auth } from "./firebase";
-import Policy from "./routes/policy";
-import ProtectedRoute from "./components/protected_route.tsx";
-import AuthProvider from "./contexts/AuthContext";
-import Payment from "./routes/payment.tsx";
-import PaymentResult from "./routes/payment-result.tsx";
-import Meetup from "./routes/meetup.tsx";
-import Guide from "./routes/guide.tsx";
-import Community from "./community/index.tsx";
-import NewTopic from "./community/new-topic.tsx";
-import TopicDetail from "./community/topic-detail.tsx";
-import SampleArticlePage from "./routes/sample.tsx";
-import KakaoCallback from "./routes/kakao_callback.tsx";
-import ShadowPage from "./routes/shadow.tsx";
-import LibraryPage from "./routes/library.tsx";
 
 // Create the router with the AppContent component
 const router = createBrowserRouter([
   {
     path: "",
-    element: <Home />,
+    element: <HomePage />,
   },
   {
     path: "/",
@@ -38,29 +36,33 @@ const router = createBrowserRouter([
     children: [
       {
         path: "policy/:type",
-        element: <Policy />,
+        element: <PolicyPage />,
       },
       // Add the new public routes
       {
         path: "meetup",
-        element: <Meetup />,
+        element: <MeetupPage />,
+      },
+      {
+        path: "meetup/:eventId",
+        element: <EventDetailPage />,
       },
       {
         path: "guide",
-        element: <Guide />,
+        element: <GuidePage />,
       },
       {
         path: "community",
-        element: <Community />,
+        element: <CommunityPage />,
       },
       {
         path: "community/topic/:topicId",
-        element: <TopicDetail />,
+        element: <TopicDetailPage />,
       },
       // Add the payment result page to the public routes
       {
         path: "payment-result",
-        element: <PaymentResult />,
+        element: <PaymentResultPage />,
       },
       // Add the new sample route
       {
@@ -88,38 +90,38 @@ const router = createBrowserRouter([
     children: [
       {
         path: "profile",
-        element: <Profile />,
+        element: <ProfilePage />,
       },
       {
         path: "article/:articleId",
-        element: <Article />,
+        element: <ArticlePage />,
       },
       {
         path: "admin",
-        element: <Admin />,
+        element: <AdminPage />,
       },
       {
         path: "payment",
-        element: <Payment />,
+        element: <PaymentPage />,
       },
       {
         path: "community/new-topic",
-        element: <NewTopic />,
+        element: <NewTopicPage />,
       },
       // Redirect old subscription path to profile
       {
         path: "subscription",
-        element: <Profile />,
+        element: <ProfilePage />,
       },
     ],
   },
   {
     path: "/auth",
-    element: <Auth />,
+    element: <AuthPage />,
   },
   {
     path: "/kakao_callback",
-    element: <KakaoCallback />,
+    element: <KakaoCallbackPage />,
   },
 ]);
 
