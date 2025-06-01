@@ -350,7 +350,7 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
 
         // Use our server-side Firebase Function endpoint to handle the POST
         PCD_RST_URL:
-          "https://us-central1-one-cup-eng.cloudfunctions.net/paymentCallback",
+          "https://asia-northeast3-one-cup-eng.cloudfunctions.net/paymentCallback",
         PCD_PAYER_AUTHTYPE: "sms",
 
         // Store user ID in USER_DEFINE for the callback to access
