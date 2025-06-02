@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
+import { MeetupEvent } from '../types/meetup_types';
+import { subscribeToEvent } from '../services/meetup_service';
+import { formatEventDateTime, isEventLocked, sampleTopics, formatEventTitleWithCountdown } from '../utils/meetup_helpers';
+import { UserAvatar } from '../components/user_avatar';
+import { isUserAdmin } from '../services/user_service';
+import { useAuth } from '../../../shared/contexts/auth_context';
+import AdminEventDialog from '../components/admin_event_dialog';
 
 // TypeScript declarations for Naver Maps
 declare global {
@@ -11,47 +18,47 @@ declare global {
   }
 }
 
-// Types
-interface Event {
-  id: number;
-  title: string;
-  date: string;
-  time: string;
-  description: string;
-  location: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  mapUrl?: string;
-  maxParticipants: number;
-  currentParticipants: number;
-  imageUrls: string[];
-  participants: { id: string; avatar: string; name: string }[];
-  leaders: { id: string; avatar: string; name: string }[];
-  category: string;
-  fee: string;
-  currency: string;
-  topics?: { id: string; title: string; url: string; discussion: string[] }[];
-}
+// Gradient shining sweep animation for join button
+const gradientShine = keyframes`
+  0% {
+    background-position: -100% center;
+  }
+  100% {
+    background-position: 100% center;
+  }
+`;
 
 // Styled components - Day Mode Theme
 const Container = styled.div`
   min-height: 100vh;
   background-color: transparent;
   color: #333;
+  
+  @media (max-width: 768px) {
+    // Ensure no horizontal overflow
+    overflow-x: hidden;
+  }
 `;
 
 const PhotoSlider = styled.div`
   height: 40vh;
   position: relative;
   overflow: hidden;
-  background-color: #f5f5f5;
+  background-color: #000000; /* Black background for redundant space */
+  border-radius: 20px;
+  margin-top: 2rem;
+  
+  @media (max-width: 768px) {
+    height: 35vh;
+    margin-top: 1rem;
+    border-radius: 12px;
+  }
 `;
 
 const SliderImage = styled.img<{ $active: boolean }>`
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain; /* Fits image within container without cropping */
   position: absolute;
   top: 0;
   left: 0;
@@ -65,54 +72,24 @@ const SliderPlaceholder = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f5f5;
+  background-color: #000000; /* Black background to match the container */
   color: #ccc;
   font-size: 3rem;
-`;
-
-const AppBar = styled.header`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 80px;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1rem;
-  z-index: 100;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-`;
-
-const BackButton = styled.button`
-  background: none;
-  border: none;
-  color: #333;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  transition: background-color 0.2s;
   
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.1);
+  @media (max-width: 768px) {
+    font-size: 2rem;
   }
 `;
 
 const Content = styled.div`
-  padding: 80px 1rem 120px 1rem;
+  padding: 2.5rem 0 0 0;
   max-width: 960px;
   margin: 0 auto;
   
   @media (max-width: 768px) {
-    padding: 80px 0.75rem 120px 0.75rem;
+    padding: 1.5rem 1rem 0 1rem;
+    max-width: 100%;
   }
-`;
-
-const InfoSection = styled.div`
-  padding: 1.5rem 0;
 `;
 
 const CategoryTag = styled.div<{ $category: string }>`
@@ -142,14 +119,33 @@ const CategoryTag = styled.div<{ $category: string }>`
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 1rem;
+  
+  @media (max-width: 768px) {
+    font-size: 12px;
+    padding: 0.375rem 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 12px;
+  }
 `;
 
 const Title = styled.h1`
   color: #333;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 800;
   margin: 0 0 1rem 0;
   line-height: 1.3;
+  word-wrap: break-word;
+  
+  @media (max-width: 768px) {
+    font-size: 22px;
+    margin: 0 0 0.75rem 0;
+    line-height: 1.2;
+  }
+`;
+
+const CountdownPrefix = styled.span<{ $isUrgent?: boolean }>`
+  color: ${props => props.$isUrgent ? '#DC143C' : 'inherit'}; /* Crimson for urgent countdown */
+  font-weight: ${props => props.$isUrgent ? 'bold' : 'inherit'};
 `;
 
 const Description = styled.p`
@@ -157,13 +153,26 @@ const Description = styled.p`
   font-size: 16px;
   line-height: 1.6;
   margin: 0 0 1.5rem 0;
+  white-space: pre-wrap; /* Preserves newlines, spaces, and tabs from the original text */
+  word-wrap: break-word;
+  
+  @media (max-width: 768px) {
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 0 1rem 0;
+  }
 `;
 
 const SectionTitle = styled.h2`
   color: #333;
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
-  margin: 1.5rem 0 0.5rem 0;
+  margin: 1.5rem 0 1rem 0;
+  
+  @media (max-width: 768px) {
+    font-size: 20px;
+    margin: 1.25rem 0 0.75rem 0;
+  }
 `;
 
 const DetailRow = styled.div`
@@ -171,18 +180,34 @@ const DetailRow = styled.div`
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 8px;
+  
+  @media (max-width: 768px) {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
 `;
 
 const DetailIcon = styled.span`
   color: #666;
   font-size: 16px;
   margin-top: 2px;
+  flex-shrink: 0;
+  
+  @media (max-width: 768px) {
+    font-size: 14px;
+  }
 `;
 
 const DetailText = styled.span`
-  color: #666;
-  font-size: 14px;
+  color: #333;
+  font-size: 16px;
   line-height: 1.4;
+  word-wrap: break-word;
+  
+  @media (max-width: 768px) {
+    font-size: 14px;
+    line-height: 1.3;
+  }
 `;
 
 const MapContainer = styled.div`
@@ -197,6 +222,12 @@ const MapContainer = styled.div`
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
+  
+  @media (max-width: 768px) {
+    height: 250px;
+    margin: 0.75rem 0;
+    border-radius: 8px;
+  }
 `;
 
 const MapLoadingPlaceholder = styled.div`
@@ -210,6 +241,13 @@ const MapLoadingPlaceholder = styled.div`
   font-size: 1rem;
   margin: 1rem 0;
   border: 1px solid #e0e0e0;
+  
+  @media (max-width: 768px) {
+    height: 250px;
+    margin: 0.75rem 0;
+    border-radius: 8px;
+    font-size: 0.875rem;
+  }
 `;
 
 const ParticipantsGrid = styled.div`
@@ -217,38 +255,19 @@ const ParticipantsGrid = styled.div`
   flex-wrap: wrap;
   gap: 8px;
   margin: 0.5rem 0;
-`;
-
-const Avatar = styled.div<{ $imageUrl?: string; $bgColor?: string }>`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: ${props => props.$bgColor || '#e0e0e0'};
-  background-image: ${props => props.$imageUrl ? `url(${props.$imageUrl})` : 'none'};
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s;
   
-  &:hover {
-    transform: scale(1.1);
-  }
-  
-  &:after {
-    content: ${props => !props.$imageUrl ? '"👤"' : '""'};
-    color: #666;
-    font-size: 16px;
+  @media (max-width: 768px) {
+    gap: 6px;
+    margin: 0.375rem 0;
   }
 `;
 
 const TopicsSection = styled.div`
   margin: 1rem 0;
+  
+  @media (max-width: 768px) {
+    margin: 0.75rem 0;
+  }
 `;
 
 const TopicCard = styled.div`
@@ -263,6 +282,12 @@ const TopicCard = styled.div`
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
+  
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    margin: 0.375rem 0;
+    border-radius: 8px;
+  }
 `;
 
 const TopicTitle = styled.h3`
@@ -273,6 +298,11 @@ const TopicTitle = styled.h3`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  
+  @media (max-width: 768px) {
+    font-size: 14px;
+    margin: 0 0 0.375rem 0;
+  }
 `;
 
 const TopicContent = styled.div<{ $expanded: boolean }>`
@@ -288,50 +318,142 @@ const DiscussionPoint = styled.div`
   margin: 0.5rem 0;
   color: #666;
   font-size: 14px;
+  
+  @media (max-width: 768px) {
+    gap: 6px;
+    margin: 0.375rem 0;
+    font-size: 13px;
+  }
 `;
 
-const ActionButtons = styled.div`
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+const ActionButtons = styled.div<{ $isFloating: boolean; $top: number }>`
+  position: ${props => props.$isFloating ? 'fixed' : 'static'};
+  bottom: ${props => props.$isFloating ? '30px' : 'auto'};
+  top: ${props => props.$isFloating ? 'auto' : `${props.$top}px`};
+  left: ${props => props.$isFloating ? '20px' : '0'};
+  right: ${props => props.$isFloating ? '20px' : '0'};
   display: flex;
   gap: 16px;
-  max-width: 960px;
-  margin: 0 auto;
-  z-index: 50;
+  max-width: 920px;
+  margin: ${props => props.$isFloating ? '0 auto' : '2rem 0 0 0'};
+  z-index: ${props => props.$isFloating ? 50 : 'auto'};
+  padding-bottom: ${props => props.$isFloating ? '20px' : '0'};
+  transition: all 0.3s ease-in-out;
+  z-index: 1000;
+  
+  @media (max-width: 768px) {
+    bottom: ${props => props.$isFloating ? '20px' : 'auto'};
+    left: ${props => props.$isFloating ? '16px' : '0'};
+    right: ${props => props.$isFloating ? '16px' : '0'};
+    gap: 12px;
+    margin: ${props => props.$isFloating ? '0 auto' : '1.5rem 0 0 0'};
+    padding-bottom: ${props => props.$isFloating ? '16px' : '0'};
+    flex-direction: column;
+  }
 `;
 
-const ActionButton = styled.button<{ $variant: 'save' | 'join' | 'cancel' | 'locked'; $saved?: boolean }>`
-  flex: ${props => props.$variant === 'save' ? '1' : '2'};
+const AdminButtons = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  
+  @media (max-width: 768px) {
+    gap: 6px;
+    margin-bottom: 0.75rem;
+  }
+`;
+
+const AdminButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #181818;
+  color: white;
+  border: none;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background-color: #181818;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 0.375rem 0.75rem;
+    font-size: 11px;
+    border-radius: 12px;
+    flex: 1;
+  }
+`;
+
+const ActionButton = styled.button<{ $variant: 'join' | 'cancel' | 'locked'; $saved?: boolean }>`
+  flex: 1;
   padding: 1rem;
   border: none;
   border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   cursor: ${props => props.$variant === 'locked' ? 'not-allowed' : 'pointer'};
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  position: relative;
+  overflow: hidden;
   
+  /* Background styles based on variant */
   background-color: ${props => {
     if (props.$variant === 'locked') return '#e0e0e0';
-    if (props.$variant === 'save') return props.$saved ? '#ff5722' : '#f5f5f5';
     if (props.$variant === 'cancel') return '#f44336';
-    return '#2196f3';
+    return '#000000'; // Black for join button
   }};
+  
+  /* Gradient background specifically for join button */
+  ${props => props.$variant === 'join' && css`
+    background: linear-gradient(
+      90deg,
+      #000000 0%,
+      #000000 25%,
+      #1a0808 35%,
+      #2a0808 45%,
+      #3a1010 50%,
+      #2a0808 55%,
+      #1a0808 65%,
+      #000000 75%,
+      #000000 100%
+    );
+    background-size: 200% 100%;
+    animation: ${gradientShine} 3s ease-in-out infinite;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  `}
   
   color: ${props => {
     if (props.$variant === 'locked') return '#999';
-    if (props.$variant === 'save' && !props.$saved) return '#333';
     return 'white';
   }};
   
   &:hover {
     transform: ${props => props.$variant !== 'locked' ? 'translateY(-2px)' : 'none'};
-    box-shadow: ${props => props.$variant !== 'locked' ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none'};
+    box-shadow: ${props => {
+      if (props.$variant === 'locked') return 'none';
+      if (props.$variant === 'join') return '0 8px 25px rgba(0, 0, 0, 0.4)';
+      return '0 4px 12px rgba(0, 0, 0, 0.15)';
+    }};
+  }
+  
+  @media (max-width: 768px) {
+    padding: 0.875rem;
+    font-size: 14px;
+    border-radius: 16px;
+    gap: 6px;
+    
+    &:hover {
+      transform: ${props => props.$variant !== 'locked' ? 'translateY(-1px)' : 'none'};
+    }
   }
 `;
 
@@ -509,13 +631,12 @@ const NaverMapComponent: React.FC<NaverMapProps> = ({
             <div style="
               width: 30px; 
               height: 30px; 
-              background-color: #ff5722; 
+              background-color: #181818; 
               border-radius: 50%; 
               display: flex; 
               align-items: center; 
               justify-content: center;
               box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-              border: 3px solid white;
               cursor: pointer;
             ">
               <span style="color: white; font-size: 16px;">📍</span>
@@ -598,167 +719,110 @@ const NaverMapComponent: React.FC<NaverMapProps> = ({
   );
 };
 
-// Sample events data - in real app this would come from API
-const sampleEvents: Record<string, Event> = {
-  '1': {
-    id: 1,
-    title: "English Speaking Practice - Beginner Friendly",
-    date: "2024-01-15",
-    time: "19:00",
-    description: "Join us for a relaxed English conversation practice session. Perfect for beginners who want to improve their speaking confidence. We'll cover everyday topics and provide a supportive environment for learning.",
-    location: "Gangnam Station Exit 2",
-    address: "Seoul, South Korea",
-    latitude: 37.4979, // Gangnam Station coordinates
-    longitude: 127.0276,
-    mapUrl: "https://map.naver.com/v5/search/강남역%202번출구",
-    maxParticipants: 15,
-    currentParticipants: 8,
-    imageUrls: [
-      "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=800&h=600&fit=crop"
-    ],
-    participants: [
-      { id: '1', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', name: 'John' },
-      { id: '2', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b187?w=150&h=150&fit=crop&crop=face', name: 'Sarah' },
-      { id: '3', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', name: 'Mike' },
-      { id: '4', avatar: '', name: 'Anna' },
-      { id: '5', avatar: '', name: 'Tom' },
-    ],
-    leaders: [
-      { id: 'leader1', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face', name: 'Emma' }
-    ],
-    category: 'Discussion',
-    fee: '5000',
-    currency: 'KRW',
-    topics: [
-      {
-        id: 'topic1',
-        title: 'Daily Routines and Habits',
-        url: 'https://example.com/daily-routines',
-        discussion: [
-          'What time do you usually wake up and why?',
-          'Describe your morning routine',
-          'What habits would you like to develop?',
-          'How do you stay productive during the day?'
-        ]
-      },
-      {
-        id: 'topic2', 
-        title: 'Travel and Cultural Experiences',
-        url: 'https://example.com/travel-culture',
-        discussion: [
-          'What is your favorite travel destination?',
-          'Describe a cultural difference you found interesting',
-          'What would you like to explore in other countries?'
-        ]
-      }
-    ]
-  },
-  '2': {
-    id: 2,
-    title: "Business English Workshop",
-    date: "2024-01-20",
-    time: "14:00",
-    description: "Learn essential business English phrases and practice professional communication skills. Great for working professionals.",
-    location: "Hongdae Culture Space",
-    address: "Seoul, South Korea",
-    latitude: 37.5563,
-    longitude: 126.9234,
-    mapUrl: "https://map.naver.com/v5/search/홍대문화공간",
-    maxParticipants: 12,
-    currentParticipants: 5,
-    imageUrls: [
-      "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop"
-    ],
-    participants: [
-      { id: '1', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face', name: 'Alex' },
-      { id: '2', avatar: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=150&h=150&fit=crop&crop=face', name: 'Chris' },
-      { id: '3', avatar: '', name: 'Jordan' },
-    ],
-    leaders: [
-      { id: 'leader2', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', name: 'David' }
-    ],
-    category: 'Socializing',
-    fee: '8000',
-    currency: 'KRW'
-  },
-  '3': {
-    id: 3,
-    title: "English Movie Night & Discussion",
-    date: "2024-01-25",
-    time: "18:30",
-    description: "Watch an English movie together and discuss it afterwards. Improve your listening skills while having fun!",
-    location: "Myeongdong Community Center",
-    address: "Seoul, South Korea",
-    latitude: 37.5636,
-    longitude: 126.9831,
-    mapUrl: "https://map.naver.com/v5/search/명동커뮤니티센터",
-    maxParticipants: 20,
-    currentParticipants: 20,
-    imageUrls: [
-      "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=800&h=600&fit=crop",
-      "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=600&fit=crop"
-    ],
-    participants: [
-      { id: '1', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', name: 'John' },
-      { id: '2', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b187?w=150&h=150&fit=crop&crop=face', name: 'Sarah' },
-      { id: '3', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', name: 'Mike' },
-      { id: '4', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face', name: 'Anna' },
-      { id: '5', avatar: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=150&h=150&fit=crop&crop=face', name: 'Tom' },
-      { id: '6', avatar: '', name: 'Lisa' },
-      { id: '7', avatar: '', name: 'Mark' },
-    ],
-    leaders: [
-      { id: 'leader3', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', name: 'Rachel' }
-    ],
-    category: 'Movie Night',
-    fee: '3000',
-    currency: 'KRW'
-  }
-};
-
 const EventDetailPage: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const [event, setEvent] = useState<Event | null>(null);
+  const { currentUser } = useAuth();
+  const [event, setEvent] = useState<MeetupEvent | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
+  const [isButtonFloating, setIsButtonFloating] = useState(false);
+  const actionButtonRef = useRef<HTMLDivElement>(null);
+  const [originalButtonTop, setOriginalButtonTop] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminDialog, setShowAdminDialog] = useState(false);
+  const [dialogTemplateEvent, setDialogTemplateEvent] = useState<MeetupEvent | null>(null);
+  const [dialogEditEvent, setDialogEditEvent] = useState<MeetupEvent | null>(null);
+
+  // Check if current user is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (currentUser) {
+        const adminStatus = await isUserAdmin(currentUser.uid);
+        setIsAdmin(adminStatus);
+      }
+    };
+    checkAdminStatus();
+  }, [currentUser]);
 
   useEffect(() => {
-    // Get event data by eventId
-    const selectedEvent = eventId ? sampleEvents[eventId] : null;
-    
-    if (selectedEvent) {
-      setEvent(selectedEvent);
-      
-      // Auto-slide images
-      if (selectedEvent.imageUrls.length > 1) {
-        const interval = setInterval(() => {
-          setCurrentImageIndex((prev) => 
-            (prev + 1) % selectedEvent.imageUrls.length
-          );
-        }, 3000);
-        
-        return () => clearInterval(interval);
-      }
-    } else {
-      // If event not found, set to null to show error state
-      setEvent(null);
+    if (!eventId) {
+      setError('Event ID is required');
+      setLoading(false);
+      return;
     }
+
+    // Subscribe to real-time updates for this specific event
+    const unsubscribe = subscribeToEvent(eventId, (eventData) => {
+      setEvent(eventData);
+      setLoading(false);
+      if (!eventData) {
+        setError('Event not found');
+      } else {
+        setError(null);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [eventId]);
+
+  useEffect(() => {
+    // Auto-slide images
+    if (event && event.image_urls.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentImageIndex((prev) => 
+          (prev + 1) % event.image_urls.length
+        );
+      }, 3000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [event]);
+
+  // Handle scroll behavior for floating action button
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!actionButtonRef.current) return;
+
+      const buttonElement = actionButtonRef.current;
+      const buttonRect = buttonElement.getBoundingClientRect();
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+
+      // Get the original position of the button (when not floating)
+      if (originalButtonTop === 0 && !isButtonFloating) {
+        const originalTop = buttonRect.top + scrollY;
+        setOriginalButtonTop(originalTop);
+        return;
+      }
+
+      // Calculate if button should be floating
+      const buttonOriginalBottom = originalButtonTop + buttonElement.offsetHeight;
+      const shouldFloat = scrollY + windowHeight < buttonOriginalBottom + 50; // 50px buffer
+
+      setIsButtonFloating(shouldFloat);
+    };
+
+    // Set up scroll listener
+    window.addEventListener('scroll', handleScroll);
+    // Initial check
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [originalButtonTop, isButtonFloating]);
 
   const handleBack = () => {
     navigate('/meetup');
-  };
-
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
   };
 
   const handleJoin = () => {
@@ -778,19 +842,6 @@ const EventDetailPage: React.FC = () => {
     }));
   };
 
-  const formatDateTime = (dateString: string, timeString: string) => {
-    const date = new Date(dateString + 'T' + timeString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }) + ' at ' + date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
   const getCategoryEmoji = (category: string) => {
     switch (category.toLowerCase()) {
       case 'discussion': return '💬';
@@ -801,51 +852,114 @@ const EventDetailPage: React.FC = () => {
     }
   };
 
-  const getAvatarColor = (index: number, isLeader: boolean = false) => {
-    const colors = isLeader 
-      ? ['#9c27b0', '#673ab7', '#3f51b5'] 
-      : ['#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50'];
-    return colors[index % colors.length];
+  const handleAvatarClick = (uid: string) => {
+    // Handle avatar click - could show user profile modal, etc.
+    console.log('Avatar clicked for user:', uid);
   };
 
-  if (!event) {
+  const handleCreateNew = () => {
+    setDialogTemplateEvent(null); // No template for new event
+    setDialogEditEvent(null); // Not editing
+    setShowAdminDialog(true);
+  };
+
+  const handleDuplicate = () => {
+    setDialogTemplateEvent(event); // Use current event as template
+    setDialogEditEvent(null); // Not editing
+    setShowAdminDialog(true);
+  };
+
+  const handleEdit = () => {
+    setDialogTemplateEvent(null); // Not using template
+    setDialogEditEvent(event); // Edit current event
+    setShowAdminDialog(true);
+  };
+
+  const handleEventCreated = (eventId: string) => {
+    // Optionally navigate to the new event or show success message
+    navigate(`/meetup/${eventId}`);
+  };
+
+  const handleEventUpdated = () => {
+    // Stay on current page, event will update via real-time subscription
+    handleDialogClose();
+  };
+
+  const handleDialogClose = () => {
+    setShowAdminDialog(false);
+    setDialogTemplateEvent(null);
+    setDialogEditEvent(null);
+  };
+
+  // Loading state
+  if (loading) {
     return (
       <Container>
-        <AppBar>
-          <BackButton onClick={handleBack}>←</BackButton>
-          <div>{eventId ? 'Event Not Found' : 'Loading...'}</div>
-          <div></div>
-        </AppBar>
         <div style={{ paddingTop: '80px', textAlign: 'center', padding: '2rem' }}>
           <div style={{ color: '#666', fontSize: '16px', marginBottom: '1rem' }}>
-            {eventId 
-              ? `Event with ID "${eventId}" was not found.` 
-              : 'Loading event details...'
-            }
+            Loading event details...
           </div>
-          {eventId && (
-            <ActionButton
-              $variant="join"
-              onClick={handleBack}
-              style={{ position: 'static', margin: '0 auto', maxWidth: '200px' }}
-            >
-              ← Back to Events
-            </ActionButton>
-          )}
         </div>
       </Container>
     );
   }
 
-  const joined = event.currentParticipants;
-  const isFull = joined >= event.maxParticipants;
-  const isLocked = isFull; // Simplified logic
+  // Error state
+  if (error || !event) {
+    return (
+      <Container>
+        <div style={{ paddingTop: '80px', textAlign: 'center', padding: '2rem' }}>
+          <div style={{ color: '#666', fontSize: '16px', marginBottom: '1rem' }}>
+            {error || `Event with ID "${eventId}" was not found.`}
+          </div>
+          <ActionButton
+            $variant="join"
+            onClick={handleBack}
+            style={{ position: 'static', margin: '0 auto', maxWidth: '200px' }}
+          >
+            ← Back to Events
+          </ActionButton>
+        </div>
+      </Container>
+    );
+  }
+
+  const lockStatus = isEventLocked(event);
+  const isLocked = lockStatus.isLocked;
+
+  // Determine category for styling (you might want to add this field to your Firestore schema)
+  const category = event.title.toLowerCase().includes('movie') ? 'Movie Night' :
+                  event.title.toLowerCase().includes('business') ? 'Socializing' :
+                  'Discussion';
+
+  // Get topics data (in real app, you'd fetch this from Firestore)
+  const eventTopics = event.topics
+    .map(topicRef => sampleTopics[topicRef.topic_id as keyof typeof sampleTopics])
+    .filter(Boolean);
+
+  // Get countdown information for the title
+  const { countdownPrefix, eventTitle, isUrgent } = formatEventTitleWithCountdown(event);
+
+  // Calculate total participants including leaders
+  const totalParticipants = event.current_participants + event.leaders.length;
+
+  // Determine button text based on lock reason
+  const getButtonText = () => {
+    if (!isLocked) return isJoined ? '취소' : '참가 신청하기';
+    
+    switch (lockStatus.reason) {
+      case 'started': return '모집 종료';
+      case 'full': return '참가 인원 초과';
+      case 'lockdown': return '모집 종료';
+      default: return '모집 종료';
+    }
+  };
 
   return (
     <Container>
       <PhotoSlider>
-        {event.imageUrls.length > 0 ? (
-          event.imageUrls.map((url, index) => (
+        {event.image_urls.length > 0 ? (
+          event.image_urls.map((url, index) => (
             <SliderImage
               key={index}
               src={url}
@@ -859,73 +973,99 @@ const EventDetailPage: React.FC = () => {
       </PhotoSlider>
 
       <Content>
-        <InfoSection>
-          <CategoryTag $category={event.category}>
-            <span>{getCategoryEmoji(event.category)}</span>
-            {event.category}
+          <CategoryTag $category={category}>
+            <span>{getCategoryEmoji(category)}</span>
+            {category}
           </CategoryTag>
           
-          <Title>{event.title}</Title>
+          <Title>
+            {countdownPrefix && (
+              <CountdownPrefix $isUrgent={isUrgent}>
+                {countdownPrefix}
+              </CountdownPrefix>
+            )}
+            {eventTitle}
+          </Title>
           <Description>{event.description}</Description>
 
-          <SectionTitle>Details</SectionTitle>
+          <SectionTitle>세부 사항</SectionTitle>
           <DetailRow>
-            <DetailIcon>💰</DetailIcon>
-            <DetailText>Fee: {event.fee} {event.currency}</DetailText>
+            <DetailIcon>⏱️</DetailIcon>
+            <DetailText>일정 시간: {event.duration_minutes}분</DetailText>
           </DetailRow>
           <DetailRow>
             <DetailIcon>📅</DetailIcon>
-            <DetailText>Start: {formatDateTime(event.date, event.time)}</DetailText>
+            <DetailText>시작 시간: {formatEventDateTime(event)}</DetailText>
           </DetailRow>
           <DetailRow>
             <DetailIcon>📍</DetailIcon>
-            <DetailText>{event.location}, {event.address}</DetailText>
+            <DetailText>{event.location_name} ({event.location_address}, {event.location_extra_info})</DetailText>
           </DetailRow>
 
           {event.latitude && event.longitude && (
             <NaverMapComponent 
               latitude={event.latitude}
               longitude={event.longitude}
-              locationName={event.location}
-              mapUrl={event.mapUrl}
+              locationName={event.location_name}
+              mapUrl={event.location_map_url}
             />
           )}
 
-          <SectionTitle>Participants ({joined}/{event.maxParticipants})</SectionTitle>
+          <SectionTitle>참가 신청 ({totalParticipants}/{event.max_participants})</SectionTitle>
           <ParticipantsGrid>
-            {event.participants.map((participant, index) => (
-              <Avatar
-                key={participant.id}
-                $imageUrl={participant.avatar}
-                $bgColor={getAvatarColor(index)}
-                title={participant.name}
+            {/* Real user avatars for participants */}
+            {event.participants.slice(0, 12).map((participantUid) => (
+              <UserAvatar
+                key={participantUid}
+                uid={participantUid}
+                size={40}
+                isLeader={false}
+                onClick={() => handleAvatarClick(participantUid)}
+              />
+            ))}
+            {event.participants.length > 12 && (
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: '#f0f0f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: '#666'
+              }}>
+                +{event.participants.length - 12}
+              </div>
+            )}
+          </ParticipantsGrid>
+
+          <SectionTitle>운영진 및 리더</SectionTitle>
+          <ParticipantsGrid>
+            {/* Real user avatars for leaders */}
+            {event.leaders.map((leaderUid) => (
+              <UserAvatar
+                key={leaderUid}
+                uid={leaderUid}
+                size={40}
+                isLeader={true}
+                onClick={() => handleAvatarClick(leaderUid)}
               />
             ))}
           </ParticipantsGrid>
 
-          <SectionTitle>Hosts & Leaders</SectionTitle>
-          <ParticipantsGrid>
-            {event.leaders.map((leader, index) => (
-              <Avatar
-                key={leader.id}
-                $imageUrl={leader.avatar}
-                $bgColor={getAvatarColor(index, true)}
-                title={leader.name}
-              />
-            ))}
-          </ParticipantsGrid>
-
-          {event.category.toLowerCase() === 'discussion' && event.topics && (
+          {eventTopics.length > 0 && (
             <TopicsSection>
               <SectionTitle>Discussion Topics</SectionTitle>
-              {event.topics.map((topic, index) => (
+              {eventTopics.map((topic, index) => (
                 <TopicCard key={topic.id} onClick={() => toggleTopic(topic.id)}>
                   <TopicTitle>
                     Topic {index + 1}: {topic.title}
                     <span>{expandedTopics[topic.id] ? '▲' : '▼'}</span>
                   </TopicTitle>
                   <TopicContent $expanded={expandedTopics[topic.id]}>
-                    {topic.url && (
+                    {'url' in topic && topic.url && (
                       <DetailRow style={{ marginBottom: '1rem' }}>
                         <DetailIcon>🔗</DetailIcon>
                         <DetailText>
@@ -938,7 +1078,7 @@ const EventDetailPage: React.FC = () => {
                     <div style={{ marginBottom: '0.5rem', fontWeight: '600', color: '#333' }}>
                       Discussion Points:
                     </div>
-                    {topic.discussion.map((point, pointIndex) => (
+                    {topic.discussion_points.map((point: string, pointIndex: number) => (
                       <DiscussionPoint key={pointIndex}>
                         <span>•</span>
                         <span>{point}</span>
@@ -949,29 +1089,46 @@ const EventDetailPage: React.FC = () => {
               ))}
             </TopicsSection>
           )}
-        </InfoSection>
+
+          <ActionButtons 
+            ref={actionButtonRef}
+            $isFloating={isButtonFloating}
+            $top={originalButtonTop}
+          >
+            {isAdmin && (
+              <AdminButtons>
+                <AdminButton onClick={handleEdit}>
+                  ✏️ Edit Event
+                </AdminButton>
+                <AdminButton onClick={handleCreateNew}>
+                  🆕 Create New Event
+                </AdminButton>
+                <AdminButton onClick={handleDuplicate}>
+                  📋 Duplicate This Event
+                </AdminButton>
+              </AdminButtons>
+            )}
+            <ActionButton
+              $variant={isLocked ? 'locked' : isJoined ? 'cancel' : 'join'}
+              onClick={isLocked ? undefined : handleJoin}
+            >
+              <span>
+                {isLocked ? '🔒' : isJoined ? '❌' : '✅'}
+              </span>
+              {getButtonText()}
+            </ActionButton>
+          </ActionButtons>
       </Content>
 
-      <ActionButtons>
-        <ActionButton
-          $variant="save"
-          $saved={isBookmarked}
-          onClick={handleBookmark}
-        >
-          <span>{isBookmarked ? '🔖' : '🔗'}</span>
-          Save
-        </ActionButton>
-        
-        <ActionButton
-          $variant={isLocked ? 'locked' : isJoined ? 'cancel' : 'join'}
-          onClick={isLocked ? undefined : handleJoin}
-        >
-          <span>
-            {isLocked ? '🔒' : isJoined ? '❌' : '✅'}
-          </span>
-          {isLocked ? 'Locked' : isJoined ? 'Cancel' : 'Join'}
-        </ActionButton>
-      </ActionButtons>
+      <AdminEventDialog
+        isOpen={showAdminDialog}
+        onClose={handleDialogClose}
+        templateEvent={dialogTemplateEvent}
+        editEvent={dialogEditEvent}
+        creatorUid={currentUser?.uid || ''}
+        onEventCreated={handleEventCreated}
+        onEventUpdated={handleEventUpdated}
+      />
     </Container>
   );
 };

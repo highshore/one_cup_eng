@@ -83,7 +83,7 @@ const Logo = styled.img`
   height: 24px;
 
   @media (max-width: 768px) {
-    height: 28px;
+    height: 22px;
     margin-right: 6px;
   }
 `;
@@ -218,58 +218,73 @@ const ProfileImage = styled.img`
   border-radius: 50%;
 `;
 
-const MobileMenuContainer = styled.div<{ $isOpen: boolean }>`
-  display: none;
+const MobileMenuContainer = styled.div<{
+  $isOpen: boolean;
+}>`
+  display: none; // Default for desktop
+  will-change: transform;
+
+  // Common styles for the mobile menu
+  position: fixed;
+  top: 50px;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  max-height: calc(100vh - 50px);
+  overflow-y: auto;
+  transition: background-color 0.3s ease; // Smooth transition for transparency
 
   @media (max-width: 768px) {
     display: flex;
     flex-direction: column;
-    position: fixed;
-    top: 50px;
-    left: 0;
-    right: 0;
-    background-color: white;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    align-items: center;
     padding: 1rem;
     gap: 1rem;
-    z-index: 999;
-    transform: ${({ $isOpen }) =>
-      $isOpen ? "translateY(0)" : "translateY(-100%)"};
-    transition: transform 0.3s ease;
-    max-height: calc(100vh - 50px);
-    overflow-y: auto;
+
+    // Always positioned at translateY(0), but transparency controlled by $isOpen
+    transform: translateY(0);
+    
+    // Background transparency based on $isOpen
+    background-color: ${({ $isOpen }) => $isOpen ? "white" : "transparent"};
+    box-shadow: ${({ $isOpen }) => $isOpen ? "0 2px 10px rgba(0, 0, 0, 0.1)" : "none"};
   }
 `;
 
-const MobileMenuItem = styled(Link)`
+const MobileMenuItem = styled(Link)<{ $isOpen?: boolean }>`
   padding: 1.5rem 2rem;
-  color: ${colors.text.medium};
   text-decoration: none;
   font-size: 1.2rem;
   font-weight: 500;
   text-align: center;
-  border-bottom: 1px solid ${colors.primaryPale};
+  width: 100%;
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+
+  // Text and border transparency based on $isOpen
+  color: ${({ $isOpen }) => $isOpen ? colors.text.medium : "transparent"};
+  border-bottom: 1px solid ${({ $isOpen }) => $isOpen ? colors.primaryPale : "transparent"};
 
   &:hover {
-    background-color: ${colors.primaryPale};
+    background-color: ${({ $isOpen }) => $isOpen ? colors.primaryPale : "transparent"};
   }
 `;
 
-const MobileAuthButton = styled(Link)`
+const MobileAuthButton = styled(Link)<{ $isOpen?: boolean }>`
   margin: 2rem auto;
   width: 80%;
   max-width: 300px;
-  background-color: ${colors.primary};
-  color: white;
   padding: 0.8rem 0;
   border-radius: 20px;
   font-weight: 600;
   text-decoration: none;
   text-align: center;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+  // Button transparency based on $isOpen
+  background-color: ${({ $isOpen }) => $isOpen ? colors.primary : "transparent"};
+  color: ${({ $isOpen }) => $isOpen ? "white" : "transparent"};
 
   &:hover {
-    background-color: ${colors.primaryDark};
+    background-color: ${({ $isOpen }) => $isOpen ? colors.primaryDark : "transparent"};
   }
 `;
 
@@ -391,106 +406,70 @@ export default function GNB({
   // }
 
   return (
-    <NavbarContainer $isTransparent={makeTransparent}>
-      <NavbarContent>
-        <HamburgerButton
-          className="hamburger-btn"
-          $isTransparent={makeTransparent}
-          onClick={(e) => {
-            e.stopPropagation(); // Prevent click from immediately closing the menu
-            setIsMenuOpen(!isMenuOpen);
-          }}
-        >
-          {isMenuOpen ? (
-            <IconSvg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15.75 19.5 8.25 12l7.5-7.5"
-              />
-            </IconSvg>
-          ) : (
-            <IconSvg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-              />
-            </IconSvg>
-          )}
-        </HamburgerButton>
-
-        <LogoContainer>
-          <LogoLink to="/">
-            <Logo
-              src={makeTransparent ? logoWhite : logo}
-              alt="영어 한잔 로고"
-            />
-          </LogoLink>
-        </LogoContainer>
-
-        <MenuContainer>
-          <MenuItem to="/guide" $isTransparent={makeTransparent}>
-            가이드
-          </MenuItem>
-          <MenuItem to="/shadow" $isTransparent={makeTransparent}>
-            쉐도잉
-          </MenuItem>
-          <MenuItem to="/meetup" $isTransparent={makeTransparent}>
-            밋업
-          </MenuItem>
-          {/* <MenuItem to="/community">커뮤니티</MenuItem> */}
-        </MenuContainer>
-
-        {currentUser ? (
-          <ProfileWrapper>
-            <ProfileButton
-              to="/profile"
-              $isActiveSubscription={hasActiveSubscription}
-            >
-              <ProfileImage
-                src={profileImageUrl}
-                alt="사용자 프로필"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = defaultUser;
-                }}
-              />
-            </ProfileButton>
-            {hasActiveSubscription !== null && (
-              <StatusIndicator $isActive={hasActiveSubscription} />
+    <>
+      <NavbarContainer $isTransparent={makeTransparent}>
+        <NavbarContent>
+          <HamburgerButton
+            className="hamburger-btn"
+            $isTransparent={makeTransparent}
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent click from immediately closing the menu
+              setIsMenuOpen(!isMenuOpen);
+            }}
+          >
+            {isMenuOpen ? (
+              <IconSvg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 19.5 8.25 12l7.5-7.5"
+                />
+              </IconSvg>
+            ) : (
+              <IconSvg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              </IconSvg>
             )}
-          </ProfileWrapper>
-        ) : (
-          <AuthButton to="/auth">시작하기</AuthButton>
-        )}
+          </HamburgerButton>
 
-        <MobileMenuContainer className="mobile-menu" $isOpen={isMenuOpen}>
-          <MobileMenuItem to="/guide" onClick={() => setIsMenuOpen(false)}>
-            가이드
-          </MobileMenuItem>
-          <MobileMenuItem to="/shadow" onClick={() => setIsMenuOpen(false)}>
-            쉐도잉
-          </MobileMenuItem>
-          <MobileMenuItem to="/meetup" onClick={() => setIsMenuOpen(false)}>
-            밋업
-          </MobileMenuItem>
-          {/* <MobileMenuItem to="/community" onClick={() => setIsMenuOpen(false)}>
-            커뮤니티
-          </MobileMenuItem> */}
+          <LogoContainer>
+            <LogoLink to="/">
+              <Logo
+                src={makeTransparent ? logoWhite : logo}
+                alt="영어 한잔 로고"
+              />
+            </LogoLink>
+          </LogoContainer>
+
+          <MenuContainer>
+            <MenuItem to="/guide" $isTransparent={makeTransparent}>
+              가이드
+            </MenuItem>
+            <MenuItem to="/shadow" $isTransparent={makeTransparent}>
+              쉐도잉
+            </MenuItem>
+            <MenuItem to="/meetup" $isTransparent={makeTransparent}>
+              밋업
+            </MenuItem>
+            {/* <MenuItem to="/community">커뮤니티</MenuItem> */}
+          </MenuContainer>
+
           {currentUser ? (
             <ProfileWrapper>
               <ProfileButton
@@ -512,12 +491,52 @@ export default function GNB({
               )}
             </ProfileWrapper>
           ) : (
-            <MobileAuthButton to="/auth" onClick={() => setIsMenuOpen(false)}>
-              시작하기
-            </MobileAuthButton>
+            <AuthButton to="/auth">시작하기</AuthButton>
           )}
-        </MobileMenuContainer>
-      </NavbarContent>
-    </NavbarContainer>
+
+          {/* MobileMenuContainer was here previously */}
+        </NavbarContent>
+      </NavbarContainer>
+
+      {/* MobileMenuContainer is now always rendered. Its visibility is controlled by its own styles. */}
+      <MobileMenuContainer
+        className="mobile-menu"
+        $isOpen={isMenuOpen}
+      >
+        <MobileMenuItem
+          to="/guide"
+          onClick={() => setIsMenuOpen(false)}
+          $isOpen={isMenuOpen}
+        >
+          가이드
+        </MobileMenuItem>
+        <MobileMenuItem
+          to="/shadow"
+          onClick={() => setIsMenuOpen(false)}
+          $isOpen={isMenuOpen}
+        >
+          쉐도잉
+        </MobileMenuItem>
+        <MobileMenuItem
+          to="/meetup"
+          onClick={() => setIsMenuOpen(false)}
+          $isOpen={isMenuOpen}
+        >
+          밋업
+        </MobileMenuItem>
+        {/* <MobileMenuItem to="/community" onClick={() => setIsMenuOpen(false)} $isOpen={isMenuOpen}>
+          커뮤니티
+        </MobileMenuItem> */}
+        {!currentUser && (
+          <MobileAuthButton
+            to="/auth"
+            onClick={() => setIsMenuOpen(false)}
+            $isOpen={isMenuOpen}
+          >
+            시작하기
+          </MobileAuthButton>
+        )}
+      </MobileMenuContainer>
+    </>
   );
 }

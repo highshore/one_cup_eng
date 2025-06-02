@@ -1,5 +1,5 @@
 import * as admin from "firebase-admin";
-// import * as functions from "firebase-functions"; // This line will be removed
+// import * as functions from "firebase-functions"; // No longer needed for config
 import { onRequest, HttpsOptions } from "firebase-functions/v2/https"; // For v2
 import * as logger from "firebase-functions/logger"; // v2 logger
 import { YoutubeTranscript } from "youtube-transcript"; // Added for youtube-transcript
@@ -35,6 +35,7 @@ const allowedOrigins = [
   "https://onecup.dev",
   "https://one-cup-eng.web.app",
   "https://one-cup-eng.firebaseapp.com",
+  "https://1cupenglish.com",
 ];
 
 const corsHandler = cors({
@@ -142,6 +143,73 @@ export {
   paymentCallback,
   processKakaoUser,
 };
+
+// Naver Local Search API Function
+export const searchNaverLocal = onRequest(
+  commonHttpsOptions,
+  (request, response) => {
+    corsHandler(request, response, async () => {
+      logger.info(
+        `Request received for searchNaverLocal. Method: ${request.method}, Origin: ${request.headers.origin}`
+      );
+
+      if (request.method !== "GET") {
+        logger.warn(`Method Not Allowed: ${request.method}`);
+        response.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      const { query, display = "5", start = "1", sort = "random" } = request.query;
+
+      if (!query || typeof query !== "string") {
+        logger.warn("Missing or invalid query parameter.");
+        response.status(400).send("Query parameter is required.");
+        return;
+      }
+
+      // Get Naver API credentials from environment variables (v2 style)
+      // These are set via `firebase functions:config:set naver.client_id=... naver.client_secret=...`
+      // and become process.env.NAVER_CLIENT_ID and process.env.NAVER_CLIENT_SECRET
+      const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
+      const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
+
+      if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+        logger.error("Naver API credentials not found in Firebase Function environment variables.", {id: !!NAVER_CLIENT_ID, secret: !!NAVER_CLIENT_SECRET });
+        response.status(500).send("API credentials configuration error. Check Firebase Function environment variables.");
+        return;
+      }
+
+      const apiUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(query)}&display=${display}&start=${start}&sort=${sort}`;
+
+      try {
+        logger.info(`Calling Naver API: ${apiUrl} with client ID: ${NAVER_CLIENT_ID ? NAVER_CLIENT_ID.substring(0,4) + '...': 'MISSING'}`);
+        
+        const fetch = (await import("node-fetch")).default;
+        
+        const naverResponse = await fetch(apiUrl, {
+          method: "GET",
+          headers: {
+            "X-Naver-Client-Id": NAVER_CLIENT_ID,
+            "X-Naver-Client-Secret": NAVER_CLIENT_SECRET,
+          },
+        });
+
+        if (naverResponse.ok) {
+          const data = await naverResponse.json();
+          logger.info(`Successfully fetched ${data.items?.length || 0} results from Naver API`);
+          response.status(200).json(data);
+        } else {
+          const errorText = await naverResponse.text();
+          logger.error("Naver API Error:", naverResponse.status, errorText);
+          response.status(naverResponse.status).send(`Naver API Error: ${errorText}`);
+        }
+      } catch (error: any) {
+        logger.error("Error calling Naver API:", error);
+        response.status(500).send("Internal server error");
+      }
+    });
+  }
+);
 
 interface LinkData {
   url: string;
