@@ -35,7 +35,6 @@ export interface MeetupEvent {
   duration_minutes: number;
   lockdown_minutes: number;
   max_participants: number;
-  current_participants: number;
   participants: string[];
   leaders: string[];
   image_urls: string[];

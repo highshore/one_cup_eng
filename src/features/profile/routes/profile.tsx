@@ -9,7 +9,7 @@ import {
 } from "firebase/storage";
 import { updateProfile, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale/ko";
 import defaultUserImage from "../../../shared/assets/default_user.jpg";
@@ -22,8 +22,8 @@ const Wrapper = styled.div`
   align-items: center;
   width: 100%;
   gap: 10px;
-  padding: 20px;
-  max-width: 850px;
+  padding: 20px 0px;
+  max-width: 920px;
   margin: 0 auto;
 `;
 
@@ -619,6 +619,12 @@ export default function Profile() {
           photoURL: avatarUrl,
         });
 
+        // Update Firestore document
+        const userDocRef = doc(db, `users/${user.uid}`);
+        await updateDoc(userDocRef, {
+          photoURL: avatarUrl,
+        });
+
         // Update local state with cache busting to prevent stale images
         try {
           const url = new URL(avatarUrl);
@@ -672,6 +678,12 @@ export default function Profile() {
       // 2. Update the profile with null photoURL
       await updateProfile(user, {
         photoURL: null,
+      });
+
+      // Update Firestore document
+      const userDocRef = doc(db, `users/${user.uid}`);
+      await updateDoc(userDocRef, {
+        photoURL: null, // or deleteField() if you prefer to remove the field
       });
 
       // 3. Update local state immediately

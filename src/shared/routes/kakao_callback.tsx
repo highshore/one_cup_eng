@@ -139,11 +139,31 @@ const KakaoCallback = () => {
             await signOut(auth).catch(e => console.warn("Sign out failed before custom token re-sign (same user), might be okay:", e)); // Attempt sign out just in case
           await signInWithCustomToken(auth, functionData.customToken);
           }
-          navigate("/profile");
+          
+          // Check localStorage for return URL
+          const returnUrl = localStorage.getItem('returnUrl');
+          if (returnUrl) {
+            console.log('[KakaoCallback] Redirecting to stored return URL:', returnUrl);
+            localStorage.removeItem('returnUrl');
+            navigate(returnUrl);
+          } else {
+            console.log('[KakaoCallback] No return URL found, redirecting to profile');
+            navigate("/profile");
+          }
         } else if (functionData.status === "success_oidc_user" && functionData.finalUid === oidcUser.uid) {
           // This case means the OIDC user was processed (new or existing OIDC user updated)
           console.log("processKakaoUser successful for OIDC user (Kakao linked & Firestore doc created/updated). UID:", functionData.finalUid);
-          navigate("/profile");
+          
+          // Check localStorage for return URL
+          const returnUrl = localStorage.getItem('returnUrl');
+          if (returnUrl) {
+            console.log('[KakaoCallback] Redirecting to stored return URL:', returnUrl);
+            localStorage.removeItem('returnUrl');
+            navigate(returnUrl);
+          } else {
+            console.log('[KakaoCallback] No return URL found, redirecting to profile');
+            navigate("/profile");
+          }
         } else {
           console.error("processKakaoUser returned an unexpected status or missing data:", functionData);
           // Attempt to sign out the OIDC user before redirecting to auth

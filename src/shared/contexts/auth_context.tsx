@@ -13,12 +13,14 @@ interface AuthContextProps {
   currentUser: User | null;
   isLoading: boolean;
   hasActiveSubscription: boolean | null;
+  accountStatus: string | null;
 }
 
 const AuthContext = createContext<AuthContextProps>({
   currentUser: null,
   isLoading: true,
   hasActiveSubscription: null,
+  accountStatus: null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -33,6 +35,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [hasActiveSubscription, setHasActiveSubscription] = useState<
     boolean | null
   >(null);
+  const [accountStatus, setAccountStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -44,15 +47,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setHasActiveSubscription(userData.hasActiveSubscription || false);
+            setAccountStatus(userData.account_status || 'user');
           } else {
             setHasActiveSubscription(false);
+            setAccountStatus('user');
           }
         } catch (error) {
-          console.error("Error fetching user subscription status:", error);
+          console.error("Error fetching user data:", error);
           setHasActiveSubscription(false);
+          setAccountStatus('user');
         }
       } else {
         setHasActiveSubscription(null);
+        setAccountStatus(null);
       }
       setIsLoading(false);
     });
@@ -64,6 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     currentUser,
     isLoading,
     hasActiveSubscription,
+    accountStatus,
   };
 
   return (

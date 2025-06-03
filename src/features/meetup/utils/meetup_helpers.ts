@@ -77,7 +77,6 @@ export const convertFirestoreToMeetupEvent = (doc: FirestoreMeetupEvent | any): 
     duration_minutes: doc.duration_minutes,
     lockdown_minutes: doc.lockdown_minutes,
     max_participants: doc.max_participants,
-    current_participants: doc.participants?.length || 0, // Added safety for participants
     participants: doc.participants || [], // Added safety for participants
     leaders: doc.leaders || [], // Added safety for leaders
     image_urls: doc.image_urls || [], // Added safety for image_urls
@@ -225,7 +224,7 @@ export const isEventLocked = (event: MeetupEvent): { isLocked: boolean; reason: 
   }
   
   // Check if event is full (participants + leaders >= max_participants)
-  const totalOccupied = event.current_participants + event.leaders.length;
+  const totalOccupied = event.participants.length + event.leaders.length;
   if (totalOccupied >= event.max_participants) {
     return { isLocked: true, reason: 'full' };
   }

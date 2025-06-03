@@ -247,6 +247,9 @@ const MobileMenuContainer = styled.div<{
     // Background transparency based on $isOpen
     background-color: ${({ $isOpen }) => $isOpen ? "white" : "transparent"};
     box-shadow: ${({ $isOpen }) => $isOpen ? "0 2px 10px rgba(0, 0, 0, 0.1)" : "none"};
+    
+    // Disable pointer events when closed to prevent interference with content behind
+    pointer-events: ${({ $isOpen }) => $isOpen ? "auto" : "none"};
   }
 `;
 
@@ -266,6 +269,9 @@ const MobileMenuItem = styled(Link)<{ $isOpen?: boolean }>`
   &:hover {
     background-color: ${({ $isOpen }) => $isOpen ? colors.primaryPale : "transparent"};
   }
+  
+  // Disable pointer events when menu is closed
+  pointer-events: ${({ $isOpen }) => $isOpen ? "auto" : "none"};
 `;
 
 const MobileAuthButton = styled(Link)<{ $isOpen?: boolean }>`
@@ -286,6 +292,9 @@ const MobileAuthButton = styled(Link)<{ $isOpen?: boolean }>`
   &:hover {
     background-color: ${({ $isOpen }) => $isOpen ? colors.primaryDark : "transparent"};
   }
+  
+  // Disable pointer events when menu is closed
+  pointer-events: ${({ $isOpen }) => $isOpen ? "auto" : "none"};
 `;
 
 interface GNBProps {

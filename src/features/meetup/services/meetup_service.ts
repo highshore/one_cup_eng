@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, where, Timestamp, limit, startAfter, QueryDocumentSnapshot, DocumentData, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, where, Timestamp, limit, startAfter, QueryDocumentSnapshot, DocumentData, addDoc, updateDoc, runTransaction, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { FirestoreMeetupEvent, MeetupEvent } from '../types/meetup_types';
 import { convertFirestoreToMeetupEvent, sampleFirestoreEvents } from '../utils/meetup_helpers';
@@ -6,16 +6,19 @@ import { geocodeLocation } from './geocoding_service';
 
 // Collection reference
 const MEETUP_COLLECTION = 'meetup';
-const EVENTS_PER_PAGE = 10; // Number of events to load per page
+const DEFAULT_EVENTS_PER_PAGE = 5; // Reduced to 5 for smaller incremental loading
 
 // Fetch all meetup events with pagination
-export const fetchMeetupEvents = async (lastDoc?: QueryDocumentSnapshot<DocumentData>): Promise<{ events: MeetupEvent[], lastDoc: QueryDocumentSnapshot<DocumentData> | null }> => {
+export const fetchMeetupEvents = async (
+  lastDoc?: QueryDocumentSnapshot<DocumentData>, 
+  limitCount: number = DEFAULT_EVENTS_PER_PAGE
+): Promise<{ events: MeetupEvent[], lastDoc: QueryDocumentSnapshot<DocumentData> | null }> => {
   try {
     const meetupCollection = collection(db, MEETUP_COLLECTION);
     let eventsQuery = query(
       meetupCollection, 
       orderBy('date_time', 'desc'), // Most recent first
-      limit(EVENTS_PER_PAGE)
+      limit(limitCount)
     );
     
     // Add pagination if lastDoc is provided
@@ -24,7 +27,7 @@ export const fetchMeetupEvents = async (lastDoc?: QueryDocumentSnapshot<Document
         meetupCollection,
         orderBy('date_time', 'desc'),
         startAfter(lastDoc),
-        limit(EVENTS_PER_PAGE)
+        limit(limitCount)
       );
     }
     
@@ -49,7 +52,7 @@ export const fetchMeetupEvents = async (lastDoc?: QueryDocumentSnapshot<Document
     if (process.env.NODE_ENV === 'development') {
       console.log('Using sample data for development');
       const sampleEvents = Object.values(sampleFirestoreEvents).map(convertFirestoreToMeetupEvent);
-      return { events: sampleEvents, lastDoc: null };
+      return { events: sampleEvents.slice(0, limitCount), lastDoc: null };
     }
     throw error;
   }
@@ -242,39 +245,92 @@ export const subscribeToEvent = (eventId: string, callback: (event: MeetupEvent 
   }
 };
 
-// Helper function to join an event (you'll need to implement the actual logic)
-export const joinMeetupEvent = async (eventId: string, userId: string): Promise<boolean> => {
+// Join an event either as a participant or a leader
+export const joinEventAsRole = async (eventId: string, userId: string, role: 'participant' | 'leader'): Promise<void> => {
+  const eventRef = doc(db, MEETUP_COLLECTION, eventId);
   try {
-    // TODO: Implement actual join logic with Firestore transaction
-    // This would typically:
-    // 1. Check if user is already joined
-    // 2. Check if event is full
-    // 3. Check if event is locked down
-    // 4. Add user to participants array
-    // 5. Update participant count
-    
-    console.log(`Joining event ${eventId} for user ${userId}`);
-    return true;
+    await runTransaction(db, async (transaction) => {
+      const eventDoc = await transaction.get(eventRef);
+      if (!eventDoc.exists()) {
+        throw new Error("Event does not exist!");
+      }
+
+      const eventData = eventDoc.data() as FirestoreMeetupEvent;
+      const isParticipant = eventData.participants?.includes(userId);
+      const isLeader = eventData.leaders?.includes(userId);
+
+      // If already in the chosen role or the other role, do nothing (or handle as an error/notification)
+      if ((role === 'participant' && isParticipant) || (role === 'leader' && isLeader)) {
+        console.log(`User ${userId} already in the event as ${role}.`);
+        return; // Or throw an error to indicate this
+      }
+      
+      // Prevent joining if event is full (unless joining as a leader - leaders might bypass this)
+      const currentTotal = (eventData.participants?.length || 0) + (eventData.leaders?.length || 0);
+      if (role === 'participant' && currentTotal >= eventData.max_participants) {
+        throw new Error("Event is already full for participants.");
+      }
+
+      let updateData: any = {};
+
+      if (role === 'participant') {
+        updateData.participants = arrayUnion(userId);
+        if (isLeader) { // If they were a leader, remove them from leaders list
+          updateData.leaders = arrayRemove(userId);
+        }
+      } else { // role === 'leader'
+        updateData.leaders = arrayUnion(userId);
+        if (isParticipant) { // If they were a participant, remove them from participants list
+          updateData.participants = arrayRemove(userId);
+        }
+      }
+      
+      // No need to manage current_participants since we calculate it on the fly
+
+      transaction.update(eventRef, updateData);
+    });
+    console.log(`User ${userId} successfully joined event ${eventId} as ${role}.`);
   } catch (error) {
-    console.error(`Error joining event ${eventId}:`, error);
-    return false;
+    console.error("Error joining event:", error);
+    throw error; // Re-throw to be caught by the caller
   }
 };
 
-// Helper function to leave an event (you'll need to implement the actual logic)
-export const leaveMeetupEvent = async (eventId: string, userId: string): Promise<boolean> => {
+// Cancel participation in an event (removes from either participant or leader list)
+export const cancelParticipation = async (eventId: string, userId: string): Promise<void> => {
+  const eventRef = doc(db, MEETUP_COLLECTION, eventId);
   try {
-    // TODO: Implement actual leave logic with Firestore transaction
-    // This would typically:
-    // 1. Check if user is actually joined
-    // 2. Remove user from participants array
-    // 3. Update participant count
-    
-    console.log(`Leaving event ${eventId} for user ${userId}`);
-    return true;
+    await runTransaction(db, async (transaction) => {
+      const eventDoc = await transaction.get(eventRef);
+      if (!eventDoc.exists()) {
+        throw new Error("Event does not exist!");
+      }
+      const eventData = eventDoc.data() as FirestoreMeetupEvent;
+      const isParticipant = eventData.participants?.includes(userId);
+      const isLeader = eventData.leaders?.includes(userId);
+
+      if (!isParticipant && !isLeader) {
+        console.log(`User ${userId} is not part of event ${eventId}.`);
+        return; // Or throw an error
+      }
+
+      let updateData: any = {};
+
+      if (isParticipant) {
+        updateData.participants = arrayRemove(userId);
+      }
+      if (isLeader) { // Can be both a participant and leader based on old logic, so check separately
+        updateData.leaders = arrayRemove(userId);
+      }
+
+      // No need to manage current_participants since we calculate it on the fly
+
+      transaction.update(eventRef, updateData);
+    });
+    console.log(`User ${userId} successfully canceled participation for event ${eventId}.`);
   } catch (error) {
-    console.error(`Error leaving event ${eventId}:`, error);
-    return false;
+    console.error("Error canceling participation:", error);
+    throw error; // Re-throw to be caught by the caller
   }
 };
 
@@ -287,8 +343,8 @@ export const createMeetupEvent = async (eventData: Partial<FirestoreMeetupEvent>
       date_time: eventData.date_time || Timestamp.now(),
       duration_minutes: eventData.duration_minutes || 60,
       image_urls: eventData.image_urls || [],
-      leaders: eventData.leaders || [creatorUid],
-      participants: eventData.participants || [],
+      leaders: eventData.leaders || [creatorUid], // Default leader is creator
+      participants: eventData.participants || [],      // Default empty participants
       lockdown_minutes: eventData.lockdown_minutes === undefined ? 10 : eventData.lockdown_minutes,
       max_participants: eventData.max_participants || 20,
       topics: eventData.topics || [],
@@ -296,29 +352,29 @@ export const createMeetupEvent = async (eventData: Partial<FirestoreMeetupEvent>
       location_name: eventData.location_name || '',
       location_address: eventData.location_address || '',
       location_map_url: eventData.location_map_url || '',
-      latitude: eventData.latitude || 0, // Comes from AdminEventDialog (Naver search or default 0)
-      longitude: eventData.longitude || 0, // Comes from AdminEventDialog (Naver search or default 0)
+      latitude: eventData.latitude || 0, 
+      longitude: eventData.longitude || 0, 
       location_extra_info: eventData.location_extra_info || '',
     };
 
     // Geocode only if coordinates are 0 (meaning not set by Naver search) AND an address is available
     if ((dataToSave.latitude === 0 || dataToSave.longitude === 0) && dataToSave.location_address) {
       console.log(`Geocoding for new event: ${dataToSave.location_address}`);
-      const geocoded = await geocodeLocation(dataToSave.location_address); // Assuming geocodeLocation takes address string
+      const geocoded = await geocodeLocation(dataToSave.location_address); 
       if (geocoded) {
         dataToSave.latitude = geocoded.latitude;
         dataToSave.longitude = geocoded.longitude;
         console.log(`Geocoded to: lat=${geocoded.latitude}, lng=${geocoded.longitude}`);
       } else {
         console.warn(`Geocoding failed for: ${dataToSave.location_address}. Using 0,0.`);
-        dataToSave.latitude = 0; // Ensure they are numbers
+        dataToSave.latitude = 0; 
         dataToSave.longitude = 0;
       }
     } else if (dataToSave.latitude !== 0 && dataToSave.longitude !== 0) {
         console.log(`Using provided coordinates for new event: lat=${dataToSave.latitude}, lng=${dataToSave.longitude}`);
     } else {
         console.log('No address to geocode and no valid coordinates provided. Using 0,0.');
-        dataToSave.latitude = 0; // Ensure they are numbers
+        dataToSave.latitude = 0; 
         dataToSave.longitude = 0;
     }
 

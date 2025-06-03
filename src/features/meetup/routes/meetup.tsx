@@ -1,22 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled, {keyframes } from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { MeetupEvent } from '../types/meetup_types';
 import { fetchMeetupEvents } from '../services/meetup_service';
 import { formatEventDateTime, isEventLocked, formatEventTitleWithCountdown } from '../utils/meetup_helpers';
 import { UserAvatarStack } from '../components/user_avatar';
 import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { PinIcon, CalendarIcon } from '../components/meetup_icons';
 
-// Shining animation keyframes
-const shiningAnimation = keyframes`
+// Add subtle glow animation keyframes
+const subtleGlow = keyframes`
   0% {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(255, 215, 0, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   50% {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 20px 5px rgba(255, 215, 0, 0.6);
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   100% {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(255, 215, 0, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 `;
 
@@ -89,8 +90,8 @@ const ContentContainer = styled.div`
   width: 100%;
   
   @media (max-width: 768px) {
-    padding: 0 1rem; // Increased from 0.75rem for better spacing
     max-width: 100%;
+    padding: 0;
   }
 `;
 
@@ -106,7 +107,7 @@ const SectionTitle = styled.h2`
   }
 `;
 
-const EventCard = styled.div<{ $isPast?: boolean; $isShining?: boolean }>`
+const EventCard = styled.div<{ $isPast?: boolean; $isClosest?: boolean }>`
   background-color: white;
   border-radius: 20px;
   padding: 24px;
@@ -117,7 +118,12 @@ const EventCard = styled.div<{ $isPast?: boolean; $isShining?: boolean }>`
   border: 1px solid #e0e0e0;
   width: 100%;
   opacity: ${props => props.$isPast ? 0.6 : 1};
-  animation: ${props => props.$isShining ? shiningAnimation : 'none'} 2s infinite;
+  
+  /* Add subtle glow animation for closest upcoming event */
+  ${props => props.$isClosest ? css`
+    animation: ${subtleGlow} 3s ease-in-out infinite;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+  ` : ''}
   
   &:hover {
     transform: translateY(-2px);
@@ -217,11 +223,12 @@ const EventInfo = styled.div`
 
 const EventIcon = styled.span<{ $isPast?: boolean }>`
   color: ${props => props.$isPast ? '#999' : '#666'};
-  font-size: 18px;
   flex-shrink: 0; // Prevents icons from shrinking
+  display: flex; // Added for better alignment of SVG
+  align-items: center; // Added for better alignment of SVG
   
   @media (max-width: 768px) {
-    font-size: 14px;
+    /* font-size: 14px; // Removed */
   }
 `;
 
@@ -240,57 +247,32 @@ const EventBottom = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 8px;
   gap: 8px; // Adds gap to prevent overlap
   
   @media (max-width: 768px) {
-    margin-top: 8px;
+    margin-top: 4px;
     gap: 6px;
   }
 `;
 
-const AvatarContainer = styled.div`
-  display: flex;
-  align-items: center;
-  height: 30px;
-  flex: 1;
-  min-width: 0; // Allows container to shrink
-  
-  @media (max-width: 768px) {
-    height: 24px;
-  }
-`;
-
-const StatusContainer = styled.div<{ $fillRatio: number; $isFull: boolean; $isPast?: boolean }>`
-  padding: 10px 20px;
-  border-radius: 20px;
-  background-color: ${props => {
-    if (props.$isPast) return '#e0e0e0';
-    if (props.$isFull) return '#9e9e9e';
-    const blue = [33, 150, 243]; // Material Blue
-    const orange = [255, 152, 0]; // Material Orange
-    const ratio = props.$fillRatio;
-    const r = Math.round(blue[0] + (orange[0] - blue[0]) * ratio);
-    const g = Math.round(blue[1] + (orange[1] - blue[1]) * ratio);
-    const b = Math.round(blue[2] + (orange[2] - blue[2]) * ratio);
-    return `rgb(${r}, ${g}, ${b})`;
-  }};
-  flex-shrink: 0; // Prevents status from shrinking
-  
-  @media (max-width: 768px) {
-    padding: 6px 12px;
-    border-radius: 12px;
-  }
-`;
-
-const StatusText = styled.span<{ $isPast?: boolean }>`
-  color: ${props => props.$isPast ? '#999' : 'white'};
+// New StatusBadge styled component
+const StatusBadge = styled.span<{ $statusColor: string }>`
+  display: inline-block;
+  padding: 8px 16px;
   font-size: 14px;
-  font-weight: bold;
-  white-space: nowrap; // Prevents text wrapping in status
-  
+  font-weight: 700;
+  color: #FFFFFF; // White text for better contrast
+  background-color: ${props => props.$statusColor};
+  border-radius: 20px;
+  text-align: center;
+  min-width: 80px; // Minimum width for the badge
+  transition: all 0.2s ease;
+
   @media (max-width: 768px) {
-    font-size: 11px;
+    font-size: 12px;
+    padding: 6px 12px;
+    min-width: 80px;
   }
 `;
 
@@ -306,33 +288,36 @@ const LoadingContainer = styled.div`
 `;
 
 const LoadMoreButton = styled.button`
-  width: 100%;
-  padding: 1rem;
-  margin: 1rem 0;
+  display: block;
+  margin: 2rem auto 1rem auto;
+  padding: 0.75rem 1.5rem;
   background-color: #f5f5f5;
-  border: 2px solid #e0e0e0;
-  border-radius: 20px;
+  border: 1px solid #ddd;
+  border-radius: 25px;
   color: #666;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 100px;
   
   &:hover {
     background-color: #eeeeee;
-    border-color: #cccccc;
+    border-color: #bbb;
+    transform: translateY(-1px);
   }
   
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
   }
   
   @media (max-width: 768px) {
-    padding: 0.75rem;
-    margin: 0.75rem 0;
+    padding: 0.625rem 1.25rem;
+    margin: 1.5rem auto 0.75rem auto;
     font-size: 13px;
-    border-radius: 16px;
+    border-radius: 20px;
   }
 `;
 
@@ -461,6 +446,11 @@ const MeetupPage: React.FC = () => {
     loadEvents(true);
   }, []);
 
+  // Scroll to top when component mounts or when filters change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const handleEventClick = (meetupId: string) => {
     navigate(`/meetup/${meetupId}`);
   };
@@ -470,45 +460,34 @@ const MeetupPage: React.FC = () => {
     console.log('Avatar clicked for user:', uid);
   };
 
-  // Find the most imminent upcoming event that's not full
-  const getMostImminentNonFullEvent = (): MeetupEvent | null => {
-    const nonFullUpcomingEvents = upcomingEvents.filter(event => {
-      const totalOccupied = event.current_participants + event.leaders.length;
-      return totalOccupied < event.max_participants;
-    });
-    
-    return nonFullUpcomingEvents.length > 0 ? nonFullUpcomingEvents[0] : null;
-  };
-
-  const renderEventCard = (meetup: MeetupEvent, isPast: boolean = false) => {
-    const joined = meetup.current_participants;
-    const totalOccupied = joined + meetup.leaders.length; // Include leaders in the count
-    const fillRatio = Math.min(totalOccupied / meetup.max_participants, 1.0);
-    const lockStatus = isEventLocked(meetup);
-    const isLocked = lockStatus.isLocked;
-
-    // Get countdown information for the title
+  const renderEventCard = (meetup: MeetupEvent, isPast: boolean = false, isClosest: boolean = false) => {
     const { countdownPrefix, eventTitle, isUrgent } = formatEventTitleWithCountdown(meetup);
+    const lockStatus = isEventLocked(meetup);
+    const isCurrentlyLocked = lockStatus.isLocked;
+    
+    // Calculate total participants (leaders + participants)
+    const totalParticipants = meetup.leaders.length + meetup.participants.length;
 
-    // Determine if this event should have the shining effect
-    const mostImminentEvent = getMostImminentNonFullEvent();
-    const shouldShine = !isPast && mostImminentEvent?.id === meetup.id;
-
-    // Determine status text based on lock reason
     const getStatusText = () => {
-      if (isPast) return '✅ Completed';
-      if (!isLocked) return `${totalOccupied} / ${meetup.max_participants} Going`;
-      
+      if (isPast) return '종료';
+      if (!isCurrentlyLocked) return '참가 가능';
       switch (lockStatus.reason) {
-        case 'started': return '🔒 Started';
-        case 'full': return '🔒 Full';
-        case 'lockdown': return '🔒 Locked';
-        default: return '🔒 Locked';
+        case 'started': return '진행중';
+        case 'full': return '정원 마감';
+        case 'lockdown': return '모집 종료';
+        default: return '모집 종료';
       }
     };
+
+    const statusColor = isPast ? '#757575' : (isCurrentlyLocked ? (lockStatus.reason === 'full' ? '#ff4d4f' : '#888') : '#4CAF50');
     
     return (
-      <EventCard key={meetup.id} onClick={() => handleEventClick(meetup.id)} $isPast={isPast} $isShining={shouldShine}>
+      <EventCard 
+        key={meetup.id} 
+        onClick={() => handleEventClick(meetup.id)}
+        $isPast={isPast}
+        $isClosest={isClosest}
+      >
         <EventContent>
           <EventImageContainer $isPast={isPast}>
             {meetup.image_urls && meetup.image_urls.length > 0 ? (
@@ -517,60 +496,35 @@ const MeetupPage: React.FC = () => {
               <EventImagePlaceholder>🖼️</EventImagePlaceholder>
             )}
           </EventImageContainer>
-          
           <EventDetails>
             <EventTitle $isPast={isPast}>
-              {isPast ? (
-                meetup.title
-              ) : (
-                <>
-                  {countdownPrefix && (
-                    <CountdownPrefix $isUrgent={isUrgent}>
-                      {countdownPrefix}
-                    </CountdownPrefix>
-                  )}
-                  {eventTitle}
-                </>
-              )}
+              {countdownPrefix && <CountdownPrefix $isUrgent={isUrgent}>{countdownPrefix}</CountdownPrefix>}
+              {eventTitle}
             </EventTitle>
-            
             <EventInfo>
-              <EventIcon $isPast={isPast}>📍</EventIcon>
-              <EventText $isPast={isPast}>
-                {meetup.location_name}
-                {meetup.location_address ? `, ${meetup.location_address}` : ''}
-              </EventText>
+              <EventIcon $isPast={isPast}><PinIcon width="16px" height="16px" /></EventIcon>
+              <EventText $isPast={isPast}>{meetup.location_name}</EventText>
             </EventInfo>
-            
             <EventInfo>
-              <EventIcon $isPast={isPast}>📅</EventIcon>
-              <EventText $isPast={isPast}>
-                {formatEventDateTime(meetup)}
-              </EventText>
+              <EventIcon $isPast={isPast}><CalendarIcon width="16px" height="16px" /></EventIcon>
+              <EventText $isPast={isPast}>{formatEventDateTime(meetup)}</EventText>
             </EventInfo>
-            
             <EventBottom>
-              <AvatarContainer>
-                {(meetup.participants.length > 0 || meetup.leaders.length > 0) && (
-                  <UserAvatarStack
-                    uids={[...meetup.leaders, ...meetup.participants]}
-                    maxAvatars={5}
-                    size={28}
-                    isLeader={false}
-                    isPast={isPast}
-                    onAvatarClick={handleAvatarClick}
-                  />
-                )}
-              </AvatarContainer>
-              
-              <StatusContainer $fillRatio={fillRatio} $isFull={lockStatus.reason === 'full' || isLocked} $isPast={isPast}>
-                <StatusText $isPast={isPast}>
-                  {getStatusText()}
-                </StatusText>
-              </StatusContainer>
-            </EventBottom>
+          <UserAvatarStack 
+            uids={[...meetup.leaders, ...meetup.participants]}
+            maxAvatars={5}
+            size={30}
+            isPast={isPast}
+            onAvatarClick={handleAvatarClick} 
+          />
+          <StatusBadge $statusColor={statusColor}>
+            {getStatusText()} ({totalParticipants}/{meetup.max_participants})
+          </StatusBadge>
+        </EventBottom>
           </EventDetails>
+  
         </EventContent>
+        
       </EventCard>
     );
   };
@@ -606,7 +560,7 @@ const MeetupPage: React.FC = () => {
             {upcomingEvents.length > 0 && (
               <>
                 <SectionTitle>현재 모집 중 🥳</SectionTitle>
-                {upcomingEvents.map(meetup => renderEventCard(meetup, false))}
+                {upcomingEvents.map((meetup, index) => renderEventCard(meetup, false, index === 0))}
               </>
             )}
 
@@ -614,18 +568,18 @@ const MeetupPage: React.FC = () => {
             {pastEvents.length > 0 && (
               <>
                 <SectionTitle>이전 밋업</SectionTitle>
-                {pastEvents.map(meetup => renderEventCard(meetup, true))}
+                {pastEvents.map(meetup => renderEventCard(meetup, true, false))}
               </>
             )}
 
-            {/* Load More Button / Infinite Scroll Trigger */}
+            {/* Load More Button */}
             {hasMore && (
               <LoadMoreButton
                 ref={loadMoreButtonRef}
                 onClick={loadMoreEvents}
                 disabled={loadingMore}
               >
-                {loadingMore ? 'Loading more events...' : 'Load more events'}
+                {loadingMore ? '로딩 중...' : '더 보기'}
               </LoadMoreButton>
             )}
 

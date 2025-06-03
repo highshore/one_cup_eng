@@ -2,7 +2,7 @@ import { useState, useEffect, ReactNode } from "react";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import { auth, db } from "../../../firebase";
 import styled from "styled-components";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import kakaoBtnImg from "../../../shared/assets/kakao_btn.png"; // Import the image
 import logoImage from "../../../shared/assets/1cup_logo_new.svg"; // Added from auth_components
 import Footer from "../../../shared/components/footer"; // Added from auth_components - assuming path
@@ -313,7 +313,7 @@ function AuthLayout({ children }: AuthLayoutProps) {
         {" "}
         {/* Moved Header outside ContentContainer, directly under PageWrapper */}
         <Link
-          to="/"
+          to=""
           style={{
             display: "flex",
             alignItems: "center",
@@ -574,14 +574,62 @@ export default function Auth() {
   };
 
   useEffect(() => {
-    // Check if user is already signed in
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      console.log('[Auth] onAuthStateChanged fired, user:', !!user);
+      
       if (user) {
-        // User is already signed in, redirect to home
-        navigate("/profile");
+        // User is signed in, see docs for a list of available properties
+        // https://firebase.google.com/docs/reference/js/firebase.User
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+          // Create user document if it doesn\'t exist
+          await setDoc(userDocRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || "Anonymous User",
+            photoURL: user.photoURL,
+            createdAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+            // Add other default fields as needed
+            account_status: "free", // e.g. \'free\', \'premium\'
+            user_type: "member", // e.g. \'member\', \'admin\'
+            phone_number: user.phoneNumber,
+          });
+        } else {
+          // Update last login time
+          await updateDoc(userDocRef, {
+            lastLoginAt: serverTimestamp(),
+          });
+        }
+        
+        // Get return URL from localStorage, fallback to /profile
+        console.log('[Auth] Checking localStorage for returnUrl...');
+        console.log('[Auth] All localStorage keys:', Object.keys(localStorage));
+        const returnUrl = localStorage.getItem('returnUrl');
+        console.log('[Auth] Raw returnUrl from localStorage:', returnUrl);
+        const finalUrl = returnUrl || '/profile';
+        console.log('[Auth] Final redirect URL:', finalUrl);
+        
+        // Clear the stored return URL
+        if (returnUrl) {
+          localStorage.removeItem('returnUrl');
+          console.log('[Auth] Cleared returnUrl from localStorage');
+        }
+        
+        // Redirect user
+        console.log('[Auth] Redirecting to:', finalUrl);
+        navigate(finalUrl, { replace: true });
+
+      } else {
+        // User is signed out
+        console.log('[Auth] User signed out, setting loading to false');
+        setLoading(false);
       }
     });
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [navigate]);
 
@@ -694,34 +742,56 @@ export default function Auth() {
     try {
       // Confirm the verification code
       const userCredential = await verificationId.confirm(verificationCode);
+      const user = userCredential.user; // Convenience variable for user object
 
-      // Check if this is a new user or existing user
-      const userDoc = await getDoc(doc(db, `users/${userCredential.user.uid}`));
+      // Reference to the user's document in Firestore
+      const userDocRef = doc(db, `users/${user.uid}`);
+      const userDocSnap = await getDoc(userDocRef);
 
-      if (!userDoc.exists()) {
-        // Create a date for Jan 1, 1000 AD
-        const ancientDate = new Date(1000, 0, 1); // Month is 0-based, so 0 = January
+      if (!userDocSnap.exists()) {
+        // NEW USER: Create their document in Firestore
+        const ancientDate = new Date(1000, 0, 1); // Month is 0-based
 
-        // This is a new user, create their document
-        await setDoc(doc(db, `users/${userCredential.user.uid}`), {
+        const newUserFirestoreData: any = { // Consider defining an interface for this
           cat_business: false,
           cat_tech: false,
           last_received: ancientDate,
-          left_count: 0, // Default number of articles available
+          left_count: 0,
           received_articles: [],
           saved_words: [],
           createdAt: serverTimestamp(),
-        });
-        console.log("새 사용자 문서 생성:", userCredential.user.uid);
+        };
+
+        // If Auth profile has a photoURL, add it to the new Firestore document
+        if (user.photoURL) {
+          newUserFirestoreData.photoURL = user.photoURL;
+        }
+
+        await setDoc(userDocRef, newUserFirestoreData);
+        console.log("New user document created with photoURL if available:", user.uid);
+      } else {
+        // EXISTING USER: Check if photoURL needs to be updated
+        if (user.photoURL) {
+          const currentFirestorePhotoURL = userDocSnap.data()?.photoURL;
+          // Update Firestore only if Auth photoURL is different or not set in Firestore
+          if (currentFirestorePhotoURL !== user.photoURL) {
+            await updateDoc(userDocRef, {
+              photoURL: user.photoURL,
+            });
+            console.log("Existing user photoURL updated in Firestore:", user.uid);
+          }
+        }
+        // Note: If user.photoURL is null/undefined, we are NOT clearing it from Firestore here.
+        // This prevents accidental removal if Auth loses photoURL for some reason
+        // and user had set one via profile. Deletion is handled in profile.tsx.
       }
 
       // User is now signed in
       setMessage("로그인 성공!");
 
-      // Redirect to home page
-      setTimeout(() => {
-        navigate("/profile");
-      }, 1500);
+      // Don't redirect here - let onAuthStateChanged handle it
+      // The onAuthStateChanged effect will fire automatically and handle the redirect
+
     } catch (err: unknown) {
       // Even more defensive error handling with type assertions
       let errorMessage = "인증코드 확인에 실패했습니다";

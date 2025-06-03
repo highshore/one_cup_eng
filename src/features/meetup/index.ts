@@ -3,7 +3,7 @@ export { default as MeetupPage } from './routes/meetup';
 export { default as EventDetailPage } from './routes/event_detail';
 
 // Export components
-export { UserAvatar, UserAvatarStack } from './components/user_avatar';
+export { UserAvatar } from './components/user_avatar';
 export { default as AdminEventDialog } from './components/admin_event_dialog';
 
 // Types
@@ -14,12 +14,13 @@ export {
   fetchMeetupEvents,
   fetchUpcomingMeetupEvents,
   fetchMeetupEventById,
+  subscribeToAllEvents,
   subscribeToUpcomingEvents,
   subscribeToEvent,
-  joinMeetupEvent,
-  leaveMeetupEvent,
   createMeetupEvent,
-  updateMeetupEvent
+  updateMeetupEvent,
+  joinEventAsRole,
+  cancelParticipation
 } from './services/meetup_service';
 export { fetchUserProfile, fetchUserProfiles, isUserAdmin } from './services/user_service';
 export { geocodeLocation } from './services/geocoding_service';

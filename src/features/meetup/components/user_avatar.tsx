@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { fetchUserProfile, UserProfile } from '../services/user_service';
+import defaultUserImage from '../../../shared/assets/default_user.jpg'; // Import the default image
 
-// Assuming default_user.jpg is in public/images/ directory
-const DEFAULT_AVATAR_URL = '/images/default_user.jpg';
+// Use the imported image path
+const DEFAULT_AVATAR_URL = defaultUserImage;
 
 interface UserAvatarProps {
   uid: string;
@@ -28,7 +29,7 @@ const AvatarContainer = styled.div<{
   border-radius: 50%;
   background-color: ${props => props.$bgColor || '#e0e0e0'};
   position: ${props => props.$index !== undefined ? 'absolute' : 'relative'};
-  left: ${props => props.$index !== undefined ? props.$index * (props.$size * 0.75) : 0}px;
+  left: ${props => props.$index !== undefined ? props.$index * (props.$size * 0.60) : 0}px;
   border: 2px solid white;
   display: flex;
   align-items: center;
@@ -105,10 +106,11 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         setLoading(true);
         setImageError(false); // Reset image error state on UID change
         const profile = await fetchUserProfile(uid);
+        console.log(`[UserAvatar] Profile for UID ${uid}:`, JSON.stringify(profile));
         setUserProfile(profile);
-        // console.log(`[UserAvatar] Fetched profile for UID ${uid}:`, profile);
       } catch (error) {
         console.error(`Error loading user profile for ${uid}:`, error);
+        console.log(`[UserAvatar] Error fetching profile for UID ${uid}, using fallback.`);
       } finally {
         setLoading(false);
       }
@@ -117,6 +119,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   }, [uid]);
 
   const handleImageError = () => {
+    console.log(`[UserAvatar] Image error for UID ${uid}, src: ${userProfile?.photoURL || 'N/A'}. Falling back to default.`);
     setImageError(true);
   };
 
@@ -189,7 +192,7 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
   const moreCount = uids.length - maxAvatars;
 
   return (
-    <div style={{ position: 'relative', height: `${size}px`, minWidth: `${(displayedUids.length * size * 0.75) + (size * 0.25)}px` }}>
+    <div style={{ position: 'relative', height: `${size}px`, minWidth: `${displayedUids.length > 0 ? (displayedUids.length * size * 0.60) + (size * 0.40) : size}px` }}>
       {displayedUids.map((uid, index) => (
         <UserAvatar
           key={uid}

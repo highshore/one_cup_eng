@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { MeetupEvent } from '../types/meetup_types';
-import { subscribeToEvent } from '../services/meetup_service';
+import { subscribeToEvent, joinEventAsRole, cancelParticipation } from '../services/meetup_service';
 import { formatEventDateTime, isEventLocked, sampleTopics, formatEventTitleWithCountdown } from '../utils/meetup_helpers';
 import { UserAvatar } from '../components/user_avatar';
 import { isUserAdmin } from '../services/user_service';
 import { useAuth } from '../../../shared/contexts/auth_context';
 import AdminEventDialog from '../components/admin_event_dialog';
+import { PinIcon, CalendarIcon, ClockIcon, JoinIcon, CancelIcon } from '../components/meetup_icons';
 
 // TypeScript declarations for Naver Maps
 declare global {
@@ -87,7 +88,7 @@ const Content = styled.div`
   margin: 0 auto;
   
   @media (max-width: 768px) {
-    padding: 1.5rem 1rem 0 1rem;
+    padding: 1.5rem 0 0 0;
     max-width: 100%;
   }
 `;
@@ -189,12 +190,13 @@ const DetailRow = styled.div`
 
 const DetailIcon = styled.span`
   color: #666;
-  font-size: 16px;
-  margin-top: 2px;
+  margin-top: 3px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
   
   @media (max-width: 768px) {
-    font-size: 14px;
+    margin-top: 2px;
   }
 `;
 
@@ -326,29 +328,41 @@ const DiscussionPoint = styled.div`
   }
 `;
 
-const ActionButtons = styled.div<{ $isFloating: boolean; $top: number }>`
-  position: ${props => props.$isFloating ? 'fixed' : 'static'};
-  bottom: ${props => props.$isFloating ? '30px' : 'auto'};
-  top: ${props => props.$isFloating ? 'auto' : `${props.$top}px`};
-  left: ${props => props.$isFloating ? '20px' : '0'};
-  right: ${props => props.$isFloating ? '20px' : '0'};
+const ActionButtons = styled.div<{ $isFloating: boolean }>`
   display: flex;
   gap: 16px;
   max-width: 920px;
-  margin: ${props => props.$isFloating ? '0 auto' : '2rem 0 0 0'};
-  z-index: ${props => props.$isFloating ? 50 : 'auto'};
-  padding-bottom: ${props => props.$isFloating ? '20px' : '0'};
-  transition: all 0.3s ease-in-out;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
   z-index: 1000;
-  
+
+  ${({ $isFloating }) => $isFloating ? css`
+    position: fixed;
+    bottom: 30px; /* Desktop floating bottom */
+    left: 20px;
+    right: 20px;
+    margin: 0 auto; /* Center the fixed element */
+    padding-bottom: 0;
+  ` : css`
+    position: static;
+    margin: 2rem auto 0 auto; /* Center static group on desktop */
+    padding-bottom: 0;
+  `}
+
   @media (max-width: 768px) {
-    bottom: ${props => props.$isFloating ? '20px' : 'auto'};
-    left: ${props => props.$isFloating ? '16px' : '0'};
-    right: ${props => props.$isFloating ? '16px' : '0'};
-    gap: 12px;
-    margin: ${props => props.$isFloating ? '0 auto' : '1.5rem 0 0 0'};
-    padding-bottom: ${props => props.$isFloating ? '16px' : '0'};
     flex-direction: column;
+    gap: 12px;
+    width: auto; /* Allow it to be constrained by left/right */
+
+    ${({ $isFloating }) => $isFloating ? css`
+      bottom: 20px; /* Mobile floating bottom */
+      left: 16px;
+      right: 16px;
+      padding-bottom: 16px; /* Optional: Extra space below floating buttons on mobile */
+    ` : css`
+      margin: 1.5rem auto 0 auto; /* Center static group on mobile */
+      /* Ensure static button group can be centered if it's narrower than max-width */
+      /* left/right: 0 for static might not be needed if margin auto is used */
+    `}
   }
 `;
 
@@ -408,7 +422,7 @@ const ActionButton = styled.button<{ $variant: 'join' | 'cancel' | 'locked'; $sa
   /* Background styles based on variant */
   background-color: ${props => {
     if (props.$variant === 'locked') return '#e0e0e0';
-    if (props.$variant === 'cancel') return '#f44336';
+    if (props.$variant === 'cancel') return '#990033';
     return '#000000'; // Black for join button
   }};
   
@@ -454,6 +468,61 @@ const ActionButton = styled.button<{ $variant: 'join' | 'cancel' | 'locked'; $sa
     &:hover {
       transform: ${props => props.$variant !== 'locked' ? 'translateY(-1px)' : 'none'};
     }
+  }
+`;
+
+// New Styled Components for Role Choice Dialog
+const DialogOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050; // Higher than GNB and floating buttons
+`;
+
+const DialogBox = styled.div`
+  background-color: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+
+  h3 {
+    margin-top: 0;
+    font-size: 1.5rem;
+    color: #333;
+  }
+
+  p {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 1rem;
+  }
+`;
+
+const DialogButton = styled.button<{$primary?: boolean}>`
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid ${({$primary}) => $primary ? '#000' : '#ccc' };
+  background-color: ${({$primary}) => $primary ? '#000' : 'white' };
+  color: ${({$primary}) => $primary ? 'white' : '#333' };
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    opacity: 0.8;
   }
 `;
 
@@ -650,14 +719,10 @@ const NaverMapComponent: React.FC<NaverMapProps> = ({
 
       // Add click event handlers
       const handleMapClick = () => {
-        console.log('[NaverMapComponent] Map clicked, opening URL...');
-        if (mapUrl) {
-          window.open(mapUrl, '_blank');
-        } else {
-          // Fallback to Naver Map search
-          const searchUrl = `https://map.naver.com/v5/search/${encodeURIComponent(locationName)}`;
-          window.open(searchUrl, '_blank');
-        }
+        console.log('[NaverMapComponent] Map clicked, opening Naver Maps search...');
+        // Always use the search URL format, ignoring the mapUrl prop
+        const searchUrl = `https://map.naver.com/v5/search/${encodeURIComponent(locationName)}`;
+        window.open(searchUrl, '_blank');
       };
 
       if (window.naver.maps.Event) {
@@ -722,27 +787,32 @@ const NaverMapComponent: React.FC<NaverMapProps> = ({
 const EventDetailPage: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const location = useLocation();
+  const { currentUser, accountStatus } = useAuth();
   const [event, setEvent] = useState<MeetupEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isJoined, setIsJoined] = useState(false);
   const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>({});
-  const [isButtonFloating, setIsButtonFloating] = useState(false);
   const actionButtonRef = useRef<HTMLDivElement>(null);
-  const [originalButtonTop, setOriginalButtonTop] = useState(0);
+  const [isButtonFloating, setIsButtonFloating] = useState(false);
+  const staticButtonPositionRef = useRef<{ top: number; height: number } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [dialogTemplateEvent, setDialogTemplateEvent] = useState<MeetupEvent | null>(null);
   const [dialogEditEvent, setDialogEditEvent] = useState<MeetupEvent | null>(null);
+  const [showRoleChoiceDialog, setShowRoleChoiceDialog] = useState(false);
 
-  // Check if current user is admin
+  const isCurrentUserParticipant = useMemo(() => {
+    if (!currentUser || !event) return false;
+    return event.participants.includes(currentUser.uid) || event.leaders.includes(currentUser.uid);
+  }, [currentUser, event]);
+
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (currentUser) {
-        const adminStatus = await isUserAdmin(currentUser.uid);
-        setIsAdmin(adminStatus);
+        const adminFlag = await isUserAdmin(currentUser.uid);
+        setIsAdmin(adminFlag);
       }
     };
     checkAdminStatus();
@@ -755,7 +825,6 @@ const EventDetailPage: React.FC = () => {
       return;
     }
 
-    // Subscribe to real-time updates for this specific event
     const unsubscribe = subscribeToEvent(eventId, (eventData) => {
       setEvent(eventData);
       setLoading(false);
@@ -766,7 +835,6 @@ const EventDetailPage: React.FC = () => {
       }
     });
 
-    // Cleanup subscription on unmount
     return () => {
       if (unsubscribe) {
         unsubscribe();
@@ -775,7 +843,6 @@ const EventDetailPage: React.FC = () => {
   }, [eventId]);
 
   useEffect(() => {
-    // Auto-slide images
     if (event && event.image_urls.length > 1) {
       const interval = setInterval(() => {
         setCurrentImageIndex((prev) => 
@@ -787,51 +854,108 @@ const EventDetailPage: React.FC = () => {
     }
   }, [event]);
 
-  // Handle scroll behavior for floating action button
   useEffect(() => {
-    const handleScroll = () => {
-      if (!actionButtonRef.current) return;
+    const calculatePositionAndCheckFloat = () => {
+      if (actionButtonRef.current) {
+        if (!isButtonFloating || !staticButtonPositionRef.current) {
+            const rect = actionButtonRef.current.getBoundingClientRect();
+            staticButtonPositionRef.current = {
+                top: rect.top + window.scrollY,
+                height: actionButtonRef.current.offsetHeight,
+            };
+        }
+        
+        if (!staticButtonPositionRef.current) {
+            setIsButtonFloating(false);
+            return;
+        }
 
-      const buttonElement = actionButtonRef.current;
-      const buttonRect = buttonElement.getBoundingClientRect();
-      const scrollY = window.scrollY;
-      const windowHeight = window.innerHeight;
+        const { top: staticTop, height: staticHeight } = staticButtonPositionRef.current;
+        const scrollY = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const staticBottom = staticTop + staticHeight;
+        const buffer = window.innerWidth <= 768 ? 20 : 50; 
+        const shouldFloat = (scrollY + windowHeight) < (staticBottom + buffer);
 
-      // Get the original position of the button (when not floating)
-      if (originalButtonTop === 0 && !isButtonFloating) {
-        const originalTop = buttonRect.top + scrollY;
-        setOriginalButtonTop(originalTop);
-        return;
+        setIsButtonFloating(prevIsFloating => {
+          if (prevIsFloating !== shouldFloat) {
+            return shouldFloat;
+          }
+          return prevIsFloating;
+        });
+
+      } else {
+        setIsButtonFloating(false);
       }
-
-      // Calculate if button should be floating
-      const buttonOriginalBottom = originalButtonTop + buttonElement.offsetHeight;
-      const shouldFloat = scrollY + windowHeight < buttonOriginalBottom + 50; // 50px buffer
-
-      setIsButtonFloating(shouldFloat);
     };
 
-    // Set up scroll listener
-    window.addEventListener('scroll', handleScroll);
-    // Initial check
-    handleScroll();
+    calculatePositionAndCheckFloat();
+
+    window.addEventListener('scroll', calculatePositionAndCheckFloat, { passive: true });
+    window.addEventListener('resize', calculatePositionAndCheckFloat, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scroll', calculatePositionAndCheckFloat);
+      window.removeEventListener('resize', calculatePositionAndCheckFloat);
     };
-  }, [originalButtonTop, isButtonFloating]);
+  }, [isButtonFloating]);
 
   const handleBack = () => {
     navigate('/meetup');
   };
 
-  const handleJoin = () => {
-    if (isJoined) {
-      setIsJoined(false);
-      // Handle leave event
+  const handleJoin = async () => {
+    if (!currentUser) {
+      // Store the current path in localStorage for post-login redirect
+      localStorage.setItem('returnUrl', location.pathname);
+      // Redirect to auth page
+      navigate('/auth');
+      return;
+    }
+
+    if (!event) {
+      alert("이벤트 정보가 없습니다.");
+      return;
+    }
+
+    if (isCurrentUserParticipant) {
+      try {
+        await cancelParticipation(event.id, currentUser.uid);
+        alert('밋업 참가가 취소되었습니다.');
+      } catch (err) {
+        console.error("Error canceling participation:", err);
+        const message = err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
+        alert(`오류: 참가 취소에 실패했습니다. (${message})`);
+      }
     } else {
-      setIsJoined(true);
-      // Handle join event
+      if (accountStatus === 'admin' || accountStatus === 'leader') {
+        setShowRoleChoiceDialog(true);
+      } else {
+        try {
+          await joinEventAsRole(event.id, currentUser.uid, 'participant');
+          alert('밋업에 참가자로 등록되셨습니다!');
+        } catch (err) {
+          console.error("Error joining as participant:", err);
+          const message = err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
+          alert(`오류: 참가 신청에 실패했습니다. (${message})`);
+        }
+      }
+    }
+  };
+
+  const handleConfirmJoinAsRole = async (role: 'leader' | 'participant') => {
+    setShowRoleChoiceDialog(false);
+    if (!currentUser || !event) {
+      alert("사용자 정보 또는 이벤트 정보가 없습니다.");
+      return;
+    }
+    try {
+      await joinEventAsRole(event.id, currentUser.uid, role);
+      alert(`밋업에 ${role === 'leader' ? '리더' : '참가자'}로 등록되셨습니다!`);
+    } catch (err) {
+      console.error(`Error joining as ${role}:`, err);
+      const message = err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
+      alert(`오류: ${role === 'leader' ? '리더' : '참가자'}로 참가 신청에 실패했습니다. (${message})`);
     }
   };
 
@@ -842,8 +966,8 @@ const EventDetailPage: React.FC = () => {
     }));
   };
 
-  const getCategoryEmoji = (category: string) => {
-    switch (category.toLowerCase()) {
+  const getCategoryEmoji = (categoryName: string): string => {
+    switch (categoryName.toLowerCase()) {
       case 'discussion': return '💬';
       case 'movie night': return '🎬';
       case 'picnic': return '🍉';
@@ -858,30 +982,29 @@ const EventDetailPage: React.FC = () => {
   };
 
   const handleCreateNew = () => {
-    setDialogTemplateEvent(null); // No template for new event
-    setDialogEditEvent(null); // Not editing
+    setDialogTemplateEvent(null);
+    setDialogEditEvent(null);
     setShowAdminDialog(true);
   };
 
   const handleDuplicate = () => {
-    setDialogTemplateEvent(event); // Use current event as template
-    setDialogEditEvent(null); // Not editing
+    setDialogTemplateEvent(event);
+    setDialogEditEvent(null);
     setShowAdminDialog(true);
   };
 
   const handleEdit = () => {
-    setDialogTemplateEvent(null); // Not using template
-    setDialogEditEvent(event); // Edit current event
+    setDialogTemplateEvent(null);
+    setDialogEditEvent(event);
     setShowAdminDialog(true);
   };
 
-  const handleEventCreated = (eventId: string) => {
-    // Optionally navigate to the new event or show success message
-    navigate(`/meetup/${eventId}`);
+  const handleEventCreated = (newEventId: string) => {
+    navigate(`/meetup/${newEventId}`);
+    handleDialogClose();
   };
 
   const handleEventUpdated = () => {
-    // Stay on current page, event will update via real-time subscription
     handleDialogClose();
   };
 
@@ -928,9 +1051,9 @@ const EventDetailPage: React.FC = () => {
   const isLocked = lockStatus.isLocked;
 
   // Determine category for styling (you might want to add this field to your Firestore schema)
-  const category = event.title.toLowerCase().includes('movie') ? 'Movie Night' :
-                  event.title.toLowerCase().includes('business') ? 'Socializing' :
-                  'Discussion';
+  const eventCategory = event.title.toLowerCase().includes('movie') ? 'Movie Night' :
+                      event.title.toLowerCase().includes('business') ? 'Socializing' :
+                      'Discussion';
 
   // Get topics data (in real app, you'd fetch this from Firestore)
   const eventTopics = event.topics
@@ -941,11 +1064,11 @@ const EventDetailPage: React.FC = () => {
   const { countdownPrefix, eventTitle, isUrgent } = formatEventTitleWithCountdown(event);
 
   // Calculate total participants including leaders
-  const totalParticipants = event.current_participants + event.leaders.length;
+  const totalParticipants = event.participants.length + event.leaders.length;
 
-  // Determine button text based on lock reason
+  // Determine button text based on lock reason and participation status
   const getButtonText = () => {
-    if (!isLocked) return isJoined ? '취소' : '참가 신청하기';
+    if (!isLocked) return isCurrentUserParticipant ? '취소' : '참가 신청하기';
     
     switch (lockStatus.reason) {
       case 'started': return '모집 종료';
@@ -973,9 +1096,9 @@ const EventDetailPage: React.FC = () => {
       </PhotoSlider>
 
       <Content>
-          <CategoryTag $category={category}>
-            <span>{getCategoryEmoji(category)}</span>
-            {category}
+          <CategoryTag $category={eventCategory}>
+            <span>{getCategoryEmoji(eventCategory)}</span>
+            {eventCategory}
           </CategoryTag>
           
           <Title>
@@ -990,15 +1113,15 @@ const EventDetailPage: React.FC = () => {
 
           <SectionTitle>세부 사항</SectionTitle>
           <DetailRow>
-            <DetailIcon>⏱️</DetailIcon>
+            <DetailIcon><ClockIcon width="18px" height="18px" /></DetailIcon>
             <DetailText>일정 시간: {event.duration_minutes}분</DetailText>
           </DetailRow>
           <DetailRow>
-            <DetailIcon>📅</DetailIcon>
+            <DetailIcon><CalendarIcon width="18px" height="18px" /></DetailIcon>
             <DetailText>시작 시간: {formatEventDateTime(event)}</DetailText>
           </DetailRow>
           <DetailRow>
-            <DetailIcon>📍</DetailIcon>
+            <DetailIcon><PinIcon width="18px" height="18px" /></DetailIcon>
             <DetailText>{event.location_name} ({event.location_address}, {event.location_extra_info})</DetailText>
           </DetailRow>
 
@@ -1093,9 +1216,22 @@ const EventDetailPage: React.FC = () => {
           <ActionButtons 
             ref={actionButtonRef}
             $isFloating={isButtonFloating}
-            $top={originalButtonTop}
           >
-            {isAdmin && (
+            <ActionButton
+              $variant={isLocked ? 'locked' : isCurrentUserParticipant ? 'cancel' : 'join'}
+              onClick={isLocked ? undefined : handleJoin}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {isLocked ? '🔒' : isCurrentUserParticipant ? <CancelIcon fillColor="#FFFFFF" width="20px" height="20px" /> : <JoinIcon fillColor="#FFFFFF" width="20px" height="20px" />}
+              </span>
+              {getButtonText()}
+            </ActionButton>
+          </ActionButtons>
+          {isAdmin && (
+            <ActionButtons 
+              ref={null}
+              $isFloating={false}
+            >
               <AdminButtons>
                 <AdminButton onClick={handleEdit}>
                   ✏️ Edit Event
@@ -1107,17 +1243,8 @@ const EventDetailPage: React.FC = () => {
                   📋 Duplicate This Event
                 </AdminButton>
               </AdminButtons>
-            )}
-            <ActionButton
-              $variant={isLocked ? 'locked' : isJoined ? 'cancel' : 'join'}
-              onClick={isLocked ? undefined : handleJoin}
-            >
-              <span>
-                {isLocked ? '🔒' : isJoined ? '❌' : '✅'}
-              </span>
-              {getButtonText()}
-            </ActionButton>
-          </ActionButtons>
+            </ActionButtons>
+          )}
       </Content>
 
       <AdminEventDialog
@@ -1129,6 +1256,24 @@ const EventDetailPage: React.FC = () => {
         onEventCreated={handleEventCreated}
         onEventUpdated={handleEventUpdated}
       />
+
+      {showRoleChoiceDialog && (
+        <DialogOverlay onClick={() => setShowRoleChoiceDialog(false)}>
+          <DialogBox onClick={(e) => e.stopPropagation()}>
+            <h3>참여 방식 선택</h3>
+            <p>이 밋업에 어떤 역할로 참여하시겠습니까?</p>
+            <DialogButton $primary onClick={() => handleConfirmJoinAsRole('leader')}>
+              리더로 참여
+            </DialogButton>
+            <DialogButton onClick={() => handleConfirmJoinAsRole('participant')}>
+              참가자로 참여
+            </DialogButton>
+            <DialogButton onClick={() => setShowRoleChoiceDialog(false)} style={{marginTop: '0.5rem'}}>
+              취소
+            </DialogButton>
+          </DialogBox>
+        </DialogOverlay>
+      )}
     </Container>
   );
 };

@@ -1,16 +1,24 @@
 import { useState, useEffect, useRef } from "react";
-import styled, { createGlobalStyle, css } from "styled-components";
+import styled, { createGlobalStyle, css, keyframes } from "styled-components";
 import React from "react";
 import GNB from "../components/gnb";
 import Footer from "../components/footer";
-import kakaoLogo from "../assets/homepage/kakao_logo.png";
-import kakaoNotification from "../assets/homepage/kakao_notification.png";
-import meetupImage from "../assets/homepage/meetup.jpg";
 import featureCard1 from "../assets/homepage/feature_card_1.png";
 import featureCard2 from "../assets/homepage/feature_card_2.png";
 import featureCard3 from "../assets/homepage/feature_card_3.png";
-import oneCupCup from "../assets/homepage/1cup_cup.png";
 import alphabetVideo from "../assets/homepage/alphabet.mp4";
+
+// Imports for Meetup Event Display
+import { useNavigate } from "react-router-dom";
+import { MeetupEvent } from "../../features/meetup/types/meetup_types";
+import { fetchUpcomingMeetupEvents } from "../../features/meetup/services/meetup_service";
+import {
+  formatEventDateTime,
+  formatEventTitleWithCountdown,
+  isEventLocked
+} from "../../features/meetup/utils/meetup_helpers";
+import { PinIcon, CalendarIcon } from "../../features/meetup/components/meetup_icons";
+import { UserAvatarStack } from "../../features/meetup/components/user_avatar";
 
 // Bubble type definition
 // interface Bubble {
@@ -124,147 +132,6 @@ const VideoOverlay = styled.div`
   z-index: 1;
 `;
 
-const KakaoContainer = styled.div`
-  position: absolute;
-  bottom: -80px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  z-index: 3;
-  animation: floatingKakao 5s ease-in-out infinite;
-  will-change: transform;
-
-  @keyframes floatingKakao {
-    0% {
-      transform: translateX(-50%) translateY(0px);
-    }
-    50% {
-      transform: translateX(-50%) translateY(-8px);
-    }
-    100% {
-      transform: translateX(-50%) translateY(0px);
-    }
-  }
-
-  .kakao-logo-wrapper {
-    display: flex;
-    justify-content: flex-start;
-    width: 100%;
-    animation: floatingLogo 6s ease-in-out infinite;
-    will-change: transform;
-  }
-
-  @media (max-width: 768px) {
-    bottom: 20px;
-    gap: 12px;
-    animation-duration: 4s;
-    width: max-content;
-
-    @keyframes floatingKakao {
-      0% {
-        transform: translateX(-50%) translateY(0px) scale(0.85);
-      }
-      50% {
-        transform: translateX(-50%) translateY(-5px) scale(0.85);
-      }
-      100% {
-        transform: translateX(-50%) translateY(0px) scale(0.85);
-      }
-    }
-
-    .kakao-logo-wrapper {
-      animation-duration: 3s;
-      width: auto;
-    }
-  }
-`;
-
-const KakaoIcon = styled.img<{ isNotification?: boolean }>`
-  max-width: ${(props) => (props.isNotification ? "240px" : "80px")};
-  height: auto;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-  transition: transform 0.3s ease;
-
-  @media (max-width: 768px) {
-    ${(props) => !props.isNotification && "align-self: flex-start;"}
-    max-width: ${(props) => (props.isNotification ? "300px" : "100px")};
-  }
-`;
-
-const KakaoNotificationContainer = styled.div`
-  position: relative;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  animation: fadeInOut 10s ease-in-out infinite;
-  opacity: 0;
-
-  @media (max-width: 768px) {
-    width: auto; /* Make container shrink to content on mobile */
-  }
-
-  @keyframes fadeInOut {
-    0%,
-    100% {
-      opacity: 0;
-    }
-    10%,
-    90% {
-      opacity: 1;
-    }
-  }
-`;
-
-const KakaoNotificationButton = styled.a`
-  position: absolute;
-  top: 110px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #181818;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  width: 220px;
-  padding: 8px 10px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  z-index: 4;
-  font-family: "Noto Sans KR", sans-serif;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s ease;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  text-decoration: none;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    background-color: #4a2f23;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-    color: white;
-  }
-
-  &:active {
-    transform: translateX(-50%) translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  }
-
-  @media (max-width: 768px) {
-    font-size: 1.2rem;
-    padding: 12px 20px;
-    border-radius: 20px;
-    top: 130px;
-    width: 280px;
-  }
-`;
-
 // Common style utilities
 const breakpoints = {
   mobile: "768px",
@@ -345,147 +212,6 @@ const FeatureCard = styled.img<{ isActive?: boolean }>`
     width: ${(props) => (props.isActive ? "280px" : "250px")};
     margin-bottom: 0.5rem;
     transform: ${(props) => (props.isActive ? "scale(1.02)" : "scale(1)")};
-  }
-`;
-
-const SectionSubText = styled.p`
-  font-size: 1rem;
-  color: ${colors.primary};
-  font-weight: 600;
-  margin-top: 1rem;
-  font-family: "Noto Sans KR", sans-serif;
-
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
-  }
-`;
-
-const PricingContent = styled.div`
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
-  position: relative; /* To keep content above the pseudo-element */
-  z-index: 3; /* To keep content above the pseudo-element */
-`;
-
-// Pricing Section with Coffee Cup design
-const PricingSection = styled.section`
-  ${SectionBase}
-  min-height: 600px;
-  background: linear-gradient(
-    to bottom,
-    ${colors.primaryBg} 0%,
-    ${colors.primaryBg} 60%,
-    rgba(243, 111, 32, 0.1) 80%,
-    rgba(243, 111, 32, 0.2) 100%
-  );
-  text-align: center;
-  padding-bottom: 200px; /* Space for the cup and gradient */
-  position: relative;
-
-  &::before {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 120%; /* Increased height to move center lower */
-    background: radial-gradient(
-      circle at center 150%,
-      /* Moved center point lower to 90% from top */ #f36f20 0%,
-      rgba(243, 111, 32, 0.8) 25%,
-      rgba(243, 111, 32, 0.4) 50%,
-      rgba(243, 111, 32, 0) 75%
-    );
-    z-index: 0;
-    pointer-events: none;
-  }
-
-  @media (max-width: 768px) {
-    min-height: 500px;
-    padding-bottom: 150px;
-  }
-`;
-
-// Replace TabButton with ActionButton for navigation
-const ActionButton = styled.a`
-  background-color: ${colors.primary};
-  color: white;
-  border: none;
-  padding: 0.8rem 1.5rem;
-  border-radius: 20px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  margin-top: 1.5rem;
-  font-family: "Noto Sans KR", sans-serif;
-  position: relative;
-  z-index: 3;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-
-  &::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(240, 212, 168, 0.1) 35%,
-      rgba(200, 162, 122, 0.1) 50%,
-      rgba(240, 212, 168, 0.1) 65%,
-      transparent 100%
-    );
-    transform: translateX(-180%);
-    animation: buttonShimmer 4s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  @keyframes buttonShimmer {
-    0% {
-      transform: translateX(-180%);
-    }
-    100% {
-      transform: translateX(280%);
-    }
-  }
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
-  }
-
-  &:active {
-    transform: translateY(0);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
-  }
-
-  @media (max-width: 768px) {
-    padding: 0.7rem 1.2rem;
-    font-size: 0.9rem;
-    margin-top: 1rem;
-  }
-`;
-
-const CircleCupImage = styled.img`
-  width: 200px;
-  height: auto;
-  filter: drop-shadow(0 5px 25px rgba(0, 0, 0, 0.4));
-  position: absolute;
-  bottom: -50px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-
-  @media (max-width: 768px) {
-    width: 150px;
-    bottom: 0px;
   }
 `;
 
@@ -572,324 +298,6 @@ const PageWrapper = styled.div`
   padding-top: 0; /* Always 0 for homepage */
 `;
 
-// MeetupSection styled component
-const MeetupSection = styled.section`
-  ${SectionBase}
-  background-color: #181818;
-  color: white;
-  text-align: center;
-
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.3),
-      transparent
-    );
-  }
-`;
-
-const MeetupTitle = styled.h2`
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
-  position: relative;
-  display: inline-block;
-  background: linear-gradient(
-    to right,
-    #fff 20%,
-    #c8a27a 40%,
-    #f0d4a8 60%,
-    #fff 80%
-  );
-  background-size: 200% auto;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shine 3s linear infinite;
-  overflow: hidden;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-  font-family: "Noto Sans KR", sans-serif;
-
-  @keyframes shine {
-    to {
-      background-position: 200% center;
-    }
-  }
-
-  &::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.4) 50%,
-      transparent 100%
-    );
-    transform: translateX(-100%);
-    animation: shimmer 3s infinite;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    background-clip: text;
-    -webkit-background-clip: text;
-  }
-
-  @keyframes shimmer {
-    100% {
-      transform: translateX(100%);
-    }
-  }
-
-  @media (max-width: 768px) {
-    font-size: 1.8rem;
-    padding: 0 15px;
-    margin-bottom: 1rem;
-  }
-`;
-
-const MeetupSubtitle = styled.p`
-  font-size: 1.6rem;
-  margin-bottom: 2.5rem;
-  font-weight: 600;
-  color: #ddd;
-  animation: fadeIn 1.5s ease-in-out;
-  position: relative;
-  max-width: 960px;
-  margin-left: auto;
-  margin-right: auto;
-  font-family: "Noto Sans KR", sans-serif;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: baseline;
-  line-height: 1.8;
-  gap: 0.5rem;
-  max-width: 1200px;
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .changing-text-wrapper {
-    position: relative;
-    display: inline-flex;
-    align-items: baseline;
-    overflow: hidden;
-    height: 1.8em;
-  }
-
-  .changing-text {
-    position: relative;
-    color: #f0f0a0;
-    display: inline-block;
-  }
-
-  .changing-text span {
-    position: absolute;
-    top: 0;
-    left: 0;
-    white-space: nowrap;
-    opacity: 0;
-    transform: translateY(20px);
-    animation: textFade 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  .changing-text span:nth-child(1) {
-    position: relative; /* First item serves as space holder */
-    opacity: 0;
-    animation-delay: 7.5s; /* This will be the last to show in the cycle */
-  }
-
-  .changing-text span:nth-child(2) {
-    animation-delay: 0s;
-  }
-
-  .changing-text span:nth-child(3) {
-    animation-delay: 2.5s;
-  }
-
-  .changing-text span:nth-child(4) {
-    animation-delay: 5s;
-  }
-
-  @keyframes textFade {
-    0%,
-    5% {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    10%,
-    22.5% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    27.5%,
-    100% {
-      opacity: 0;
-      transform: translateY(-20px);
-    }
-  }
-
-  @media (max-width: 768px) {
-    font-size: 1.2rem;
-    line-height: 1.6;
-    margin-bottom: 1.5rem;
-    padding: 0 10px;
-
-    .changing-text-wrapper {
-      height: 1.6em;
-    }
-  }
-`;
-
-const MeetupImageContainer = styled.div`
-  position: relative;
-  max-width: 960px;
-  max-height: 300px;
-  margin: 0px auto 0;
-  overflow: hidden;
-  border-radius: 100px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-  transform: translateZ(0);
-
-  /* Separate the shadow animation from transform for better performance */
-  &::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 100px;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: -1;
-    pointer-events: none;
-  }
-
-  &:hover::after {
-    opacity: 1;
-  }
-
-  /* Add hover effect directly here */
-  &:hover img {
-    transform: translateY(-105px);
-  }
-
-  @media (max-width: 768px) {
-    max-width: 320px;
-    max-height: 200px;
-    border-radius: 50px;
-
-    &::after {
-      border-radius: 50px;
-    }
-
-    &:hover img {
-      transform: translateY(-65px);
-    }
-  }
-`;
-
-const MeetupImage = styled.img`
-  width: 100%;
-  display: block;
-  object-fit: cover;
-  transform: translateY(-100px);
-  transition: transform 0.3s ease;
-  will-change: transform;
-
-  @media (max-width: 768px) {
-    transform: translateY(-60px);
-  }
-`;
-
-const MeetupTextOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.7);
-`;
-
-const MeetupComingSoon = styled.h3`
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 2rem;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transform: translateY(20px);
-  animation: fadeSlideUp 0.8s forwards;
-  animation-delay: 0.2s;
-  font-family: "Noto Sans KR", sans-serif;
-
-  @keyframes fadeSlideUp {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @media (max-width: 768px) {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
-  }
-`;
-
-const MeetupButton = styled.button`
-  background-color: #c8a27a;
-  color: #2c1810;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  opacity: 0;
-  transform: translateY(20px);
-  animation: fadeSlideUp 0.8s forwards;
-  animation-delay: 0.4s;
-  font-family: "Noto Sans KR", sans-serif;
-
-  &:hover {
-    background-color: #d8b28a;
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  }
-
-  @media (max-width: 768px) {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.9rem;
-  }
-`;
-
 // New styled components for marketing text
 const MarketingText = styled.h2`
   font-size: 2.8rem;
@@ -929,13 +337,233 @@ const MarketingSubText = styled.p`
   }
 `;
 
+// --- START: Copied/Adapted Meetup Card Styles from meetup.tsx ---
+const subtleGlow = keyframes`
+  0% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const CopiedEventCard = styled.div<{ $isPast?: boolean; $isClosest?: boolean }>`
+  background-color: white; // Meetup card has a white background
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 1.5rem; // Added margin for spacing in hero
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  width: 100%;
+  opacity: ${props => (props.$isPast ? 0.6 : 1)};
+  text-align: left; // Ensure text is left-aligned
+
+  ${props =>
+    props.$isClosest
+      ? css`
+          animation: ${subtleGlow} 3s ease-in-out infinite;
+          border: 1px solid rgba(76, 175, 80, 0.3);
+        `
+      : ''}
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    opacity: ${props => (props.$isPast ? 0.8 : 1)};
+  }
+
+  @media (max-width: 768px) {
+    padding: 16px;
+    border-radius: 16px;
+  }
+`;
+
+const CopiedEventContent = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+
+  @media (max-width: 768px) {
+    gap: 12px;
+  }
+`;
+
+const CopiedEventImageContainer = styled.div<{ $isPast?: boolean }>`
+  width: 120px;
+  height: 120px;
+  border-radius: 20px;
+  overflow: hidden;
+  background-color: #000000;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: ${props => (props.$isPast ? 'grayscale(50%)' : 'none')};
+
+  @media (max-width: 768px) {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+  }
+`;
+
+const CopiedEventImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+`;
+
+const CopiedEventImagePlaceholder = styled.div`
+  color: #ccc;
+  font-size: 2.5rem;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
+`;
+
+const CopiedEventDetails = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+`;
+
+const CopiedEventTitle = styled.h3<{ $isPast?: boolean }>`
+  color: ${props => (props.$isPast ? '#999' : colors.text.dark)}; // Use theme color
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+  word-wrap: break-word;
+
+  @media (max-width: 768px) {
+    font-size: 15px;
+    margin: 0 0 6px 0;
+    line-height: 1.2;
+  }
+`;
+
+// Using this for CountdownPrefix as it's identical to the one in meetup.tsx
+const CopiedCountdownPrefix = styled.span<{ $isUrgent?: boolean }>`
+  color: ${props => (props.$isUrgent ? '#DC143C' : 'inherit')};
+  font-weight: ${props => (props.$isUrgent ? 'bold' : 'inherit')};
+`;
+
+const CopiedEventInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  @media (max-width: 768px) {
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+`;
+
+const CopiedEventIcon = styled.span<{ $isPast?: boolean }>`
+  color: ${props => (props.$isPast ? '#999' : colors.text.medium)}; // Use theme color
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+
+  svg {
+    fill: currentColor; // Ensure SVG inherits color
+  }
+`;
+
+const CopiedEventText = styled.span<{ $isPast?: boolean }>`
+  color: ${props => (props.$isPast ? '#999' : colors.text.medium)}; // Use theme color
+  font-size: 16px;
+  letter-spacing: 0;
+  word-wrap: break-word;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+  }
+`;
+
+const CopiedEventBottom = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  gap: 8px;
+
+  @media (max-width: 768px) {
+    margin-top: 4px;
+    gap: 6px;
+  }
+`;
+
+const CopiedStatusBadge = styled.span<{ $statusColor: string }>`
+  display: inline-block;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: ${props => props.$statusColor};
+  border-radius: 20px;
+  text-align: center;
+  min-width: 80px;
+  transition: all 0.2s ease;
+
+  @media (max-width: 768px) {
+    font-size: 12px;
+    padding: 6px 12px;
+    min-width: 80px;
+  }
+`;
+// --- END: Copied/Adapted Meetup Card Styles ---
+
+// New Styled component for the enticing text/design element
+const EventCardPrompt = styled.div`
+  background: linear-gradient(135deg, ${colors.primaryPale} 0%, #ffffff 100%);
+  color: ${colors.primaryDark};
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1rem; // Space between this prompt and the card
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border: 1px solid ${colors.primaryPale};
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    padding: 0.6rem 1rem;
+  }
+`;
+
+// Wrapper for the copied event card in the hero section
+const HeroMeetupCardContainer = styled.div`
+  max-width: 550px; 
+  width: 100%;
+  margin: 2rem auto 0 auto; 
+  z-index: 2; 
+  position: relative; 
+
+  @media (max-width: 768px) {
+    max-width: 90%; 
+  }
+`;
+
 export default function Home() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
   const [isGnbTransparent, setIsGnbTransparent] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const navigate = useNavigate();
 
-  // Reference to store the timer ID
+  const [closestEvent, setClosestEvent] = useState<MeetupEvent | null>(null);
+  const [loadingEvent, setLoadingEvent] = useState(true);
+
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Effect to handle GNB transparency on scroll
@@ -969,13 +597,32 @@ export default function Home() {
     return () => {
       scrollTarget.removeEventListener("scroll", handleScroll);
     };
-  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount.
+  }, []);
 
   // Effect to set video playback speed
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.playbackRate = 0.8; // Set to 0.5 for 2x slower
     }
+  }, []);
+
+  // Effect to fetch upcoming events
+  useEffect(() => {
+    const loadClosestEvent = async () => {
+      try {
+        setLoadingEvent(true);
+        const upcomingEvents = await fetchUpcomingMeetupEvents();
+        if (upcomingEvents.length > 0) {
+          setClosestEvent(upcomingEvents[0]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch upcoming meetups for hero:", error);
+        setClosestEvent(null);
+      } finally {
+        setLoadingEvent(false);
+      }
+    };
+    loadClosestEvent();
   }, []);
 
   const toggleFAQ = (index: number) => {
@@ -1106,11 +753,88 @@ export default function Home() {
     },
   ];
 
+  // Render logic for the closest event using copied styles
+  const renderHeroEventCard = (meetup: MeetupEvent) => {
+    if (!meetup) return null;
+
+    const { countdownPrefix, eventTitle, isUrgent } = formatEventTitleWithCountdown(meetup);
+    const lockStatus = isEventLocked(meetup);
+    const isCurrentlyLocked = lockStatus.isLocked;
+    const totalParticipants = meetup.leaders.length + meetup.participants.length;
+    const isPast = false; // For hero, it's always an upcoming event
+
+    const getStatusText = () => {
+      // Simplified for hero: it's never past
+      if (!isCurrentlyLocked) return '참가 가능';
+      switch (lockStatus.reason) {
+        case 'started': return '진행중'; // Should ideally not be the "closest" if already started and not shown
+        case 'full': return '정원 마감';
+        case 'lockdown': return '모집 종료';
+        default: return '모집 종료';
+      }
+    };
+
+    const statusColor = isCurrentlyLocked
+      ? lockStatus.reason === 'full' ? '#ff4d4f' : '#888'
+      : '#4CAF50';
+
+    return (
+      <CopiedEventCard
+        onClick={() => navigate(`/meetup/${meetup.id}`)}
+        $isPast={isPast}
+        $isClosest={true}
+      >
+        <CopiedEventContent>
+          <CopiedEventImageContainer $isPast={isPast}>
+            {meetup.image_urls && meetup.image_urls.length > 0 ? (
+              <CopiedEventImage src={meetup.image_urls[0]} alt={meetup.title} />
+            ) : (
+              <CopiedEventImagePlaceholder>🖼️</CopiedEventImagePlaceholder>
+            )}
+          </CopiedEventImageContainer>
+          <CopiedEventDetails>
+            <CopiedEventTitle $isPast={isPast}>
+              {countdownPrefix && (
+                <CopiedCountdownPrefix $isUrgent={isUrgent}>
+                  {countdownPrefix}
+                </CopiedCountdownPrefix>
+              )}
+              {eventTitle}
+            </CopiedEventTitle>
+            <CopiedEventInfo>
+              <CopiedEventIcon $isPast={isPast}>
+                <PinIcon width="16px" height="16px" />
+              </CopiedEventIcon>
+              <CopiedEventText $isPast={isPast}>{meetup.location_name}</CopiedEventText>
+            </CopiedEventInfo>
+            <CopiedEventInfo>
+              <CopiedEventIcon $isPast={isPast}>
+                <CalendarIcon width="16px" height="16px" />
+              </CopiedEventIcon>
+              <CopiedEventText $isPast={isPast}>{formatEventDateTime(meetup)}</CopiedEventText>
+            </CopiedEventInfo>
+            <CopiedEventBottom>
+              <UserAvatarStack
+                uids={[...meetup.leaders, ...meetup.participants]}
+                maxAvatars={5} // Consistent with meetup.tsx or adjust as needed for hero
+                size={30}
+                isPast={isPast}
+                // onAvatarClick can be omitted or a simple console.log for hero
+              />
+              <CopiedStatusBadge $statusColor={statusColor}>
+                {getStatusText()} ({totalParticipants}/{meetup.max_participants})
+              </CopiedStatusBadge>
+            </CopiedEventBottom>
+          </CopiedEventDetails>
+        </CopiedEventContent>
+      </CopiedEventCard>
+    );
+  };
+
   return (
     <PageWrapper>
       <GlobalStyle />
       <GNB variant="home" isAtTop={isGnbTransparent} />
-      {/* Hero Section */}
       <HeroSection>
         <video autoPlay loop muted playsInline ref={videoRef}>
           <source src={alphabetVideo} type="video/mp4" />
@@ -1118,12 +842,11 @@ export default function Home() {
         </video>
         <VideoOverlay />
         <HeroContent>
-          {/* Added Marketing Text Elements */}
           <div>
             <MarketingText>
               조금씩 쌓아둔 영어가
               <br />
-              커리어를 크게 열어줍니다
+              커리어를 활짝 열어줍니다
             </MarketingText>
             <MarketingSubText>
               국내파 통역사가 노하우를 담아 개발한
@@ -1131,25 +854,14 @@ export default function Home() {
               비즈니스 영어 습관 형성 서비스
             </MarketingSubText>
           </div>
-          <KakaoContainer>
-            <div className="kakao-logo-wrapper">
-              <KakaoIcon src={kakaoLogo} alt="Kakao Logo" />
-            </div>
-            <KakaoNotificationContainer>
-              <KakaoIcon
-                src={kakaoNotification}
-                alt="Kakao Notification"
-                isNotification={true}
-              />
-              <KakaoNotificationButton
-                href="/sample"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                영어 한잔 체험하기
-              </KakaoNotificationButton>
-            </KakaoNotificationContainer>
-          </KakaoContainer>
+          {!loadingEvent && closestEvent && (
+            <HeroMeetupCardContainer>
+              <EventCardPrompt>
+                ✨ 바로 지금! 통역사가 직접 리딩하는 영어 모임에 참여해보세요! ✨
+              </EventCardPrompt>
+              {renderHeroEventCard(closestEvent)}
+            </HeroMeetupCardContainer>
+          )}
         </HeroContent>
       </HeroSection>
 
@@ -1172,52 +884,8 @@ export default function Home() {
             />
           ))}
         </FeatureSlider>
-        <SectionSubText>* IT/비즈니스 중 관심분야 택1</SectionSubText>
       </FeaturesSection>
 
-      {/* Pricing Section */}
-      <PricingSection>
-        <PricingContent>
-          <SectionTitle>
-            <span style={{ fontWeight: 600 }}>이 모든 것을 </span>
-            커피 한 잔 가격으로
-            <br />
-            30일간
-            <span style={{ fontWeight: 600 }}> 마음껏 누리세요</span>
-          </SectionTitle>
-
-          <ActionButton href="/subscribe" target="_blank">
-            월 4,700원에 시작하기
-          </ActionButton>
-        </PricingContent>
-
-        {/* Cup image positioned over the gradient */}
-        <CircleCupImage src={oneCupCup} alt="1 Cup English Cup" />
-      </PricingSection>
-
-      {/* Meetup Section */}
-      <MeetupSection>
-        <MeetupTitle>AI 시대의 경쟁력, 대면 커뮤니케이션</MeetupTitle>
-        <MeetupSubtitle>
-          <span>영어로</span>
-          <span className="changing-text-wrapper">
-            <span className="changing-text">
-              <span>라포를 형성하는</span>
-              <span>신뢰를 얻는</span>
-              <span>호감을 사는</span>
-              <span>상대를 설득하는</span>
-            </span>
-          </span>
-          <span>법, 영어 한잔 밋업에서 연마하세요</span>
-        </MeetupSubtitle>
-        <MeetupImageContainer>
-          <MeetupImage src={meetupImage} alt="Offline Meetup" />
-          <MeetupTextOverlay>
-            <MeetupComingSoon>Coming Soon...</MeetupComingSoon>
-            <MeetupButton>구독자 무료</MeetupButton>
-          </MeetupTextOverlay>
-        </MeetupImageContainer>
-      </MeetupSection>
       {/* FAQ Section */}
       <FAQSection>
         <SectionTitle>자주 묻는 질문</SectionTitle>
