@@ -78,6 +78,10 @@ const router = createBrowserRouter([
         path: "library",
         element: <LibraryPage />,
       },
+      {
+        path: "payment",
+        element: <PaymentPage />,
+      },
     ],
   },
   {
@@ -99,10 +103,6 @@ const router = createBrowserRouter([
       {
         path: "admin",
         element: <AdminPage />,
-      },
-      {
-        path: "payment",
-        element: <PaymentPage />,
       },
       {
         path: "community/new-topic",

@@ -151,6 +151,13 @@ const flexCenter = css`
   justify-content: center;
 `;
 
+const MobileBreak = styled.br`
+  display: none;
+  @media (max-width: ${breakpoints.mobile}) {
+    display: block;
+  }
+`;
+
 const SectionTitle = styled.h2`
   font-size: 2.5rem;
   letter-spacing: -0.02em;
@@ -535,9 +542,10 @@ const EventCardPrompt = styled.div`
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   border: 1px solid ${colors.primaryPale};
 
-  @media (max-width: 768px) {
+  @media (max-width: ${breakpoints.mobile}) {
     font-size: 0.9rem;
     padding: 0.6rem 1rem;
+    line-height: 1.3;
   }
 `;
 
@@ -857,7 +865,9 @@ export default function Home() {
           {!loadingEvent && closestEvent && (
             <HeroMeetupCardContainer>
               <EventCardPrompt>
-                ✨ 바로 지금! 통역사가 직접 리딩하는 영어 모임에 참여해보세요! ✨
+                ✨ 바로 지금! 통역사가 직접 리딩하는
+                <MobileBreak />
+                {' '}영어 모임에 참여해보세요! ✨
               </EventCardPrompt>
               {renderHeroEventCard(closestEvent)}
             </HeroMeetupCardContainer>

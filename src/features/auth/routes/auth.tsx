@@ -313,7 +313,7 @@ function AuthLayout({ children }: AuthLayoutProps) {
         {" "}
         {/* Moved Header outside ContentContainer, directly under PageWrapper */}
         <Link
-          to=""
+          to="/"
           style={{
             display: "flex",
             alignItems: "center",

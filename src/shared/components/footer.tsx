@@ -21,21 +21,6 @@ const FooterContainer = styled.footer`
   font-size: 0.8rem;
   color: ${colors.text.medium};
   text-align: center;
-  
-  /* Prevent automatic phone/email link detection */
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  
-  /* Remove styling from any auto-generated links */
-  a {
-    color: inherit !important;
-    text-decoration: none !important;
-    pointer-events: none !important;
-  }
 
   @media (max-width: 768px) {
     padding: 1.5rem 1rem;
