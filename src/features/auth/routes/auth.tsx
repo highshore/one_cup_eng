@@ -7,8 +7,6 @@ import kakaoBtnImg from "../../../shared/assets/kakao_btn.png"; // Import the im
 import logoImage from "../../../shared/assets/1cup_logo_new.svg"; // Added from auth_components
 import Footer from "../../../shared/components/footer"; // Added from auth_components - assuming path
 
-console.log("Vite env variables:", import.meta.env); // Temporary log
-
 // Using direct Firebase Authentication for phone number authentication
 // (FirebaseUI is not compatible with Firebase v11.5.0)
 import {
@@ -575,8 +573,6 @@ export default function Auth() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      console.log('[Auth] onAuthStateChanged fired, user:', !!user);
-      
       if (user) {
         // User is signed in, see docs for a list of available properties
         // https://firebase.google.com/docs/reference/js/firebase.User
@@ -605,26 +601,19 @@ export default function Auth() {
         }
         
         // Get return URL from localStorage, fallback to /profile
-        console.log('[Auth] Checking localStorage for returnUrl...');
-        console.log('[Auth] All localStorage keys:', Object.keys(localStorage));
         const returnUrl = localStorage.getItem('returnUrl');
-        console.log('[Auth] Raw returnUrl from localStorage:', returnUrl);
         const finalUrl = returnUrl || '/profile';
-        console.log('[Auth] Final redirect URL:', finalUrl);
         
         // Clear the stored return URL
         if (returnUrl) {
           localStorage.removeItem('returnUrl');
-          console.log('[Auth] Cleared returnUrl from localStorage');
         }
         
         // Redirect user
-        console.log('[Auth] Redirecting to:', finalUrl);
         navigate(finalUrl, { replace: true });
 
       } else {
         // User is signed out
-        console.log('[Auth] User signed out, setting loading to false');
         setLoading(false);
       }
     });
@@ -638,32 +627,22 @@ export default function Auth() {
       try {
         window.recaptchaVerifier.clear();
       } catch (err) {
-        console.error("reCAPTCHA 초기화 오류:", err);
       }
     }
 
-    // Add console warning about domain configuration
-    console.warn(
-      "IMPORTANT: If using 1cupenglish.com domain, ensure it is added to Firebase Auth Authorized Domains and reCAPTCHA settings in Google Cloud Console"
-    );
-
     try {
-      console.log("보이지 않는 reCAPTCHA 설정 중");
       window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         "send-code-button",
         {
           size: "invisible",
           callback: () => {
-            console.log("reCAPTCHA 인증 성공");
-            // The callback is just for notification - sendVerificationCode is called directly
           },
           // Set language to Korean
           hl: "ko",
         }
       );
     } catch (err: any) {
-      console.error("reCAPTCHA 설정 실패:", err);
       setErrorState(
         "전화번호 인증 설정에 실패했습니다. 새로고침 후 다시 시도해주세요."
       );
@@ -690,9 +669,6 @@ export default function Auth() {
       // Format the phone number for Firebase
       const formattedPhoneNumber = formatPhoneNumberForFirebase(phoneNumber);
 
-      console.log("원본 전화번호:", phoneNumber);
-      console.log("포맷된 전화번호:", formattedPhoneNumber);
-
       // Send verification code directly with signInWithPhoneNumber
       const confirmationResult = await signInWithPhoneNumber(
         auth,
@@ -700,16 +676,11 @@ export default function Auth() {
         window.recaptchaVerifier
       );
 
-      console.log("인증번호 전송 성공");
       setVerificationId(confirmationResult);
       setMessage("인증번호가 전송되었습니다!");
     } catch (err: unknown) {
-      console.error("인증번호 전송 오류:", err);
-      // Even more defensive error handling with type assertions
       let errorMessage = "인증번호 전송에 실패했습니다";
-      // First check if err is an object
       if (err && typeof err === "object") {
-        // Then check if it has a message property
         if (
           "message" in err &&
           typeof (err as { message: unknown }).message === "string"
@@ -719,14 +690,13 @@ export default function Auth() {
       }
       setErrorState(errorMessage);
 
-      console.log("오류 후 reCAPTCHA 초기화");
       try {
         if (window.recaptchaVerifier) {
           window.recaptchaVerifier.clear();
         }
         setupInvisibleRecaptcha();
       } catch (clearErr) {
-        console.error("reCAPTCHA 초기화 오류:", clearErr);
+        // Silent error handling for cleanup
       }
     } finally {
       setLoading(false);
@@ -768,36 +738,23 @@ export default function Auth() {
         }
 
         await setDoc(userDocRef, newUserFirestoreData);
-        console.log("New user document created with photoURL if available:", user.uid);
       } else {
         // EXISTING USER: Check if photoURL needs to be updated
         if (user.photoURL) {
           const currentFirestorePhotoURL = userDocSnap.data()?.photoURL;
-          // Update Firestore only if Auth photoURL is different or not set in Firestore
           if (currentFirestorePhotoURL !== user.photoURL) {
             await updateDoc(userDocRef, {
               photoURL: user.photoURL,
             });
-            console.log("Existing user photoURL updated in Firestore:", user.uid);
           }
         }
-        // Note: If user.photoURL is null/undefined, we are NOT clearing it from Firestore here.
-        // This prevents accidental removal if Auth loses photoURL for some reason
-        // and user had set one via profile. Deletion is handled in profile.tsx.
       }
 
-      // User is now signed in
       setMessage("로그인 성공!");
 
-      // Don't redirect here - let onAuthStateChanged handle it
-      // The onAuthStateChanged effect will fire automatically and handle the redirect
-
     } catch (err: unknown) {
-      // Even more defensive error handling with type assertions
       let errorMessage = "인증코드 확인에 실패했습니다";
-      // First check if err is an object
       if (err && typeof err === "object") {
-        // Then check if it has a message property
         if (
           "message" in err &&
           typeof (err as { message: unknown }).message === "string"
@@ -807,7 +764,6 @@ export default function Auth() {
       }
       setErrorState(errorMessage);
 
-      console.error("인증코드 확인 오류:", err);
     } finally {
       setLoading(false);
     }
@@ -819,18 +775,17 @@ export default function Auth() {
       try {
         setupInvisibleRecaptcha();
       } catch (err: any) {
-        console.error("reCAPTCHA 설정 오류:", err);
         setErrorState("전화번호 인증 설정에 실패했습니다. 다시 시도해주세요.");
       }
     }
 
-    // Cleanup function remains the same
+    // Cleanup function
     return () => {
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
         } catch (err) {
-          console.error("reCAPTCHA 초기화 오류:", err);
+          // Silent error handling for cleanup
         }
       }
     };

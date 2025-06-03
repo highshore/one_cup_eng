@@ -5,7 +5,7 @@ import { MeetupEvent } from '../types/meetup_types';
 import { subscribeToEvent, joinEventAsRole, cancelParticipation } from '../services/meetup_service';
 import { formatEventDateTime, isEventLocked, sampleTopics, formatEventTitleWithCountdown } from '../utils/meetup_helpers';
 import { UserAvatar } from '../components/user_avatar';
-import { isUserAdmin } from '../services/user_service';
+import { isUserAdmin, hasActiveSubscription } from '../services/user_service';
 import { useAuth } from '../../../shared/contexts/auth_context';
 import AdminEventDialog from '../components/admin_event_dialog';
 import { PinIcon, CalendarIcon, ClockIcon, JoinIcon, CancelIcon } from '../components/meetup_icons';
@@ -928,6 +928,19 @@ const EventDetailPage: React.FC = () => {
         alert(`오류: 참가 취소에 실패했습니다. (${message})`);
       }
     } else {
+      // Check subscription status before allowing join
+      try {
+        const userHasActiveSubscription = await hasActiveSubscription(currentUser.uid);
+        if (!userHasActiveSubscription) {
+          alert('밋업에 참가하시려면 활성화된 구독이 필요합니다. 구독을 활성화한 후 다시 시도해주세요.');
+          return;
+        }
+      } catch (err) {
+        console.error("Error checking subscription status:", err);
+        alert('구독 상태를 확인하는 중 오류가 발생했습니다. 다시 시도해주세요.');
+        return;
+      }
+
       if (accountStatus === 'admin' || accountStatus === 'leader') {
         setShowRoleChoiceDialog(true);
       } else {
@@ -949,6 +962,20 @@ const EventDetailPage: React.FC = () => {
       alert("사용자 정보 또는 이벤트 정보가 없습니다.");
       return;
     }
+
+    // Check subscription status before allowing join
+    try {
+      const userHasActiveSubscription = await hasActiveSubscription(currentUser.uid);
+      if (!userHasActiveSubscription) {
+        alert('밋업에 참가하시려면 활성화된 구독이 필요합니다. 구독을 활성화한 후 다시 시도해주세요.');
+        return;
+      }
+    } catch (err) {
+      console.error("Error checking subscription status:", err);
+      alert('구독 상태를 확인하는 중 오류가 발생했습니다. 다시 시도해주세요.');
+      return;
+    }
+
     try {
       await joinEventAsRole(event.id, currentUser.uid, role);
       alert(`밋업에 ${role === 'leader' ? '리더' : '참가자'}로 등록되셨습니다!`);

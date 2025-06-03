@@ -8,6 +8,7 @@ export interface UserProfile {
   photoURL?: string;
   email?: string; // Keep email if you might need it, but it's often not public
   account_status?: string; // Add account_status field
+  hasActiveSubscription?: boolean; // Add subscription status field
 }
 
 // Cache for user profiles to avoid repeated fetches
@@ -31,7 +32,8 @@ export const fetchUserProfile = async (uid: string): Promise<UserProfile | null>
         displayName: userData.displayName || userData.name || `User ${uid.substring(0, 6)}`,
         photoURL: userData.photoURL || userData.avatar,
         email: userData.email, // Only if you store and need it
-        account_status: userData.account_status
+        account_status: userData.account_status,
+        hasActiveSubscription: userData.hasActiveSubscription === true
       };
       userCache.set(uid, profile);
       return profile;
@@ -42,7 +44,8 @@ export const fetchUserProfile = async (uid: string): Promise<UserProfile | null>
         uid,
         displayName: `User ${uid.substring(0, 6)}`,
         photoURL: undefined, // No photoURL if not in Firestore
-        account_status: undefined
+        account_status: undefined,
+        hasActiveSubscription: false
       };
       userCache.set(uid, fallbackProfile);
       return fallbackProfile;
@@ -54,7 +57,8 @@ export const fetchUserProfile = async (uid: string): Promise<UserProfile | null>
       uid,
       displayName: `User ${uid.substring(0, 6)}`,
       photoURL: undefined,
-      account_status: undefined
+      account_status: undefined,
+      hasActiveSubscription: false
     };
     userCache.set(uid, errorProfile);
     return errorProfile;
@@ -90,6 +94,25 @@ export const isUserAdmin = async (uid: string): Promise<boolean> => {
     return profile?.account_status === 'admin';
   } catch (error) {
     console.error(`Error checking admin status for ${uid}:`, error);
+    return false;
+  }
+};
+
+// Check if a user has an active subscription
+export const hasActiveSubscription = async (uid: string): Promise<boolean> => {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (userDocSnap.exists()) {
+      const userData = userDocSnap.data();
+      return userData.hasActiveSubscription === true;
+    } else {
+      console.warn(`User document not found for UID: ${uid}`);
+      return false;
+    }
+  } catch (error) {
+    console.error(`Error checking subscription status for ${uid}:`, error);
     return false;
   }
 };
