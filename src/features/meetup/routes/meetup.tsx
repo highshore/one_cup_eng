@@ -400,7 +400,6 @@ const MeetupPage: React.FC = () => {
       setHasMore(result.lastDoc !== null && result.events.length > 0);
       setError(null);
     } catch (err) {
-      console.error('Error loading events:', err);
       setError(err instanceof Error ? err.message : 'Failed to load events');
     } finally {
       setLoading(false);
@@ -455,9 +454,8 @@ const MeetupPage: React.FC = () => {
     navigate(`/meetup/${meetupId}`);
   };
 
-  const handleAvatarClick = (uid: string) => {
+  const handleAvatarClick = (_uid: string) => {
     // Handle avatar click - could show user profile modal, etc.
-    console.log('Avatar clicked for user:', uid);
   };
 
   const renderEventCard = (meetup: MeetupEvent, isPast: boolean = false, isClosest: boolean = false) => {

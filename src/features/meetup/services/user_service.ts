@@ -27,10 +27,15 @@ export const fetchUserProfile = async (uid: string): Promise<UserProfile | null>
 
     if (userDocSnap.exists()) {
       const userData = userDocSnap.data();
+      
+      // Ensure photoURL is undefined if empty or whitespace
+      const photoURL = userData.photoURL || userData.avatar;
+      const cleanPhotoURL = photoURL && photoURL.trim() !== '' ? photoURL : undefined;
+      
       const profile: UserProfile = {
         uid,
         displayName: userData.displayName || userData.name || `User ${uid.substring(0, 6)}`,
-        photoURL: userData.photoURL || userData.avatar,
+        photoURL: cleanPhotoURL,
         email: userData.email, // Only if you store and need it
         account_status: userData.account_status,
         hasActiveSubscription: userData.hasActiveSubscription === true

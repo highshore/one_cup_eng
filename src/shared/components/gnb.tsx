@@ -319,9 +319,7 @@ export default function GNB({
     const user = auth.currentUser;
 
     // Load profile image only when user object changes or avatar update is detected
-    if (user?.photoURL) {
-      console.log("GNB - Loading photoURL:", user.photoURL);
-
+    if (user?.photoURL && user.photoURL.trim() !== '') {
       try {
         // Store in localStorage to persist across page navigation
         const storedAvatarUrl = localStorage.getItem("user_avatar_url");
@@ -351,13 +349,11 @@ export default function GNB({
           setProfileImageUrl(storedAvatarUrl);
         }
       } catch (error) {
-        console.log("GNB - Invalid URL format:", user.photoURL, error);
         // If URL is not a valid URL format, just use it as-is
         setProfileImageUrl(user.photoURL);
         localStorage.setItem("user_avatar_url", user.photoURL);
       }
     } else {
-      console.log("GNB - No photoURL found for user");
       setProfileImageUrl(defaultUser);
       localStorage.removeItem("user_avatar_url");
     }
@@ -366,7 +362,7 @@ export default function GNB({
   // Listen for avatar updates via storage events (works across tabs)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "avatar_update_timestamp" && auth.currentUser?.photoURL) {
+      if (e.key === "avatar_update_timestamp" && auth.currentUser?.photoURL && auth.currentUser.photoURL.trim() !== '') {
         try {
           const url = new URL(auth.currentUser.photoURL);
           url.searchParams.set("t", Date.now().toString());
@@ -374,7 +370,7 @@ export default function GNB({
           localStorage.setItem("user_avatar_url", auth.currentUser.photoURL);
           localStorage.removeItem("avatar_update_timestamp");
         } catch (error) {
-          console.log("GNB - Error updating avatar from storage event:", error);
+          // Silent error handling
         }
       }
     };

@@ -113,6 +113,7 @@ const HeroContent = styled.div`
   height: 400px;
 
   @media (max-width: 768px) {
+    padding: 0 10px;
     height: 500px;
     display: flex;
     flex-direction: column;
@@ -360,7 +361,7 @@ const subtleGlow = keyframes`
 const CopiedEventCard = styled.div<{ $isPast?: boolean; $isClosest?: boolean }>`
   background-color: white; // Meetup card has a white background
   border-radius: 20px;
-  padding: 24px;
+  padding: 16px;
   margin-bottom: 1.5rem; // Added margin for spacing in hero
   cursor: pointer;
   transition: all 0.2s;

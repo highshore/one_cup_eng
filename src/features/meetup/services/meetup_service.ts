@@ -1,11 +1,12 @@
 import { collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, where, Timestamp, limit, startAfter, QueryDocumentSnapshot, DocumentData, addDoc, updateDoc, runTransaction, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { FirestoreMeetupEvent, MeetupEvent } from '../types/meetup_types';
+import { FirestoreMeetupEvent, MeetupEvent, Article } from '../types/meetup_types';
 import { convertFirestoreToMeetupEvent, sampleFirestoreEvents } from '../utils/meetup_helpers';
 import { geocodeLocation } from './geocoding_service';
 
-// Collection reference
+// Collection references
 const MEETUP_COLLECTION = 'meetup';
+const ARTICLES_COLLECTION = 'articles';
 const DEFAULT_EVENTS_PER_PAGE = 5; // Reduced to 5 for smaller incremental loading
 
 // Fetch all meetup events with pagination
@@ -348,6 +349,7 @@ export const createMeetupEvent = async (eventData: Partial<FirestoreMeetupEvent>
       lockdown_minutes: eventData.lockdown_minutes === undefined ? 10 : eventData.lockdown_minutes,
       max_participants: eventData.max_participants || 20,
       topics: eventData.topics || [],
+      articles: eventData.articles || [], // Default empty articles
       
       location_name: eventData.location_name || '',
       location_address: eventData.location_address || '',
@@ -439,5 +441,63 @@ export const updateMeetupEvent = async (eventId: string, eventData: Partial<Fire
   } catch (error) {
     console.error('Error updating meetup event (ID: ${eventId}):', error);
     throw error;
+  }
+};
+
+// Fetch recent articles for topic selection
+export const fetchRecentArticles = async (limitCount: number = 10): Promise<Article[]> => {
+  try {
+    const articlesCollection = collection(db, ARTICLES_COLLECTION);
+    const articlesQuery = query(
+      articlesCollection,
+      orderBy('timestamp', 'desc'),
+      limit(limitCount)
+    );
+    
+    const querySnapshot = await getDocs(articlesQuery);
+    const articles: Article[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      articles.push({
+        id: doc.id,
+        title: data.title || { english: '', korean: '' },
+        timestamp: data.timestamp
+      });
+    });
+    
+    return articles;
+  } catch (error) {
+    console.error('Error fetching articles:', error);
+    return [];
+  }
+};
+
+// Fetch articles by IDs
+export const fetchArticlesByIds = async (articleIds: string[]): Promise<Article[]> => {
+  try {
+    if (articleIds.length === 0) return [];
+    
+    const articles: Article[] = [];
+    
+    // Fetch each article by ID
+    for (const articleId of articleIds) {
+      const articleRef = doc(db, ARTICLES_COLLECTION, articleId);
+      const articleSnap = await getDoc(articleRef);
+      
+      if (articleSnap.exists()) {
+        const data = articleSnap.data();
+        articles.push({
+          id: articleSnap.id,
+          title: data.title || { english: '', korean: '' },
+          timestamp: data.timestamp
+        });
+      }
+    }
+    
+    return articles;
+  } catch (error) {
+    console.error('Error fetching articles by IDs:', error);
+    return [];
   }
 }; 

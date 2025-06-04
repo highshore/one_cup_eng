@@ -17,6 +17,7 @@ export interface FirestoreMeetupEvent {
   participants: string[]; // Array of user IDs
   title: string;
   topics: { topic_id: string }[];
+  articles: string[]; // Array of article IDs for discussion topics
 }
 
 // Converted types for UI components
@@ -39,6 +40,7 @@ export interface MeetupEvent {
   leaders: string[];
   image_urls: string[];
   topics: { topic_id: string }[];
+  articles: string[]; // Array of article IDs for discussion topics
 }
 
 export interface MeetupTopic {
@@ -52,4 +54,13 @@ export interface MeetupParticipant {
   id: string;
   name: string;
   avatar?: string;
+}
+
+export interface Article {
+  id: string;
+  title: {
+    english: string;
+    korean: string;
+  };
+  timestamp: any; // Firestore Timestamp
 } 

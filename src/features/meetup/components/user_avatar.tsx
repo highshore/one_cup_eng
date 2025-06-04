@@ -11,7 +11,6 @@ interface UserAvatarProps {
   size?: number;
   isLeader?: boolean;
   className?: string;
-  title?: string;
   onClick?: () => void;
   index?: number; // For stacking position
   isPast?: boolean; // For greyscale effect
@@ -79,7 +78,6 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   size = 40,
   isLeader = false,
   className,
-  title,
   onClick,
   index,
   isPast = false
@@ -106,11 +104,9 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         setLoading(true);
         setImageError(false); // Reset image error state on UID change
         const profile = await fetchUserProfile(uid);
-        console.log(`[UserAvatar] Profile for UID ${uid}:`, JSON.stringify(profile));
         setUserProfile(profile);
       } catch (error) {
         console.error(`Error loading user profile for ${uid}:`, error);
-        console.log(`[UserAvatar] Error fetching profile for UID ${uid}, using fallback.`);
       } finally {
         setLoading(false);
       }
@@ -119,25 +115,15 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   }, [uid]);
 
   const handleImageError = () => {
-    console.log(`[UserAvatar] Image error for UID ${uid}, src: ${userProfile?.photoURL || 'N/A'}. Falling back to default.`);
     setImageError(true);
   };
 
   const displayName = userProfile?.displayName || `User ${uid ? uid.substring(0, 8) : ''}`;
-  const initials = displayName
-    .split(' ')
-    .map(name => name.charAt(0))
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-
   const avatarColor = getAvatarColor(uid || '', isLeader);
-  // Determine the image source: user's photoURL, or default if error/missing, or hide if still loading.
-  const imageSrc = userProfile?.photoURL && !imageError ? userProfile.photoURL : DEFAULT_AVATAR_URL;
-  // Show placeholder (initials) only if there was an error with both user photo and default photo, or if no photoURL and no default provided.
-  // For this setup, we always try to show an image (user or default).
-  const showImage = !loading;
-  const showPlaceholder = loading || (imageError && imageSrc === DEFAULT_AVATAR_URL); // Show placeholder if loading or if default image also failed (or if only default image exists and it failed)
+  
+  // Determine the image source: use default if user's photoURL is empty, null, or if there was an error
+  const hasValidPhotoURL = userProfile?.photoURL && userProfile.photoURL.trim() !== '';
+  const imageSrc = (hasValidPhotoURL && !imageError) ? userProfile.photoURL : DEFAULT_AVATAR_URL;
 
   return (
     <AvatarContainer
@@ -147,23 +133,16 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       $isPast={isPast}
       $isClickable={!!onClick}
       className={className}
-      title={title || displayName}
       onClick={onClick}
     >
       {loading ? (
         <LoadingSpinner $size={size} />
       ) : (
-        showImage && !showPlaceholder ? (
-          <AvatarImage
-            src={imageSrc}
-            alt={displayName}
-            onError={imageSrc === DEFAULT_AVATAR_URL ? undefined : handleImageError} // Only handle error for non-default images to prevent loop if default fails
-          />
-        ) : (
-          <AvatarPlaceholder $size={size}>
-            {initials || '👤'}
-          </AvatarPlaceholder>
-        )
+        <AvatarImage
+          src={imageSrc}
+          alt={displayName}
+          onError={hasValidPhotoURL && !imageError ? handleImageError : undefined}
+        />
       )}
     </AvatarContainer>
   );
@@ -211,7 +190,6 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
           $index={displayedUids.length}
           $isPast={isPast}
           $isClickable={false}
-          title={`+${moreCount} more`}
         >
           <AvatarPlaceholder $size={size}>
             +{moreCount}

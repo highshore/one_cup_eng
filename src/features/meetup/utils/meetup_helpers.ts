@@ -80,7 +80,8 @@ export const convertFirestoreToMeetupEvent = (doc: FirestoreMeetupEvent | any): 
     participants: doc.participants || [], // Added safety for participants
     leaders: doc.leaders || [], // Added safety for leaders
     image_urls: doc.image_urls || [], // Added safety for image_urls
-    topics: doc.topics || [] // Added safety for topics
+    topics: doc.topics || [], // Added safety for topics
+    articles: doc.articles || [] // Added safety for articles
   };
 };
 
@@ -109,7 +110,8 @@ export const sampleFirestoreEvents: Record<string, FirestoreMeetupEvent> = {
     topics: [
       { topic_id: 'DOAwVGpAXcbC9UKIXJ8m' },
       { topic_id: 'TC8wkLHs9yqKnFREIWu6' }
-    ]
+    ],
+    articles: []
   },
   'english_speaking_practice_001': {
     id: 'english_speaking_practice_001',
@@ -134,7 +136,8 @@ export const sampleFirestoreEvents: Record<string, FirestoreMeetupEvent> = {
     topics: [
       { topic_id: 'daily_routines_topic' },
       { topic_id: 'travel_culture_topic' }
-    ]
+    ],
+    articles: []
   },
   'business_english_workshop_001': {
     id: 'business_english_workshop_001',
@@ -159,7 +162,8 @@ export const sampleFirestoreEvents: Record<string, FirestoreMeetupEvent> = {
     topics: [
       { topic_id: 'business_communication_topic' },
       { topic_id: 'presentation_skills_topic' }
-    ]
+    ],
+    articles: []
   },
   'movie_night_discussion_001': {
     id: 'movie_night_discussion_001',
@@ -189,7 +193,8 @@ export const sampleFirestoreEvents: Record<string, FirestoreMeetupEvent> = {
     topics: [
       { topic_id: 'movie_analysis_topic' },
       { topic_id: 'character_discussion_topic' }
-    ]
+    ],
+    articles: []
   }
 };
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
-import { MeetupEvent } from '../types/meetup_types';
-import { subscribeToEvent, joinEventAsRole, cancelParticipation } from '../services/meetup_service';
+import { MeetupEvent, Article } from '../types/meetup_types';
+import { subscribeToEvent, joinEventAsRole, cancelParticipation, fetchArticlesByIds } from '../services/meetup_service';
 import { formatEventDateTime, isEventLocked, sampleTopics, formatEventTitleWithCountdown } from '../utils/meetup_helpers';
 import { UserAvatar } from '../components/user_avatar';
 import { isUserAdmin, hasActiveSubscription } from '../services/user_service';
@@ -272,6 +272,66 @@ const TopicsSection = styled.div`
   }
 `;
 
+const ArticleTopicsSection = styled.div`
+  margin: 1.5rem 0;
+  
+  @media (max-width: 768px) {
+    margin: 1.25rem 0;
+  }
+`;
+
+const ArticleTopicCard = styled.div`
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    margin: 0.375rem 0;
+    border-radius: 8px;
+  }
+`;
+
+const ArticleTopicNumber = styled.span`
+  display: inline-block;
+  background-color: #333;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  line-height: 24px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 0.5rem;
+  
+  @media (max-width: 768px) {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    font-size: 11px;
+  }
+`;
+
+const ArticleTopicTitle = styled.span`
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+  
+  @media (max-width: 768px) {
+    font-size: 14px;
+  }
+`;
+
 const TopicCard = styled.div`
   background-color: white;
   border: 1px solid #e0e0e0;
@@ -342,10 +402,12 @@ const ActionButtons = styled.div<{ $isFloating: boolean }>`
     right: 20px;
     margin: 0 auto; /* Center the fixed element */
     padding-bottom: 0;
+    z-index: 1050; /* Higher z-index when floating */
   ` : css`
     position: static;
     margin: 2rem auto 0 auto; /* Center static group on desktop */
     padding-bottom: 0;
+    z-index: 1000;
   `}
 
   @media (max-width: 768px) {
@@ -354,14 +416,23 @@ const ActionButtons = styled.div<{ $isFloating: boolean }>`
     width: auto; /* Allow it to be constrained by left/right */
 
     ${({ $isFloating }) => $isFloating ? css`
-      bottom: 20px; /* Mobile floating bottom */
-      left: 16px;
-      right: 16px;
-      padding-bottom: 16px; /* Optional: Extra space below floating buttons on mobile */
+      position: fixed !important; /* Force fixed positioning for mobile floating */
+      bottom: 20px !important; /* Mobile floating bottom */
+      left: 16px !important;
+      right: 16px !important;
+      margin: 0 !important; /* Reset margin when floating */
+      padding-bottom: 16px; /* Extra space below floating buttons on mobile */
+      z-index: 1050 !important; /* Ensure high z-index on mobile */
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15); /* Add shadow to indicate floating */
+      backdrop-filter: blur(10px); /* Add backdrop blur for better visibility */
+      -webkit-backdrop-filter: blur(10px); /* Safari support */
     ` : css`
-      margin: 1.5rem auto 0 auto; /* Center static group on mobile */
-      /* Ensure static button group can be centered if it's narrower than max-width */
-      /* left/right: 0 for static might not be needed if margin auto is used */
+      position: static !important; /* Ensure static positioning for mobile non-floating */
+      margin: 1.5rem auto 0 auto !important; /* Center static group on mobile */
+      z-index: 1000;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     `}
   }
 `;
@@ -802,6 +873,10 @@ const EventDetailPage: React.FC = () => {
   const [dialogTemplateEvent, setDialogTemplateEvent] = useState<MeetupEvent | null>(null);
   const [dialogEditEvent, setDialogEditEvent] = useState<MeetupEvent | null>(null);
   const [showRoleChoiceDialog, setShowRoleChoiceDialog] = useState(false);
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+  const [articleTopics, setArticleTopics] = useState<Article[]>([]);
+  const [userHasSubscription, setUserHasSubscription] = useState<boolean | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   const isCurrentUserParticipant = useMemo(() => {
     if (!currentUser || !event) return false;
@@ -816,6 +891,27 @@ const EventDetailPage: React.FC = () => {
       }
     };
     checkAdminStatus();
+  }, [currentUser]);
+
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      if (!currentUser) {
+        setSubscriptionLoading(false);
+        return;
+      }
+
+      try {
+        const hasSubscription = await hasActiveSubscription(currentUser.uid);
+        setUserHasSubscription(hasSubscription);
+      } catch (error) {
+        console.error('Error checking subscription status:', error);
+        setUserHasSubscription(false);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    checkSubscriptionStatus();
   }, [currentUser]);
 
   useEffect(() => {
@@ -854,51 +950,114 @@ const EventDetailPage: React.FC = () => {
     }
   }, [event]);
 
+  // Fetch articles for topics when event data changes
   useEffect(() => {
-    const calculatePositionAndCheckFloat = () => {
-      if (actionButtonRef.current) {
-        if (!isButtonFloating || !staticButtonPositionRef.current) {
-            const rect = actionButtonRef.current.getBoundingClientRect();
-            staticButtonPositionRef.current = {
-                top: rect.top + window.scrollY,
-                height: actionButtonRef.current.offsetHeight,
-            };
+    const fetchArticles = async () => {
+      if (event && event.articles && event.articles.length > 0) {
+        try {
+          const articles = await fetchArticlesByIds(event.articles);
+          setArticleTopics(articles);
+        } catch (error) {
+          console.error('Error fetching articles for topics:', error);
+          setArticleTopics([]);
         }
-        
-        if (!staticButtonPositionRef.current) {
-            setIsButtonFloating(false);
-            return;
-        }
-
-        const { top: staticTop, height: staticHeight } = staticButtonPositionRef.current;
-        const scrollY = window.scrollY;
-        const windowHeight = window.innerHeight;
-        const staticBottom = staticTop + staticHeight;
-        const buffer = window.innerWidth <= 768 ? 20 : 50; 
-        const shouldFloat = (scrollY + windowHeight) < (staticBottom + buffer);
-
-        setIsButtonFloating(prevIsFloating => {
-          if (prevIsFloating !== shouldFloat) {
-            return shouldFloat;
-          }
-          return prevIsFloating;
-        });
-
       } else {
-        setIsButtonFloating(false);
+        setArticleTopics([]);
       }
     };
 
-    calculatePositionAndCheckFloat();
+    fetchArticles();
+  }, [event]);
 
-    window.addEventListener('scroll', calculatePositionAndCheckFloat, { passive: true });
-    window.addEventListener('resize', calculatePositionAndCheckFloat, { passive: true });
+  useEffect(() => {
+    const calculatePositionAndCheckFloat = () => {
+      if (!actionButtonRef.current) {
+        setIsButtonFloating(false);
+        return;
+      }
+
+      // Force recalculate static position if not floating or not cached
+      if (!isButtonFloating || !staticButtonPositionRef.current) {
+        const rect = actionButtonRef.current.getBoundingClientRect();
+        staticButtonPositionRef.current = {
+          top: rect.top + window.scrollY,
+          height: actionButtonRef.current.offsetHeight,
+        };
+      }
+      
+      if (!staticButtonPositionRef.current) {
+        setIsButtonFloating(false);
+        return;
+      }
+
+      const { top: staticTop, height: staticHeight } = staticButtonPositionRef.current;
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const staticBottom = staticTop + staticHeight;
+      
+      // Increased buffer for mobile to ensure floating works
+      const isMobile = window.innerWidth <= 768;
+      const buffer = isMobile ? 80 : 50; 
+      
+      // Check if we're near the bottom of the page - use smaller threshold for mobile
+      const bottomThreshold = isMobile ? 50 : 150; // Reduced mobile threshold
+      const isNearBottom = (scrollY + windowHeight) >= (documentHeight - bottomThreshold);
+      
+      // Button should float when it would be out of viewport AND we're not near the bottom
+      const wouldBeOutOfView = (scrollY + windowHeight) < (staticBottom + buffer);
+      const shouldFloat = wouldBeOutOfView && !isNearBottom;
+
+      // Temporary debugging for mobile
+      if (isMobile) {
+        console.log('Mobile Debug:', {
+          scrollY,
+          windowHeight,
+          documentHeight,
+          staticBottom,
+          wouldBeOutOfView,
+          isNearBottom,
+          shouldFloat,
+          bottomThreshold
+        });
+      }
+
+      setIsButtonFloating(shouldFloat);
+    };
+
+    // Initial calculation
+    calculatePositionAndCheckFloat();
+    
+    // Use requestAnimationFrame for smoother mobile performance
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          calculatePositionAndCheckFloat();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    const handleResize = () => {
+      // Reset static position on resize
+      staticButtonPositionRef.current = null;
+      setIsButtonFloating(false);
+      setTimeout(calculatePositionAndCheckFloat, 100);
+    };
+
+    // Add both scroll and touchmove for mobile
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('touchmove', handleScroll, { passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', calculatePositionAndCheckFloat);
-      window.removeEventListener('resize', calculatePositionAndCheckFloat);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('touchmove', handleScroll);
+      window.removeEventListener('resize', handleResize);
     };
-  }, [isButtonFloating]);
+  }, []); // Remove isButtonFloating dependency to prevent infinite loops
 
   const handleBack = () => {
     navigate('/meetup');
@@ -923,7 +1082,6 @@ const EventDetailPage: React.FC = () => {
         await cancelParticipation(event.id, currentUser.uid);
         alert('밋업 참가가 취소되었습니다.');
       } catch (err) {
-        console.error("Error canceling participation:", err);
         const message = err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
         alert(`오류: 참가 취소에 실패했습니다. (${message})`);
       }
@@ -932,11 +1090,10 @@ const EventDetailPage: React.FC = () => {
       try {
         const userHasActiveSubscription = await hasActiveSubscription(currentUser.uid);
         if (!userHasActiveSubscription) {
-          alert('밋업에 참가하시려면 활성화된 구독이 필요합니다. 구독을 활성화한 후 다시 시도해주세요.');
+          setShowSubscriptionDialog(true);
           return;
         }
       } catch (err) {
-        console.error("Error checking subscription status:", err);
         alert('구독 상태를 확인하는 중 오류가 발생했습니다. 다시 시도해주세요.');
         return;
       }
@@ -948,7 +1105,6 @@ const EventDetailPage: React.FC = () => {
           await joinEventAsRole(event.id, currentUser.uid, 'participant');
           alert('밋업에 참가자로 등록되셨습니다!');
         } catch (err) {
-          console.error("Error joining as participant:", err);
           const message = err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
           alert(`오류: 참가 신청에 실패했습니다. (${message})`);
         }
@@ -967,11 +1123,10 @@ const EventDetailPage: React.FC = () => {
     try {
       const userHasActiveSubscription = await hasActiveSubscription(currentUser.uid);
       if (!userHasActiveSubscription) {
-        alert('밋업에 참가하시려면 활성화된 구독이 필요합니다. 구독을 활성화한 후 다시 시도해주세요.');
+        setShowSubscriptionDialog(true);
         return;
       }
     } catch (err) {
-      console.error("Error checking subscription status:", err);
       alert('구독 상태를 확인하는 중 오류가 발생했습니다. 다시 시도해주세요.');
       return;
     }
@@ -980,7 +1135,6 @@ const EventDetailPage: React.FC = () => {
       await joinEventAsRole(event.id, currentUser.uid, role);
       alert(`밋업에 ${role === 'leader' ? '리더' : '참가자'}로 등록되셨습니다!`);
     } catch (err) {
-      console.error(`Error joining as ${role}:`, err);
       const message = err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
       alert(`오류: ${role === 'leader' ? '리더' : '참가자'}로 참가 신청에 실패했습니다. (${message})`);
     }
@@ -1003,9 +1157,8 @@ const EventDetailPage: React.FC = () => {
     }
   };
 
-  const handleAvatarClick = (uid: string) => {
+  const handleAvatarClick = (_uid: string) => {
     // Handle avatar click - could show user profile modal, etc.
-    console.log('Avatar clicked for user:', uid);
   };
 
   const handleCreateNew = () => {
@@ -1041,13 +1194,80 @@ const EventDetailPage: React.FC = () => {
     setDialogEditEvent(null);
   };
 
+  const handleGoToPayment = () => {
+    setShowSubscriptionDialog(false);
+    navigate('/payment');
+  };
+
+  const handleArticleTopicClick = (articleId: string) => {
+    navigate(`/article/${articleId}`);
+  };
+
   // Loading state
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
       <Container>
         <div style={{ paddingTop: '80px', textAlign: 'center', padding: '2rem' }}>
           <div style={{ color: '#666', fontSize: '16px', marginBottom: '1rem' }}>
             Loading event details...
+          </div>
+        </div>
+      </Container>
+    );
+  }
+
+  // Check if user is logged in
+  if (!currentUser) {
+    return (
+      <Container>
+        <div style={{ paddingTop: '80px', textAlign: 'center', padding: '2rem' }}>
+          <div style={{ color: '#666', fontSize: '18px', marginBottom: '1.5rem' }}>
+            로그인이 필요합니다
+          </div>
+          <div style={{ color: '#888', fontSize: '16px', marginBottom: '2rem' }}>
+            이벤트 세부 정보를 보려면 로그인해주세요.
+          </div>
+          <ActionButton
+            $variant="join"
+            onClick={() => {
+              localStorage.setItem('returnUrl', location.pathname);
+              navigate('/auth');
+            }}
+            style={{ position: 'static', margin: '0 auto', maxWidth: '200px' }}
+          >
+            로그인하기
+          </ActionButton>
+        </div>
+      </Container>
+    );
+  }
+
+  // Check subscription status
+  if (userHasSubscription === false) {
+    return (
+      <Container>
+        <div style={{ paddingTop: '80px', textAlign: 'center', padding: '2rem' }}>
+          <div style={{ color: '#666', fontSize: '18px', marginBottom: '1.5rem' }}>
+            구독이 필요합니다
+          </div>
+          <div style={{ color: '#888', fontSize: '16px', marginBottom: '2rem' }}>
+            이벤트 세부 정보를 보려면 활성화된 구독이 필요합니다.
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <ActionButton
+              $variant="join"
+              onClick={handleGoToPayment}
+              style={{ position: 'static', maxWidth: '200px' }}
+            >
+              구독하기
+            </ActionButton>
+            <ActionButton
+              $variant="cancel"
+              onClick={handleBack}
+              style={{ position: 'static', maxWidth: '200px' }}
+            >
+              뒤로 가기
+            </ActionButton>
           </div>
         </div>
       </Container>
@@ -1136,6 +1356,19 @@ const EventDetailPage: React.FC = () => {
             )}
             {eventTitle}
           </Title>
+
+          {articleTopics.length > 0 && isCurrentUserParticipant && (
+            <ArticleTopicsSection>
+              <SectionTitle>밋업 토픽</SectionTitle>
+              {articleTopics.map((topic, index) => (
+                <ArticleTopicCard key={topic.id} onClick={() => handleArticleTopicClick(topic.id)}>
+                  <ArticleTopicNumber>{index + 1}</ArticleTopicNumber>
+                  <ArticleTopicTitle>{topic.title.english}</ArticleTopicTitle>
+                </ArticleTopicCard>
+              ))}
+            </ArticleTopicsSection>
+          )}
+
           <Description>{event.description}</Description>
 
           <SectionTitle>세부 사항</SectionTitle>
@@ -1161,7 +1394,7 @@ const EventDetailPage: React.FC = () => {
             />
           )}
 
-          <SectionTitle>참가 신청 ({totalParticipants}/{event.max_participants})</SectionTitle>
+          <SectionTitle>참가 예정 ({totalParticipants}/{event.max_participants})</SectionTitle>
           <ParticipantsGrid>
             {/* Real user avatars for participants */}
             {event.participants.slice(0, 12).map((participantUid) => (
@@ -1296,6 +1529,22 @@ const EventDetailPage: React.FC = () => {
               참가자로 참여
             </DialogButton>
             <DialogButton onClick={() => setShowRoleChoiceDialog(false)} style={{marginTop: '0.5rem'}}>
+              취소
+            </DialogButton>
+          </DialogBox>
+        </DialogOverlay>
+      )}
+
+      {showSubscriptionDialog && (
+        <DialogOverlay onClick={() => setShowSubscriptionDialog(false)}>
+          <DialogBox onClick={(e) => e.stopPropagation()}>
+            <h3>구독이 필요합니다</h3>
+            <p>밋업에 참가하시려면 활성화된 구독이 필요합니다.</p>
+            <p>결제 페이지에서 구독을 시작하시겠습니까?</p>
+            <DialogButton $primary onClick={handleGoToPayment}>
+              결제 페이지로 이동
+            </DialogButton>
+            <DialogButton onClick={() => setShowSubscriptionDialog(false)} style={{marginTop: '0.5rem'}}>
               취소
             </DialogButton>
           </DialogBox>

@@ -34,6 +34,8 @@ interface ArticleData {
   };
   url: string;
   image_url?: string; // Added new optional field
+  discussion_topics?: string[]; // Added new optional field
+  source_url?: string; // Added new optional field
   audio?: {
     url: string;
     timestamps: AudioTimestamp[];
@@ -76,7 +78,7 @@ const colors = {
 };
 
 const ArticleContainer = styled.div`
-  max-width: 850px;
+  max-width: 940px;
   margin: 0 auto;
   padding: 1rem 1.5rem;
   min-height: 100vh;
@@ -103,8 +105,8 @@ const ArticleContainer = styled.div`
 `;
 
 const Title = styled.h1`
-  font-size: 2.2rem;
-  margin: 2rem 0 0 0;
+  font-size: 2rem;
+  margin: 0 0 0.5rem 0;
   color: ${colors.text.dark};
   font-weight: 700;
   line-height: 1.2;
@@ -113,8 +115,7 @@ const Title = styled.h1`
     "Segoe UI", sans-serif;
 
   @media (max-width: 768px) {
-    font-size: 1.8rem;
-    margin: 1.5rem 0 0 0;
+    font-size: 1.7rem;
   }
 
   &:hover {
@@ -123,8 +124,8 @@ const Title = styled.h1`
 `;
 
 const Subtitle = styled.h2<{ isVisible: boolean }>`
-  font-size: 1.8rem;
-  margin-bottom: 2rem;
+  font-size: 1.6rem;
+  margin-bottom: 1.5rem;
   color: ${colors.text.medium};
   font-weight: 500;
   line-height: 1.3;
@@ -132,11 +133,11 @@ const Subtitle = styled.h2<{ isVisible: boolean }>`
   overflow: hidden;
   opacity: ${(props) => (props.isVisible ? 1 : 0)};
   transition: all 0.3s ease;
-  margin-top: ${(props) => (props.isVisible ? "0.5rem" : "0")};
+  margin-top: ${(props) => (props.isVisible ? "0.25rem" : "0")};
 
   @media (max-width: 768px) {
-    font-size: 1.5rem;
-    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    margin-bottom: 1.2rem;
   }
 `;
 
@@ -146,41 +147,42 @@ const CalloutBox = styled.div`
     ${colors.primaryPale} 0%,
     ${colors.primaryBg} 100%
   );
-  padding: 1.2rem 1.5rem;
-  border-radius: 20px;
-  margin-bottom: 2rem;
-  font-size: 0.95rem;
+  padding: 1rem 1.2rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
   color: ${colors.text.medium};
-  border: 1px dotted ${colors.accent};
+  border: 1px solid ${colors.primaryPale};
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  gap: 0.7rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
   line-height: 1.5;
 
   @media (max-width: 768px) {
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
+    margin-bottom: 1.2rem;
+    padding: 0.9rem 1rem;
   }
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   }
 
   &::before {
     content: "✨";
-    font-size: 1.4rem;
-    padding: 0.5rem;
+    font-size: 1.2rem;
+    padding: 0.4rem;
     display: flex;
     align-items: center;
     justify-content: center;
     background-color: transparent;
 
     @media (max-width: 768px) {
-      font-size: 1.2rem;
-      padding: 0.4rem;
+      font-size: 1.1rem;
+      padding: 0.3rem;
     }
   }
 `;
@@ -188,57 +190,89 @@ const CalloutBox = styled.div`
 const ReadingTime = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   color: ${colors.text.medium};
-  font-size: 0.9rem;
-  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
   background: ${colors.primaryPale};
-  border-radius: 20px;
-  height: 2.2rem;
+  border-radius: 16px;
+  height: 2rem;
   box-sizing: border-box;
 
   &::before {
     content: "⏱";
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   @media (max-width: 768px) {
-    font-size: 0.85rem;
-    padding: 0.4rem 0.8rem;
-    height: 2rem;
+    font-size: 0.8rem;
+    padding: 0.35rem 0.7rem;
+    height: 1.8rem;
+  }
+`;
+
+const SourceTab = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: ${colors.text.medium};
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  background: ${colors.primaryPale};
+  border-radius: 16px;
+  height: 2rem;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &::before {
+    font-size: 1rem;
+  }
+
+  &:hover {
+    background: ${colors.accent};
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.7rem;
+    height: 1.8rem;
   }
 `;
 
 const SectionTitle = styled.h3`
-  font-size: 1.4rem;
-  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  margin-bottom: 1.2rem;
   color: ${colors.primary};
   font-weight: 600;
-  padding-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
   border-bottom: 2px solid ${colors.primaryPale};
 
   @media (max-width: 768px) {
-    font-size: 1.5rem;
-    margin-bottom: 1.2rem;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
   }
 `;
 
 const ContentSection = styled.div`
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   width: 100%;
   background: ${colors.primaryBg};
 `;
 
 const Paragraph = styled.p`
   font-size: 1.1rem;
-  line-height: 1.8;
+  line-height: 1.7;
   color: ${colors.text.dark};
   font-weight: 400;
   cursor: pointer;
+  margin-bottom: 0;
 
   @media (max-width: 768px) {
-    font-size: 1.2rem;
-    line-height: 1.7;
+    font-size: 1.05rem;
+    line-height: 1.6;
   }
 
   &:hover {
@@ -247,25 +281,25 @@ const Paragraph = styled.p`
 `;
 
 const KoreanParagraph = styled.p<{ isVisible: boolean }>`
-  font-size: 1.1rem;
-  line-height: 1.8;
-  margin-bottom: ${(props) => (props.isVisible ? "1rem" : "0")};
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin-bottom: ${(props) => (props.isVisible ? "0.5rem" : "0")};
   color: ${colors.text.dark};
   font-weight: 400;
   background: ${colors.primaryPale};
-  padding: 1.2rem;
+  padding: 1rem;
   border-radius: 8px;
   max-height: ${(props) => (props.isVisible ? "500px" : "0")};
   opacity: ${(props) => (props.isVisible ? 1 : 0)};
   overflow: hidden;
   transition: all 0.3s ease;
-  margin-top: ${(props) => (props.isVisible ? "0.4rem" : "0")};
+  margin-top: ${(props) => (props.isVisible ? "0.15rem" : "0")};
   border-left: 3px solid ${colors.accent};
 
   @media (max-width: 768px) {
     font-size: 1rem;
-    line-height: 1.7;
-    padding: 1rem;
+    line-height: 1.6;
+    padding: 0.9rem;
   }
 `;
 
@@ -290,7 +324,7 @@ const ErrorContainer = styled.div`
 `;
 
 const KeywordsSection = styled.div`
-  margin-bottom: 3rem;
+  margin-bottom: 2.5rem;
   position: relative;
   width: 100%;
   box-sizing: border-box;
@@ -310,7 +344,7 @@ const KeywordsSlider = styled.div`
   display: flex;
   overflow-x: hidden;
   scroll-behavior: smooth;
-  padding: 1rem 0;
+  padding: 0.8rem 0;
   width: 100%;
   box-sizing: border-box;
   cursor: grab;
@@ -320,10 +354,10 @@ const KeywordsSlider = styled.div`
 
   @media (max-width: 768px) {
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch; /* for smoother scrolling on iOS */
-    scrollbar-width: none; /* Firefox */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     &::-webkit-scrollbar {
-      display: none; /* Chrome, Safari and Opera */
+      display: none;
     }
   }
 
@@ -331,7 +365,6 @@ const KeywordsSlider = styled.div`
     cursor: grabbing;
   }
 
-  /* Add extra space at the end to ensure last cards are fully visible */
   &::after {
     content: "";
     flex: 0 0 20px;
@@ -339,12 +372,12 @@ const KeywordsSlider = styled.div`
 `;
 
 const KeywordCard = styled.div`
-  flex: 0 0 250px;
+  flex: 0 0 240px;
   background: #fff;
   border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
-  padding: 1.2rem;
-  margin-right: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  padding: 1rem;
+  margin-right: 0.4rem;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   border: 1px solid ${colors.primaryPale};
   border-left: 3px solid ${colors.accent};
@@ -352,8 +385,8 @@ const KeywordCard = styled.div`
   cursor: pointer;
 
   @media (max-width: 768px) {
-    flex: 0 0 230px;
-    padding: 1rem;
+    flex: 0 0 220px;
+    padding: 0.9rem;
   }
 
   &:first-child {
@@ -361,8 +394,8 @@ const KeywordCard = styled.div`
   }
 
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 `;
 
@@ -409,13 +442,13 @@ const SliderButton = styled.button`
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: white;
   color: ${colors.primary};
   border: 1px solid ${colors.primaryPale};
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -424,14 +457,14 @@ const SliderButton = styled.button`
   transition: all 0.2s ease;
 
   @media (max-width: 768px) {
-    width: 32px;
-    height: 36px;
+    width: 28px;
+    height: 32px;
   }
 
   &:hover {
     background: white;
     color: ${colors.primaryLight};
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   }
 
   &:disabled {
@@ -442,30 +475,30 @@ const SliderButton = styled.button`
 `;
 
 const NextButton = styled(SliderButton)`
-  right: -18px;
+  right: -16px;
 
   @media (max-width: 768px) {
-    right: -16px;
+    right: -14px;
   }
 
   &::after {
     content: "›";
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     line-height: 1;
     font-weight: 300;
   }
 `;
 
 const PrevButton = styled(SliderButton)`
-  left: -18px;
+  left: -16px;
 
   @media (max-width: 768px) {
-    left: -16px;
+    left: -14px;
   }
 
   &::after {
     content: "‹";
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     line-height: 1;
     font-weight: 300;
   }
@@ -656,51 +689,18 @@ const ModalExample = styled.div`
     font-size: 0.9rem;
   }
 `;
-
-const QuickReadingToggle = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: ${colors.primary};
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  height: 2.2rem;
-  box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-
-  @media (max-width: 768px) {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
-    height: 2rem;
-  }
-
-  &:hover {
-    background: ${colors.primaryLight};
-    transform: translateY(-1px);
-  }
-
-  &.active {
-    background: ${colors.accent};
-  }
-`;
-
 // Add InfoContainer styled component
 const InfoContainer = styled.div`
   display: flex;
   align-items: center;
   margin-bottom: 1rem;
-  gap: 0.8rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 
   @media (max-width: 768px) {
-    gap: 0.6rem;
-    margin-top: 0.8rem;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
   }
 `;
 
@@ -958,42 +958,41 @@ const ArticlePageWrapper = styled.div<{ isAudioMode?: boolean }>`
 
 // Define necessary styled components
 const ParagraphContainer = styled.div`
-  margin-bottom: 1.8rem;
   position: relative;
 `;
 
 // Add a styled component for the translation toggle button
 const TranslationToggleButton = styled.button`
-  background: ${colors.primaryPale};
-  color: ${colors.primary};
-  border: none;
-  border-radius: 20px;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8rem;
+  background: ${colors.primaryBg};
+  color: ${colors.text.medium};
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 14px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.7rem;
   cursor: pointer;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin-top: 0.6rem;
+  margin-bottom: 0.2rem;
   display: flex;
   align-items: center;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 
   &:hover {
-    background: ${colors.accent};
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+    background: ${colors.primaryPale};
+    color: ${colors.primary};
+    border-color: ${colors.accent};
   }
 
   &::before {
     content: "🇰🇷";
-    margin-right: 6px;
-    font-size: 1rem;
+    margin-right: 3px;
+    font-size: 0.8rem;
   }
 
   &.active {
-    background: ${colors.accent};
-    color: white;
+    background: ${colors.primaryPale};
+    color: ${colors.primary};
+    border-color: ${colors.accent};
   }
 `;
 
@@ -1244,11 +1243,106 @@ const SpeedButton = styled.button<{ active: boolean }>`
   }
 `;
 
-const AudioModeToggle = styled(QuickReadingToggle)`
+// Floating button container
+const FloatingButtonContainer = styled.div<{ isAudioMode?: boolean }>`
+  position: fixed;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid ${colors.primaryPale};
+  transition: all 0.3s ease;
+
+  @media (max-width: 768px) {
+    right: 1rem;
+    padding: 0.6rem;
+    gap: 0.4rem;
+  }
+
+  @media (max-width: 480px) {
+    position: fixed;
+    right: 1rem;
+    bottom: ${(props) => (props.isAudioMode ? "90px" : "1rem")};
+    top: auto;
+    transform: none;
+    flex-direction: row;
+    padding: 0.5rem;
+    transition: all 0.3s ease;
+  }
+
+  &:hover {
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+    transform: translateY(-50%) scale(1.02);
+
+    @media (max-width: 480px) {
+      transform: scale(1.02);
+    }
+  }
+`;
+
+const FloatingButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background: ${colors.primary};
+  color: white;
+  border: none;
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  min-height: 2.2rem;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+
+  @media (max-width: 768px) {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.7rem;
+    min-height: 2rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.65rem;
+    min-height: 1.8rem;
+    gap: 0.2rem;
+  }
+
+  &:hover {
+    background: ${colors.primaryLight};
+    transform: translateY(-1px);
+  }
+
+  &.active {
+    background: ${colors.accent};
+  }
+
+  &:disabled {
+    background: ${colors.text.light};
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const FloatingAudioButton = styled(FloatingButton)`
   background: ${colors.primaryDark};
 
   &.active {
     background: ${colors.accent};
+  }
+
+  &:hover:not(:disabled) {
+    background: ${colors.primary};
   }
 `;
 
@@ -1276,10 +1370,229 @@ const ImageCaption = styled.p`
   }
 `;
 
+// Discussion topics components
+const DiscussionTopicsSection = styled.div`
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+
+  @media (max-width: 768px) {
+    margin-top: 1.8rem;
+    margin-bottom: 1.8rem;
+  }
+`;
+
+const DiscussionTopicsList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 1.2rem;
+  border: 1px solid ${colors.primaryPale};
+`;
+
+const DiscussionTopicItem = styled.li`
+  font-size: 0.95rem;
+  color: ${colors.text.dark};
+  line-height: 1.6;
+  margin-bottom: 0.6rem;
+  padding-left: 1rem;
+  position: relative;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &::before {
+    content: "•";
+    color: ${colors.accent};
+    font-weight: bold;
+    position: absolute;
+    left: 0;
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    padding-left: 0.9rem;
+  }
+`;
+
+// Admin editing styled components
+const AdminControlsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: 0.6rem;
+  }
+`;
+
+const AdminButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: ${colors.primary};
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+
+  &:hover {
+    background: ${colors.primaryLight};
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    background: ${colors.text.light};
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.7rem;
+  }
+`;
+
+const EditableTopicInput = styled.input`
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: ${colors.text.dark};
+  background: white;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: ${colors.accent};
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+`;
+
+const EditableTopicContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  padding: 0.6rem;
+  background: ${colors.primaryBg};
+  border-radius: 8px;
+  border: 1px solid ${colors.primaryPale};
+
+  @media (max-width: 768px) {
+    gap: 0.4rem;
+    padding: 0.5rem;
+  }
+`;
+
+const RemoveTopicButton = styled.button`
+  background: ${colors.text.light};
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #e74c3c;
+  }
+
+  @media (max-width: 768px) {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+`;
+
+const NewTopicContainer = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  align-items: flex-start;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+`;
+
+const NewTopicInput = styled.input`
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: ${colors.text.dark};
+  background: white;
+  transition: border-color 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: ${colors.accent};
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    font-size: 0.85rem;
+    padding: 0.5rem;
+  }
+`;
+
+const AddTopicButton = styled.button`
+  background: ${colors.accent};
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &:hover {
+    background: ${colors.primary};
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    background: ${colors.text.light};
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.8rem;
+  }
+`;
 
 const Article = () => {
   const { articleId } = useParams<{ articleId: string }>();
-  const { currentUser } = useAuth(); // Get the current user from auth context
+  const { currentUser, accountStatus } = useAuth(); // Get the current user and account status from auth context
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1303,13 +1616,24 @@ const Article = () => {
   const [savedWords, setSavedWords] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Admin discussion topics editing state
+  const [isEditingTopics, setIsEditingTopics] = useState(false);
+  const [editedTopics, setEditedTopics] = useState<string[]>([]);
+  const [newTopic, setNewTopic] = useState("");
+  const [isSavingTopics, setIsSavingTopics] = useState(false);
+
   // Update state for word definition modal
   const [wordDefinitionModal, setWordDefinitionModal] = useState({
     isOpen: false,
     word: "",
     definition: "",
     isLoading: false,
+    wiktionaryData: null as any | null,
+    isWiktionaryLoading: false,
   });
+
+  // Add state for Wiktionary API data in keyword modal
+  const [selectedWordWiktionaryData, setSelectedWordWiktionaryData] = useState<any | null>(null);
 
   // Audio player states
   const [isAudioMode, setIsAudioMode] = useState(false);
@@ -1975,6 +2299,7 @@ const Article = () => {
 
   const openKeywordModal = async (word: string) => {
     setSelectedKeyword(word);
+    setSelectedWordWiktionaryData(null); // Reset Wiktionary data
 
     // Get word details if not already loaded
     if (!wordDetails[word]) {
@@ -1984,6 +2309,15 @@ const Article = () => {
     setSelectedWordData(wordDetails[word] || null);
     setIsModalOpen(true);
     document.body.style.overflow = "hidden";
+
+    // Fetch Wiktionary data in parallel
+    try {
+      const wiktionaryData = await fetchWordFromWiktionaryApi(word);
+      setSelectedWordWiktionaryData(wiktionaryData);
+    } catch (error) {
+      console.error("Error fetching Wiktionary data:", error);
+      setSelectedWordWiktionaryData(null);
+    }
   };
 
   const closeKeywordModal = () => {
@@ -2050,11 +2384,34 @@ const Article = () => {
       return acc + paragraph.split(/\s+/).length;
     }, 0);
 
-    const readingTimeInSeconds = (totalWords / 50) * 60; // 150 words per minute
+    const readingTimeInSeconds = (totalWords / 150) * 60; // 150 words per minute
     const minutes = Math.floor(readingTimeInSeconds / 60);
     const seconds = Math.round(readingTimeInSeconds % 60);
 
     return `${minutes}분 ${seconds}초`;
+  };
+
+  // Function to fetch word definition from Wiktionary API
+  const fetchWordFromWiktionaryApi = async (
+    word: string
+  ): Promise<any | null> => {
+    try {
+      const response = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`
+      );
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(`No definitions found for "${word}" from Wiktionary API.`);
+          return null;
+        }
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Wiktionary API Error:", error);
+      return null;
+    }
   };
 
   const handleSaveWord = async (word: string) => {
@@ -2179,6 +2536,8 @@ const Article = () => {
       word: selectedWord,
       definition: "",
       isLoading: true,
+      wiktionaryData: null,
+      isWiktionaryLoading: true,
     });
 
     // Prevent scrolling while modal is open
@@ -2208,6 +2567,23 @@ const Article = () => {
         ...prev,
         definition: "뜻풀이를 가져오는 중 오류가 발생했습니다.",
         isLoading: false,
+      }));
+    }
+
+    // Fetch Wiktionary data in parallel
+    try {
+      const wiktionaryData = await fetchWordFromWiktionaryApi(selectedWord);
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        wiktionaryData: wiktionaryData,
+        isWiktionaryLoading: false,
+      }));
+    } catch (error) {
+      console.error("Error fetching Wiktionary data:", error);
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        wiktionaryData: null,
+        isWiktionaryLoading: false,
       }));
     }
   };
@@ -2355,6 +2731,58 @@ const Article = () => {
     }
   }, [currentTime]);
 
+  // Admin discussion topics editing functions
+  const startEditingTopics = () => {
+    setEditedTopics([...(article?.discussion_topics || [])]);
+    setIsEditingTopics(true);
+  };
+
+  const cancelEditingTopics = () => {
+    setIsEditingTopics(false);
+    setEditedTopics([]);
+    setNewTopic("");
+  };
+
+  const addNewTopic = () => {
+    if (newTopic.trim()) {
+      setEditedTopics([...editedTopics, newTopic.trim()]);
+      setNewTopic("");
+    }
+  };
+
+  const removeTopic = (index: number) => {
+    setEditedTopics(editedTopics.filter((_, i) => i !== index));
+  };
+
+  const updateTopic = (index: number, newValue: string) => {
+    const updated = [...editedTopics];
+    updated[index] = newValue;
+    setEditedTopics(updated);
+  };
+
+  const saveTopics = async () => {
+    if (!articleId || !currentUser || accountStatus !== 'admin') return;
+
+    setIsSavingTopics(true);
+    try {
+      const articleRef = doc(db, "articles", articleId);
+      await updateDoc(articleRef, {
+        discussion_topics: editedTopics
+      });
+
+      // Update local state
+      setArticle(prev => prev ? { ...prev, discussion_topics: editedTopics } : null);
+      setIsEditingTopics(false);
+      setEditedTopics([]);
+      setNewTopic("");
+    } catch (error) {
+      console.error("Error saving discussion topics:", error);
+      alert("토론 주제 저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsSavingTopics(false);
+    }
+  };
+
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
   if (error) return <ErrorContainer>Error: {error}</ErrorContainer>;
   if (!article) return <ErrorContainer>No article found</ErrorContainer>;
@@ -2380,6 +2808,7 @@ const Article = () => {
         >
           {article?.title.english}
         </Title>
+
         <Subtitle
           isVisible={isKoreanTitleVisible}
           className="article-text"
@@ -2391,26 +2820,21 @@ const Article = () => {
           <ReadingTime>
             예상 읽기 시간: {calculateReadingTime(content.english)}
           </ReadingTime>
-          <QuickReadingToggle
-            onClick={() => setIsQuickReading(!isQuickReading)}
-            className={isQuickReading ? "active" : ""}
-            disabled={isAudioMode}
-          >
-            {isQuickReading ? "✕ 속독 모드 해제" : "⚡ 속독 모드"}
-          </QuickReadingToggle>
-          {article.audio?.url && (
-            <AudioModeToggle
-              onClick={toggleAudioMode}
-              className={isAudioMode ? "active" : ""}
-              disabled={isQuickReading}
+          {article.source_url && (
+            <SourceTab 
+              as="a" 
+              href={article.source_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
             >
-              {isAudioMode ? "✕ 오디오 모드 해제" : "🎧 오디오 모드"}
-            </AudioModeToggle>
+          단순 참고용, 외부 배포 절대 금지: 출처 확인하기
+            </SourceTab>
           )}
         </InfoContainer>
+
         <CalloutBox>
           {isAudioMode
-            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 강조 표시가 해당 위치로 이동합니다."
+            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 하이라이트가 해당 위치로 이동합니다."
             : "단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을 클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다."}
         </CalloutBox>
 
@@ -2464,6 +2888,87 @@ const Article = () => {
             ))}
           </ContentSection>
         )}
+
+        {/* Discussion Topics */}
+        {(article.discussion_topics && article.discussion_topics.length > 0) || (accountStatus === 'admin') ? (
+          <DiscussionTopicsSection>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <SectionTitle style={{ marginBottom: 0 }}>Discussion Topics</SectionTitle>
+              {accountStatus === 'admin' && !isEditingTopics && (
+                <AdminButton onClick={startEditingTopics}>
+                  ✏️ 편집
+                </AdminButton>
+              )}
+            </div>
+
+            {isEditingTopics ? (
+              <div>
+                <AdminControlsContainer>
+                  <AdminButton onClick={saveTopics} disabled={isSavingTopics}>
+                    {isSavingTopics ? "저장 중..." : "💾 저장"}
+                  </AdminButton>
+                  <AdminButton onClick={cancelEditingTopics} disabled={isSavingTopics}>
+                    ❌ 취소
+                  </AdminButton>
+                </AdminControlsContainer>
+
+                {editedTopics.map((topic, index) => (
+                  <EditableTopicContainer key={index}>
+                    <EditableTopicInput
+                      value={topic}
+                      onChange={(e) => updateTopic(index, e.target.value)}
+                      placeholder="토론 주제를 입력하세요"
+                    />
+                    <RemoveTopicButton 
+                      onClick={() => removeTopic(index)}
+                      title="삭제"
+                    >
+                      ×
+                    </RemoveTopicButton>
+                  </EditableTopicContainer>
+                ))}
+
+                <NewTopicContainer>
+                  <NewTopicInput
+                    value={newTopic}
+                    onChange={(e) => setNewTopic(e.target.value)}
+                    placeholder="새 토론 주제 추가..."
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        addNewTopic();
+                      }
+                    }}
+                  />
+                  <AddTopicButton onClick={addNewTopic} disabled={!newTopic.trim()}>
+                    ➕ 추가
+                  </AddTopicButton>
+                </NewTopicContainer>
+              </div>
+            ) : (
+              article.discussion_topics && article.discussion_topics.length > 0 ? (
+                <DiscussionTopicsList>
+                  {article.discussion_topics.map((topic, index) => (
+                    <DiscussionTopicItem key={index}>{topic}</DiscussionTopicItem>
+                  ))}
+                </DiscussionTopicsList>
+              ) : (
+                accountStatus === 'admin' && (
+                  <div style={{ 
+                    color: colors.text.light, 
+                    fontStyle: 'italic', 
+                    textAlign: 'center', 
+                    padding: '2rem',
+                    background: colors.primaryBg,
+                    borderRadius: '8px',
+                    border: `1px dashed ${colors.primaryPale}`
+                  }}>
+                    토론 주제가 없습니다. 편집 버튼을 눌러 추가해보세요.
+                  </div>
+                )
+              )
+            )}
+          </DiscussionTopicsSection>
+        ) : null}
 
         {keywords && keywords.length > 0 && (
           <KeywordsSection>
@@ -2690,6 +3195,101 @@ const Article = () => {
                       </div>
                     </ModalSection>
                   )}
+
+                {/* Wiktionary Section */}
+                {selectedWordWiktionaryData && selectedWordWiktionaryData.length > 0 && (
+                  <ModalSection>
+                    <ModalSectionTitle>Wiktionary</ModalSectionTitle>
+                    {selectedWordWiktionaryData[0].meanings?.slice(0, 3).map((meaning: any, idx: number) => (
+                      <div key={idx} style={{ marginBottom: "1.2rem" }}>
+                        <div style={{ 
+                          fontWeight: "bold", 
+                          color: colors.primaryDark, 
+                          marginBottom: "0.5rem",
+                          fontSize: "1rem",
+                          textTransform: "capitalize"
+                        }}>
+                          {meaning.partOfSpeech}
+                        </div>
+                        
+                        {meaning.definitions && meaning.definitions.length > 0 && (
+                          <ul style={{
+                            marginTop: "0.3rem",
+                            paddingLeft: "1.2rem",
+                            listStyleType: "disc",
+                            margin: "0 0 0.8rem 0"
+                          }}>
+                            {meaning.definitions.slice(0, 2).map((def: any, defIdx: number) => (
+                              <li key={defIdx} style={{ 
+                                marginBottom: "0.6rem",
+                                fontSize: "0.95rem",
+                                color: colors.text.dark,
+                                lineHeight: "1.5"
+                              }}>
+                                {def.definition}
+                                {def.example && (
+                                  <div style={{ 
+                                    fontStyle: "italic", 
+                                    color: colors.text.light,
+                                    marginTop: "0.3rem",
+                                    fontSize: "0.9rem",
+                                    lineHeight: "1.4"
+                                  }}>
+                                    e.g. "{def.example}"
+                                  </div>
+                                )}
+                                {def.synonyms && def.synonyms.length > 0 && (
+                                  <div style={{
+                                    fontSize: "0.85rem",
+                                    color: colors.text.medium,
+                                    marginTop: "0.25rem",
+                                    lineHeight: "1.4"
+                                  }}>
+                                    <strong>Synonyms:</strong> {def.synonyms.join(", ")}
+                                  </div>
+                                )}
+                                {def.antonyms && def.antonyms.length > 0 && (
+                                  <div style={{
+                                    fontSize: "0.85rem",
+                                    color: colors.text.medium,
+                                    marginTop: "0.25rem",
+                                    lineHeight: "1.4"
+                                  }}>
+                                    <strong>Antonyms:</strong> {def.antonyms.join(", ")}
+                                  </div>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {/* Display meaning-level synonyms */}
+                        {meaning.synonyms && meaning.synonyms.length > 0 && (
+                          <div style={{
+                            fontSize: "0.85rem",
+                            color: colors.text.medium,
+                            marginTop: "0.3rem",
+                            lineHeight: "1.4"
+                          }}>
+                            <strong>Synonyms:</strong> {meaning.synonyms.join(", ")}
+                          </div>
+                        )}
+
+                        {/* Display meaning-level antonyms */}
+                        {meaning.antonyms && meaning.antonyms.length > 0 && (
+                          <div style={{
+                            fontSize: "0.85rem",
+                            color: colors.text.medium,
+                            marginTop: "0.3rem",
+                            lineHeight: "1.4"
+                          }}>
+                            <strong>Antonyms:</strong> {meaning.antonyms.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </ModalSection>
+                )}
               </>
             )}
             {selectedKeyword && !selectedWordData && (
@@ -2739,14 +3339,123 @@ const Article = () => {
             <WordDefinitionTitle>
               {wordDefinitionModal.word}
             </WordDefinitionTitle>
+            
+            {/* GPT Definition Section */}
             {wordDefinitionModal.isLoading ? (
               <LoadingDefinitionContent>
                 뜻풀이 생각 중...
               </LoadingDefinitionContent>
             ) : (
-              <WordDefinitionContent>
-                {wordDefinitionModal.definition}
-              </WordDefinitionContent>
+              <div style={{ marginBottom: "1.5rem" }}>
+                <ModalSectionTitle>AI Definition</ModalSectionTitle>
+                <WordDefinitionContent>
+                  {wordDefinitionModal.definition}
+                </WordDefinitionContent>
+              </div>
+            )}
+
+            {/* Wiktionary Section */}
+            {wordDefinitionModal.isWiktionaryLoading ? (
+              <div style={{ marginTop: "1.5rem" }}>
+                <ModalSectionTitle>Wiktionary</ModalSectionTitle>
+                <LoadingDefinitionContent>
+                  Wiktionary 정보 로딩 중...
+                </LoadingDefinitionContent>
+              </div>
+            ) : (
+              wordDefinitionModal.wiktionaryData && wordDefinitionModal.wiktionaryData.length > 0 && (
+                <div style={{ marginTop: "1.5rem" }}>
+                  <ModalSectionTitle>Wiktionary</ModalSectionTitle>
+                  {wordDefinitionModal.wiktionaryData[0].meanings?.slice(0, 3).map((meaning: any, idx: number) => (
+                    <div key={idx} style={{ marginBottom: "1.2rem" }}>
+                      <div style={{ 
+                        fontWeight: "bold", 
+                        color: colors.primaryDark, 
+                        marginBottom: "0.5rem",
+                        fontSize: "1rem",
+                        textTransform: "capitalize"
+                      }}>
+                        {meaning.partOfSpeech}
+                      </div>
+                      
+                      {meaning.definitions && meaning.definitions.length > 0 && (
+                        <ul style={{
+                          marginTop: "0.3rem",
+                          paddingLeft: "1.2rem",
+                          listStyleType: "disc",
+                          margin: "0 0 0.8rem 0"
+                        }}>
+                          {meaning.definitions.slice(0, 2).map((def: any, defIdx: number) => (
+                            <li key={defIdx} style={{ 
+                              marginBottom: "0.6rem",
+                              fontSize: "0.95rem",
+                              color: colors.text.dark,
+                              lineHeight: "1.5"
+                            }}>
+                              {def.definition}
+                              {def.example && (
+                                <div style={{ 
+                                  fontStyle: "italic", 
+                                  color: colors.text.light,
+                                  marginTop: "0.3rem",
+                                  fontSize: "0.9rem",
+                                  lineHeight: "1.4"
+                                }}>
+                                  e.g. "{def.example}"
+                                </div>
+                              )}
+                              {def.synonyms && def.synonyms.length > 0 && (
+                                <div style={{
+                                  fontSize: "0.85rem",
+                                  color: colors.text.medium,
+                                  marginTop: "0.25rem",
+                                  lineHeight: "1.4"
+                                }}>
+                                  <strong>Synonyms:</strong> {def.synonyms.join(", ")}
+                                </div>
+                              )}
+                              {def.antonyms && def.antonyms.length > 0 && (
+                                <div style={{
+                                  fontSize: "0.85rem",
+                                  color: colors.text.medium,
+                                  marginTop: "0.25rem",
+                                  lineHeight: "1.4"
+                                }}>
+                                  <strong>Antonyms:</strong> {def.antonyms.join(", ")}
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {/* Display meaning-level synonyms */}
+                      {meaning.synonyms && meaning.synonyms.length > 0 && (
+                        <div style={{
+                          fontSize: "0.85rem",
+                          color: colors.text.medium,
+                          marginTop: "0.3rem",
+                          lineHeight: "1.4"
+                        }}>
+                          <strong>Synonyms:</strong> {meaning.synonyms.join(", ")}
+                        </div>
+                      )}
+
+                      {/* Display meaning-level antonyms */}
+                      {meaning.antonyms && meaning.antonyms.length > 0 && (
+                        <div style={{
+                          fontSize: "0.85rem",
+                          color: colors.text.medium,
+                          marginTop: "0.3rem",
+                          lineHeight: "1.4"
+                        }}>
+                          <strong>Antonyms:</strong> {meaning.antonyms.join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </DefinitionModalContent>
         </DefinitionModalOverlay>
@@ -2780,6 +3489,26 @@ const Article = () => {
             </SpeedButton>
           </AudioControls>
         </AudioPlayerContainer>
+
+        {/* Floating Buttons */}
+        <FloatingButtonContainer isAudioMode={isAudioMode}>
+          <FloatingButton
+            onClick={() => setIsQuickReading(!isQuickReading)}
+            className={isQuickReading ? "active" : ""}
+            disabled={isAudioMode}
+          >
+            {isQuickReading ? "✕ 속독 해제" : "⚡ 속독 모드"}
+          </FloatingButton>
+          {article.audio?.url && (
+            <FloatingAudioButton
+              onClick={toggleAudioMode}
+              className={isAudioMode ? "active" : ""}
+              disabled={isQuickReading}
+            >
+              {isAudioMode ? "✕ 오디오 해제" : "🎧 오디오 모드"}
+            </FloatingAudioButton>
+          )}
+        </FloatingButtonContainer>
 
         {/* Hidden audio element to drive time updates */}
         {article.audio?.url && (

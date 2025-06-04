@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Timestamp } from 'firebase/firestore';
-import { MeetupEvent } from '../types/meetup_types';
-import { createMeetupEvent, updateMeetupEvent } from '../services/meetup_service';
+import { MeetupEvent, Article } from '../types/meetup_types';
+import { createMeetupEvent, updateMeetupEvent, fetchRecentArticles } from '../services/meetup_service';
 import { uploadMeetupImages, validateImageFiles, deleteMeetupImage } from '../services/image_upload_service';
 
 interface AdminEventDialogProps {
@@ -288,12 +288,116 @@ const RemoveImageButton = styled.button`
 `;
 
 const ErrorMessage = styled.div`
-  color: #f44336;
+  color: #d32f2f;
   font-size: 12px;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
+`;
+
+const ArticleSelection = styled.div`
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 0.75rem;
+  background-color: #fafafa;
+  
+  @media (max-width: 768px) {
+    padding: 0.625rem;
+    border-radius: 8px;
+  }
+`;
+
+const ArticleList = styled.div`
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: white;
+  
+  @media (max-width: 768px) {
+    max-height: 150px;
+    border-radius: 6px;
+  }
+`;
+
+const ArticleItem = styled.div<{ $selected: boolean }>`
+  padding: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  background-color: ${props => props.$selected ? '#e3f2fd' : 'white'};
+  
+  &:hover {
+    background-color: ${props => props.$selected ? '#bbdefb' : '#f5f5f5'};
+  }
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  @media (max-width: 768px) {
+    padding: 0.625rem;
+  }
+`;
+
+const ArticleTitle = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.25rem;
+  
+  @media (max-width: 768px) {
+    font-size: 13px;
+  }
+`;
+
+const ArticleId = styled.div`
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
   
   @media (max-width: 768px) {
     font-size: 11px;
+  }
+`;
+
+const SelectedArticlesDisplay = styled.div`
+  margin-top: 0.5rem;
+  
+  @media (max-width: 768px) {
+    margin-top: 0.375rem;
+  }
+`;
+
+const SelectedArticleTag = styled.span`
+  display: inline-block;
+  background-color: #2196f3;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-right: 0.5rem;
+  margin-bottom: 0.25rem;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: #1976d2;
+  }
+  
+  @media (max-width: 768px) {
+    font-size: 11px;
+    padding: 0.2rem 0.4rem;
+    margin-right: 0.375rem;
+  }
+`;
+
+const LoadingText = styled.div`
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  padding: 1rem;
+  
+  @media (max-width: 768px) {
+    font-size: 13px;
+    padding: 0.75rem;
   }
 `;
 
@@ -447,17 +551,6 @@ const ResultAddress = styled.div`
   
   @media (max-width: 768px) {
     font-size: 11px;
-  }
-`;
-
-const LoadingText = styled.div`
-  text-align: center;
-  color: #666;
-  padding: 1rem;
-  
-  @media (max-width: 768px) {
-    padding: 0.75rem;
-    font-size: 14px;
   }
 `;
 
@@ -703,6 +796,7 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
     max_participants: 20,
     image_urls: [] as string[],
     topics: [] as { topic_id: string }[],
+    articles: [] as string[],
     latitude: 0,
     longitude: 0
   });
@@ -710,6 +804,8 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [showLocationSearch, setShowLocationSearch] = useState(false);
+  const [availableArticles, setAvailableArticles] = useState<Article[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(false);
 
   // Initialize form data when template event or edit event changes
   useEffect(() => {
@@ -730,7 +826,8 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
         lockdown_minutes: editEvent.lockdown_minutes,
         max_participants: editEvent.max_participants,
         image_urls: editEvent.image_urls || [],
-        topics: editEvent.topics
+        topics: editEvent.topics,
+        articles: editEvent.articles || []
       });
     } else if (templateEvent) {
       // Duplicating existing event - populate with template data but use current date/time
@@ -753,7 +850,8 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
         lockdown_minutes: templateEvent.lockdown_minutes,
         max_participants: templateEvent.max_participants,
         image_urls: templateEvent.image_urls || [],
-        topics: templateEvent.topics
+        topics: templateEvent.topics,
+        articles: templateEvent.articles || []
       });
     } else {
       // Creating new event - reset to default values with current date/time
@@ -776,10 +874,31 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
         lockdown_minutes: 10,
         max_participants: 20,
         image_urls: [],
-        topics: []
+        topics: [],
+        articles: [],
       });
     }
   }, [templateEvent, editEvent]);
+
+  // Fetch available articles when dialog opens
+  useEffect(() => {
+    const fetchAvailableArticles = async () => {
+      if (isOpen) {
+        setLoadingArticles(true);
+        try {
+          const articles = await fetchRecentArticles(10);
+          setAvailableArticles(articles);
+        } catch (error) {
+          console.error('Error fetching articles:', error);
+          setAvailableArticles([]);
+        } finally {
+          setLoadingArticles(false);
+        }
+      }
+    };
+
+    fetchAvailableArticles();
+  }, [isOpen]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -800,6 +919,22 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
     
     // Note: We don't set coordinates here since they're handled by the geocoding service
     // The coordinates will be automatically resolved when the event is created/updated
+  };
+
+  const handleArticleToggle = (articleId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      articles: prev.articles.includes(articleId)
+        ? prev.articles.filter(id => id !== articleId)
+        : [...prev.articles, articleId]
+    }));
+  };
+
+  const handleRemoveArticle = (articleId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      articles: prev.articles.filter(id => id !== articleId)
+    }));
   };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -878,7 +1013,8 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
         location_extra_info: formData.location_extra_info,
         lockdown_minutes: formData.lockdown_minutes,
         max_participants: formData.max_participants,
-        topics: formData.topics
+        topics: formData.topics,
+        articles: formData.articles
       };
 
       if (editEvent) {
@@ -1075,6 +1211,53 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
                 📸 Upload JPEG, PNG, or WebP images (max 5MB each)
               </div>
             </ImageUploadContainer>
+          </FormGroup>
+
+          <FormGroup>
+            <Label>Discussion Topics (Select up to 2 articles)</Label>
+            <ArticleSelection>
+              {loadingArticles ? (
+                <LoadingText>Loading articles...</LoadingText>
+              ) : (
+                <>
+                  <ArticleList>
+                    {availableArticles.map((article) => (
+                      <ArticleItem
+                        key={article.id}
+                        $selected={formData.articles.includes(article.id)}
+                        onClick={() => handleArticleToggle(article.id)}
+                      >
+                        <ArticleTitle>{article.title.english}</ArticleTitle>
+                        <ArticleId>ID: {article.id}</ArticleId>
+                      </ArticleItem>
+                    ))}
+                  </ArticleList>
+                  
+                  {formData.articles.length > 0 && (
+                    <SelectedArticlesDisplay>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '0.5rem' }}>
+                        Selected Topics ({formData.articles.length}/2):
+                      </div>
+                      {formData.articles.map((articleId) => {
+                        const article = availableArticles.find(a => a.id === articleId);
+                        return article ? (
+                          <SelectedArticleTag
+                            key={articleId}
+                            onClick={() => handleRemoveArticle(articleId)}
+                          >
+                            {article.title.english} ✕
+                          </SelectedArticleTag>
+                        ) : null;
+                      })}
+                    </SelectedArticlesDisplay>
+                  )}
+                  
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '0.5rem' }}>
+                    💡 Click articles to select them as discussion topics. Max 2 articles recommended.
+                  </div>
+                </>
+              )}
+            </ArticleSelection>
           </FormGroup>
 
           <ButtonRow>
