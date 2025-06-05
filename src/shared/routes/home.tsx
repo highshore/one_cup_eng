@@ -15,9 +15,12 @@ import { fetchUpcomingMeetupEvents } from "../../features/meetup/services/meetup
 import {
   formatEventDateTime,
   formatEventTitleWithCountdown,
-  isEventLocked
+  isEventLocked,
 } from "../../features/meetup/utils/meetup_helpers";
-import { PinIcon, CalendarIcon } from "../../features/meetup/components/meetup_icons";
+import {
+  PinIcon,
+  CalendarIcon,
+} from "../../features/meetup/components/meetup_icons";
 import { UserAvatarStack } from "../../features/meetup/components/user_avatar";
 
 // Bubble type definition
@@ -368,21 +371,21 @@ const CopiedEventCard = styled.div<{ $isPast?: boolean; $isClosest?: boolean }>`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
   width: 100%;
-  opacity: ${props => (props.$isPast ? 0.6 : 1)};
+  opacity: ${(props) => (props.$isPast ? 0.6 : 1)};
   text-align: left; // Ensure text is left-aligned
 
-  ${props =>
+  ${(props) =>
     props.$isClosest
       ? css`
           animation: ${subtleGlow} 3s ease-in-out infinite;
           border: 1px solid rgba(76, 175, 80, 0.3);
         `
-      : ''}
+      : ""}
 
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    opacity: ${props => (props.$isPast ? 0.8 : 1)};
+    opacity: ${(props) => (props.$isPast ? 0.8 : 1)};
   }
 
   @media (max-width: 768px) {
@@ -411,7 +414,7 @@ const CopiedEventImageContainer = styled.div<{ $isPast?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: ${props => (props.$isPast ? 'grayscale(50%)' : 'none')};
+  filter: ${(props) => (props.$isPast ? "grayscale(50%)" : "none")};
 
   @media (max-width: 768px) {
     width: 80px;
@@ -443,7 +446,8 @@ const CopiedEventDetails = styled.div`
 `;
 
 const CopiedEventTitle = styled.h3<{ $isPast?: boolean }>`
-  color: ${props => (props.$isPast ? '#999' : colors.text.dark)}; // Use theme color
+  color: ${(props) =>
+    props.$isPast ? "#999" : colors.text.dark}; // Use theme color
   font-size: 18px;
   font-weight: 700;
   margin: 0 0 8px 0;
@@ -459,8 +463,8 @@ const CopiedEventTitle = styled.h3<{ $isPast?: boolean }>`
 
 // Using this for CountdownPrefix as it's identical to the one in meetup.tsx
 const CopiedCountdownPrefix = styled.span<{ $isUrgent?: boolean }>`
-  color: ${props => (props.$isUrgent ? '#DC143C' : 'inherit')};
-  font-weight: ${props => (props.$isUrgent ? 'bold' : 'inherit')};
+  color: ${(props) => (props.$isUrgent ? "#DC143C" : "inherit")};
+  font-weight: ${(props) => (props.$isUrgent ? "bold" : "inherit")};
 `;
 
 const CopiedEventInfo = styled.div`
@@ -476,7 +480,8 @@ const CopiedEventInfo = styled.div`
 `;
 
 const CopiedEventIcon = styled.span<{ $isPast?: boolean }>`
-  color: ${props => (props.$isPast ? '#999' : colors.text.medium)}; // Use theme color
+  color: ${(props) =>
+    props.$isPast ? "#999" : colors.text.medium}; // Use theme color
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -487,7 +492,8 @@ const CopiedEventIcon = styled.span<{ $isPast?: boolean }>`
 `;
 
 const CopiedEventText = styled.span<{ $isPast?: boolean }>`
-  color: ${props => (props.$isPast ? '#999' : colors.text.medium)}; // Use theme color
+  color: ${(props) =>
+    props.$isPast ? "#999" : colors.text.medium}; // Use theme color
   font-size: 16px;
   letter-spacing: 0;
   word-wrap: break-word;
@@ -516,7 +522,7 @@ const CopiedStatusBadge = styled.span<{ $statusColor: string }>`
   font-size: 14px;
   font-weight: 700;
   color: #ffffff;
-  background-color: ${props => props.$statusColor};
+  background-color: ${(props) => props.$statusColor};
   border-radius: 20px;
   text-align: center;
   min-width: 80px;
@@ -552,14 +558,14 @@ const EventCardPrompt = styled.div`
 
 // Wrapper for the copied event card in the hero section
 const HeroMeetupCardContainer = styled.div`
-  max-width: 550px; 
+  max-width: 550px;
   width: 100%;
-  margin: 2rem auto 0 auto; 
-  z-index: 2; 
-  position: relative; 
+  margin: 2rem auto 0 auto;
+  z-index: 2;
+  position: relative;
 
   @media (max-width: 768px) {
-    max-width: 90%; 
+    max-width: 90%;
   }
 `;
 
@@ -640,9 +646,9 @@ export default function Home() {
 
   const faqs = [
     {
-      question: "영어 한잔은 어떤 서비스인가요?",
+      question: "영어 한잔 밋업은 뭔가요?",
       answer:
-        "영어 한잔은 하루 5분으로 영어 실력과 글로벌 감각을 키울 수 있는 서비스입니다. 월스트리트저널, 파이낸셜 타임즈 등에서 선별한 최신 영어 토픽을 제공하며, 속독 모드와 한글 번역, 주요 단어 정리까지 제공합니다.",
+        "영어 한잔 밋업은 통번역사 출신의 운영자가 직접 리딩하는 영어 모임입니다. 자세한 일정 및 참여 방법은 밋업 메뉴를 참고해 주세요.",
     },
     {
       question: "구독은 언제든 취소할 수 있나요?",
@@ -650,45 +656,25 @@ export default function Home() {
         "네, 언제든지 구독을 취소할 수 있습니다. 구독 취소 시 다음 결제 주기부터 서비스가 중단됩니다.",
     },
     {
-      question: "어떤 레벨의 영어 실력이 필요한가요?",
-      answer:
-        "영어 한잔은 다양한 레벨의 사용자를 위해 설계되었으나, 초보자의 경우 다소 어려우실 수도 있습니다. 토익 600점대 이상이신 분들에게 추천드립니다.",
-    },
-    {
       question: "모바일에서도 이용 가능한가요?",
       answer:
         "네, 영어 한잔은 모바일, PC 환경을 모두 고려하여 개발했습니다. 모바일/태블릿 이용 시 카카오톡 인앱 브라우저보다 크롬, 사파리 브라우저에서 작동이 더 잘될 수 있습니다.",
     },
     {
-      question: "구독은 어떻게 할 수 있나요?",
-      answer:
-        "30일 기준 구독 비용은 4700원으로 네이버 스마트스토어, 혹은 웹사이트 내에서 결제 후 다음날부터 카카오톡을 통해 영어 뉴스를 받아보실 수 있습니다. 자세한 내용은 영어 한잔 가이드를 참조해 주세요!",
-    },
-    {
       question:
         "회원가입 하려니 외국 웹사이트에서 코드인증을 하라는 문자가 날아와요. 괜찮은건가요?",
       answer:
-        "저희는 구글인증방식을 채택하여, 해당 문자는 구글 시스템을 통해 발송되는 것 입니다. 영어 한잔은 웹사이트 가입 시 휴대폰 번호 외의 어떤 개인정보도 받고 있지 않습니다. 안심하고 가입하셔도 됩니다.",
-    },
-    {
-      question: "기사의 원본 출처는 어디인가요?",
-      answer:
-        "원본이 존재하지는 않고 월스트리트저널, 파이낸셜 타임즈와 같은 유수 언론지에서 가장 핫한 토픽을 학습용으로 제작하여 발송해 드립니다.",
-    },
-    {
-      question: "영어 한잔 밋업은 뭔가요?",
-      answer:
-        "영어 한잔을 구독하시는 분들이 오프라인에서도 영어 커뮤니케이션 스킬을 향상시키실 수 있도록 기획하고 있는 모임입니다. 아직 시작 시기와 장소 등 구체적인 부분은 정해지지 않아서, 추후 홈페이지 공지사항을 참고 부탁드립니다.",
-    },
-    {
-      question: "토픽을 중간에 변경할 수 있나요?",
-      answer:
-        "변경에 관한 문의는 영어한잔 카카오톡 채널을 통해 문의해주시면 변경을 도와드리겠습니다.",
+        "저희는 Google의 인증 방식을 채택하여, 해당 문자는 Google 시스템을 통해 발송되는 것 입니다. 영어 한잔은 웹사이트 가입 시 휴대폰 번호 외의 어떤 개인정보도 받고 있지 않습니다. 안심하고 가입하셔도 됩니다.",
     },
     {
       question: "회원 탈퇴는 어떻게 하나요?",
       answer:
         "회원 탈퇴에 관한 문의는 영어한잔 카카오톡 채널을 통해 문의 주시면 탈퇴 진행을 도와드리겠습니다.",
+    },
+    {
+      question: "서비스에 대한 문의 사항이 있어요",
+      answer:
+        "각종 문의는 영어한잔 카카오톡(링크 추가)로 연락 주시면 성심껏 응답하도록 하겠습니다.",
     },
   ];
 
@@ -766,26 +752,34 @@ export default function Home() {
   const renderHeroEventCard = (meetup: MeetupEvent) => {
     if (!meetup) return null;
 
-    const { countdownPrefix, eventTitle, isUrgent } = formatEventTitleWithCountdown(meetup);
+    const { countdownPrefix, eventTitle, isUrgent } =
+      formatEventTitleWithCountdown(meetup);
     const lockStatus = isEventLocked(meetup);
     const isCurrentlyLocked = lockStatus.isLocked;
-    const totalParticipants = meetup.leaders.length + meetup.participants.length;
+    const totalParticipants =
+      meetup.leaders.length + meetup.participants.length;
     const isPast = false; // For hero, it's always an upcoming event
 
     const getStatusText = () => {
       // Simplified for hero: it's never past
-      if (!isCurrentlyLocked) return '참가 가능';
+      if (!isCurrentlyLocked) return "참가 가능";
       switch (lockStatus.reason) {
-        case 'started': return '진행중'; // Should ideally not be the "closest" if already started and not shown
-        case 'full': return '정원 마감';
-        case 'lockdown': return '모집 종료';
-        default: return '모집 종료';
+        case "started":
+          return "진행중"; // Should ideally not be the "closest" if already started and not shown
+        case "full":
+          return "정원 마감";
+        case "lockdown":
+          return "모집 종료";
+        default:
+          return "모집 종료";
       }
     };
 
     const statusColor = isCurrentlyLocked
-      ? lockStatus.reason === 'full' ? '#ff4d4f' : '#888'
-      : '#4CAF50';
+      ? lockStatus.reason === "full"
+        ? "#ff4d4f"
+        : "#888"
+      : "#4CAF50";
 
     return (
       <CopiedEventCard
@@ -814,13 +808,17 @@ export default function Home() {
               <CopiedEventIcon $isPast={isPast}>
                 <PinIcon width="16px" height="16px" />
               </CopiedEventIcon>
-              <CopiedEventText $isPast={isPast}>{meetup.location_name}</CopiedEventText>
+              <CopiedEventText $isPast={isPast}>
+                {meetup.location_name}
+              </CopiedEventText>
             </CopiedEventInfo>
             <CopiedEventInfo>
               <CopiedEventIcon $isPast={isPast}>
                 <CalendarIcon width="16px" height="16px" />
               </CopiedEventIcon>
-              <CopiedEventText $isPast={isPast}>{formatEventDateTime(meetup)}</CopiedEventText>
+              <CopiedEventText $isPast={isPast}>
+                {formatEventDateTime(meetup)}
+              </CopiedEventText>
             </CopiedEventInfo>
             <CopiedEventBottom>
               <UserAvatarStack
@@ -831,7 +829,8 @@ export default function Home() {
                 // onAvatarClick can be omitted or a simple console.log for hero
               />
               <CopiedStatusBadge $statusColor={statusColor}>
-                {getStatusText()} ({totalParticipants}/{meetup.max_participants})
+                {getStatusText()} ({totalParticipants}/{meetup.max_participants}
+                )
               </CopiedStatusBadge>
             </CopiedEventBottom>
           </CopiedEventDetails>
@@ -867,8 +866,7 @@ export default function Home() {
             <HeroMeetupCardContainer>
               <EventCardPrompt>
                 ✨ 바로 지금! 통역사가 직접 리딩하는
-                <MobileBreak />
-                {' '}영어 모임에 참여해보세요! ✨
+                <MobileBreak /> 영어 모임에 참여해보세요! ✨
               </EventCardPrompt>
               {renderHeroEventCard(closestEvent)}
             </HeroMeetupCardContainer>
@@ -879,9 +877,11 @@ export default function Home() {
       {/* Features Section */}
       <FeaturesSection>
         <SectionTitle>
-          30일 하루 5분,
+          매주 일요일 오후 3시 30분,
           <br />
-          <span style={{ fontWeight: 600 }}> 내 영어 실력을 바꾸는 시간</span>
+          <span style={{ fontWeight: 600 }}>
+            통역사 출신이 직접 리딩하는 영어 모임
+          </span>
         </SectionTitle>
         <FeatureSlider className="feature-slider">
           {featureCards.map((card, index) => (

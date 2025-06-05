@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
-import { fetchUserProfile, UserProfile } from '../services/user_service';
-import defaultUserImage from '../../../shared/assets/default_user.jpg'; // Import the default image
+import React, { useState, useEffect } from "react";
+import styled from "styled-components";
+import { fetchUserProfile, UserProfile } from "../services/user_service";
+import defaultUserImage from "../../../shared/assets/default_user.jpg"; // Import the default image
 
 // Use the imported image path
 const DEFAULT_AVATAR_URL = defaultUserImage;
@@ -16,30 +16,32 @@ interface UserAvatarProps {
   isPast?: boolean; // For greyscale effect
 }
 
-const AvatarContainer = styled.div<{ 
-  $size: number; 
-  $bgColor?: string; 
+const AvatarContainer = styled.div<{
+  $size: number;
+  $bgColor?: string;
   $index?: number;
   $isPast?: boolean;
   $isClickable: boolean;
 }>`
-  width: ${props => props.$size}px;
-  height: ${props => props.$size}px;
+  width: ${(props) => props.$size}px;
+  height: ${(props) => props.$size}px;
   border-radius: 50%;
-  background-color: ${props => props.$bgColor || '#e0e0e0'};
-  position: ${props => props.$index !== undefined ? 'absolute' : 'relative'};
-  left: ${props => props.$index !== undefined ? props.$index * (props.$size * 0.60) : 0}px;
+  background-color: ${(props) => props.$bgColor || "#e0e0e0"};
+  position: ${(props) =>
+    props.$index !== undefined ? "absolute" : "relative"};
+  left: ${(props) =>
+    props.$index !== undefined ? props.$index * (props.$size * 0.6) : 0}px;
   border: 2px solid white;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: ${props => props.$isClickable ? 'pointer' : 'default'};
+  cursor: ${(props) => (props.$isClickable ? "pointer" : "default")};
   transition: transform 0.2s;
-  filter: ${props => props.$isPast ? 'grayscale(50%)' : 'none'};
+  filter: ${(props) => (props.$isPast ? "grayscale(50%)" : "none")};
   overflow: hidden;
-  
+
   &:hover {
-    transform: ${props => props.$isClickable ? 'scale(1.1)' : 'none'};
+    transform: ${(props) => (props.$isClickable ? "scale(1.1)" : "none")};
   }
 `;
 
@@ -48,11 +50,26 @@ const AvatarImage = styled.img`
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+
+  /* Prevent long-press context menu on mobile */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  /* Prevent drag and drop */
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
 `;
 
 const AvatarPlaceholder = styled.div<{ $size: number }>`
   color: white;
-  font-size: ${props => props.$size > 30 ? '16px' : '10px'};
+  font-size: ${(props) => (props.$size > 30 ? "16px" : "10px")};
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -60,16 +77,20 @@ const AvatarPlaceholder = styled.div<{ $size: number }>`
 `;
 
 const LoadingSpinner = styled.div<{ $size: number }>`
-  width: ${props => Math.min(props.$size * 0.5, 16)}px;
-  height: ${props => Math.min(props.$size * 0.5, 16)}px;
+  width: ${(props) => Math.min(props.$size * 0.5, 16)}px;
+  height: ${(props) => Math.min(props.$size * 0.5, 16)}px;
   border: 2px solid #f3f3f3;
   border-top: 2px solid #666;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  
+
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
   }
 `;
 
@@ -80,16 +101,16 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   className,
   onClick,
   index,
-  isPast = false
+  isPast = false,
 }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
   const getAvatarColor = (uid: string, isLeader: boolean): string => {
-    const colors = isLeader 
-      ? ['#9c27b0', '#673ab7', '#3f51b5'] 
-      : ['#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50'];
+    const colors = isLeader
+      ? ["#9c27b0", "#673ab7", "#3f51b5"]
+      : ["#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50"];
     let hash = 0;
     for (let i = 0; i < uid.length; i++) {
       hash = ((hash << 5) - hash + uid.charCodeAt(i)) & 0xffffffff;
@@ -111,19 +132,23 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         setLoading(false);
       }
     };
-    if (uid) loadUserProfile(); else setLoading(false);
+    if (uid) loadUserProfile();
+    else setLoading(false);
   }, [uid]);
 
   const handleImageError = () => {
     setImageError(true);
   };
 
-  const displayName = userProfile?.displayName || `User ${uid ? uid.substring(0, 8) : ''}`;
-  const avatarColor = getAvatarColor(uid || '', isLeader);
-  
+  const displayName =
+    userProfile?.displayName || `User ${uid ? uid.substring(0, 8) : ""}`;
+  const avatarColor = getAvatarColor(uid || "", isLeader);
+
   // Determine the image source: use default if user's photoURL is empty, null, or if there was an error
-  const hasValidPhotoURL = userProfile?.photoURL && userProfile.photoURL.trim() !== '';
-  const imageSrc = (hasValidPhotoURL && !imageError) ? userProfile.photoURL : DEFAULT_AVATAR_URL;
+  const hasValidPhotoURL =
+    userProfile?.photoURL && userProfile.photoURL.trim() !== "";
+  const imageSrc =
+    hasValidPhotoURL && !imageError ? userProfile.photoURL : DEFAULT_AVATAR_URL;
 
   return (
     <AvatarContainer
@@ -141,7 +166,12 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         <AvatarImage
           src={imageSrc}
           alt={displayName}
-          onError={hasValidPhotoURL && !imageError ? handleImageError : undefined}
+          draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          onError={
+            hasValidPhotoURL && !imageError ? handleImageError : undefined
+          }
         />
       )}
     </AvatarContainer>
@@ -164,14 +194,24 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
   size = 22,
   isLeader = false,
   isPast = false,
-  onAvatarClick
+  onAvatarClick,
 }) => {
   const displayedUids = uids.slice(0, maxAvatars);
   const hasMore = uids.length > maxAvatars;
   const moreCount = uids.length - maxAvatars;
 
   return (
-    <div style={{ position: 'relative', height: `${size}px`, minWidth: `${displayedUids.length > 0 ? (displayedUids.length * size * 0.60) + (size * 0.40) : size}px` }}>
+    <div
+      style={{
+        position: "relative",
+        height: `${size}px`,
+        minWidth: `${
+          displayedUids.length > 0
+            ? displayedUids.length * size * 0.6 + size * 0.4
+            : size
+        }px`,
+      }}
+    >
       {displayedUids.map((uid, index) => (
         <UserAvatar
           key={uid}
@@ -191,13 +231,11 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
           $isPast={isPast}
           $isClickable={false}
         >
-          <AvatarPlaceholder $size={size}>
-            +{moreCount}
-          </AvatarPlaceholder>
+          <AvatarPlaceholder $size={size}>+{moreCount}</AvatarPlaceholder>
         </AvatarContainer>
       )}
     </div>
   );
 };
 
-export default UserAvatar; 
+export default UserAvatar;

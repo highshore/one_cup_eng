@@ -205,7 +205,9 @@ const StatusIndicator = styled.div<{ $isActive: boolean }>`
   height: 10px;
   border-radius: 50%;
   background-color: ${(props) =>
-    props.$isActive ? colors.subscription.active : colors.subscription.inactive};
+    props.$isActive
+      ? colors.subscription.active
+      : colors.subscription.inactive};
   border: 1.5px solid white;
   box-sizing: border-box;
   z-index: 1;
@@ -243,13 +245,14 @@ const MobileMenuContainer = styled.div<{
 
     // Always positioned at translateY(0), but transparency controlled by $isOpen
     transform: translateY(0);
-    
+
     // Background transparency based on $isOpen
-    background-color: ${({ $isOpen }) => $isOpen ? "white" : "transparent"};
-    box-shadow: ${({ $isOpen }) => $isOpen ? "0 2px 10px rgba(0, 0, 0, 0.1)" : "none"};
-    
+    background-color: ${({ $isOpen }) => ($isOpen ? "white" : "transparent")};
+    box-shadow: ${({ $isOpen }) =>
+      $isOpen ? "0 2px 10px rgba(0, 0, 0, 0.1)" : "none"};
+
     // Disable pointer events when closed to prevent interference with content behind
-    pointer-events: ${({ $isOpen }) => $isOpen ? "auto" : "none"};
+    pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
   }
 `;
 
@@ -260,18 +263,21 @@ const MobileMenuItem = styled(Link)<{ $isOpen?: boolean }>`
   font-weight: 500;
   text-align: center;
   width: 100%;
-  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+  transition: color 0.3s ease, background-color 0.3s ease,
+    border-color 0.3s ease;
 
   // Text and border transparency based on $isOpen
-  color: ${({ $isOpen }) => $isOpen ? colors.text.medium : "transparent"};
-  border-bottom: 1px solid ${({ $isOpen }) => $isOpen ? colors.primaryPale : "transparent"};
+  color: ${({ $isOpen }) => ($isOpen ? colors.text.medium : "transparent")};
+  border-bottom: 1px solid
+    ${({ $isOpen }) => ($isOpen ? colors.primaryPale : "transparent")};
 
   &:hover {
-    background-color: ${({ $isOpen }) => $isOpen ? colors.primaryPale : "transparent"};
+    background-color: ${({ $isOpen }) =>
+      $isOpen ? colors.primaryPale : "transparent"};
   }
-  
+
   // Disable pointer events when menu is closed
-  pointer-events: ${({ $isOpen }) => $isOpen ? "auto" : "none"};
+  pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
 `;
 
 const MobileAuthButton = styled(Link)<{ $isOpen?: boolean }>`
@@ -286,15 +292,17 @@ const MobileAuthButton = styled(Link)<{ $isOpen?: boolean }>`
   transition: background-color 0.3s ease, color 0.3s ease;
 
   // Button transparency based on $isOpen
-  background-color: ${({ $isOpen }) => $isOpen ? colors.primary : "transparent"};
-  color: ${({ $isOpen }) => $isOpen ? "white" : "transparent"};
+  background-color: ${({ $isOpen }) =>
+    $isOpen ? colors.primary : "transparent"};
+  color: ${({ $isOpen }) => ($isOpen ? "white" : "transparent")};
 
   &:hover {
-    background-color: ${({ $isOpen }) => $isOpen ? colors.primaryDark : "transparent"};
+    background-color: ${({ $isOpen }) =>
+      $isOpen ? colors.primaryDark : "transparent"};
   }
-  
+
   // Disable pointer events when menu is closed
-  pointer-events: ${({ $isOpen }) => $isOpen ? "auto" : "none"};
+  pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
 `;
 
 interface GNBProps {
@@ -319,7 +327,7 @@ export default function GNB({
     const user = auth.currentUser;
 
     // Load profile image only when user object changes or avatar update is detected
-    if (user?.photoURL && user.photoURL.trim() !== '') {
+    if (user?.photoURL && user.photoURL.trim() !== "") {
       try {
         // Store in localStorage to persist across page navigation
         const storedAvatarUrl = localStorage.getItem("user_avatar_url");
@@ -362,7 +370,11 @@ export default function GNB({
   // Listen for avatar updates via storage events (works across tabs)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "avatar_update_timestamp" && auth.currentUser?.photoURL && auth.currentUser.photoURL.trim() !== '') {
+      if (
+        e.key === "avatar_update_timestamp" &&
+        auth.currentUser?.photoURL &&
+        auth.currentUser.photoURL.trim() !== ""
+      ) {
         try {
           const url = new URL(auth.currentUser.photoURL);
           url.searchParams.set("t", Date.now().toString());
@@ -463,9 +475,9 @@ export default function GNB({
           </LogoContainer>
 
           <MenuContainer>
-            <MenuItem to="/guide" $isTransparent={makeTransparent}>
+            {/* <MenuItem to="/guide" $isTransparent={makeTransparent}>
               가이드
-            </MenuItem>
+            </MenuItem> */}
             <MenuItem to="/shadow" $isTransparent={makeTransparent}>
               쉐도잉
             </MenuItem>
@@ -504,17 +516,14 @@ export default function GNB({
       </NavbarContainer>
 
       {/* MobileMenuContainer is now always rendered. Its visibility is controlled by its own styles. */}
-      <MobileMenuContainer
-        className="mobile-menu"
-        $isOpen={isMenuOpen}
-      >
-        <MobileMenuItem
+      <MobileMenuContainer className="mobile-menu" $isOpen={isMenuOpen}>
+        {/* <MobileMenuItem
           to="/guide"
           onClick={() => setIsMenuOpen(false)}
           $isOpen={isMenuOpen}
         >
           가이드
-        </MobileMenuItem>
+        </MobileMenuItem> */}
         <MobileMenuItem
           to="/shadow"
           onClick={() => setIsMenuOpen(false)}
