@@ -2827,7 +2827,7 @@ const Article = () => {
               target="_blank" 
               rel="noopener noreferrer"
             >
-          단순 참고용, 외부 배포 절대 금지: 출처 확인하기
+          밋업 참가자 전용, 외부 배포 금지: 출처 확인
             </SourceTab>
           )}
         </InfoContainer>
