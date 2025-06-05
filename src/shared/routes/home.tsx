@@ -187,13 +187,12 @@ const FeaturesSection = styled.section`
 // Feature slider layout with common utilities
 const FeatureSlider = styled.div`
   ${flexCenter}
-  gap: 1.5rem;
-  padding: 2rem 0;
+  gap: 3rem;
   margin: 0 auto;
   max-width: 960px;
   overflow: visible;
   will-change: contents;
-  height: 450px; /* Add fixed height */
+  height: 400px; /* Add fixed height */
 
   ${media.mobile`
     flex-direction: column;
@@ -209,7 +208,7 @@ const FeatureCard = styled.img<{ isActive?: boolean }>`
   height: auto;
   cursor: pointer;
   transition: all 0.3s ease-out;
-  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.15));
+  filter: drop-shadow(0 10px 5px rgba(0, 0, 0, 0.15));
   opacity: ${(props) => (props.isActive ? 1 : 0.85)};
   transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(1)")};
   will-change: transform, opacity, filter;
@@ -569,6 +568,54 @@ const HeroMeetupCardContainer = styled.div`
   }
 `;
 
+// New styled component for the MeetupButton
+const MeetupButton = styled.button`
+  background-color: ${colors.primary};
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 30px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  
+  &:hover {
+    background-color: ${colors.primaryLight};
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 10px 24px;
+    font-size: 0.9rem;
+  }
+`;
+
+// New styled component for the caveat text
+const CaveatText = styled.p`
+  font-size: 0.85rem;
+  color: ${colors.text.light};
+  text-align: center;
+  margin: 1.5rem auto 0 auto;
+  max-width: 600px;
+  line-height: 1.4;
+  font-family: "Noto Sans KR", sans-serif;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    margin: 1rem auto 0 auto;
+    padding: 0 20px;
+    line-height: 1.3;
+  }
+`;
+
 export default function Home() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
@@ -877,10 +924,10 @@ export default function Home() {
       {/* Features Section */}
       <FeaturesSection>
         <SectionTitle>
-          매주 일요일 오후 3시 30분,
+          매주 일요일 15시 30분,
           <br />
           <span style={{ fontWeight: 600 }}>
-            통역사 출신이 직접 리딩하는 영어 모임
+            통역사 출신이 리딩하는 영어 모임
           </span>
         </SectionTitle>
         <FeatureSlider className="feature-slider">
@@ -895,6 +942,16 @@ export default function Home() {
             />
           ))}
         </FeatureSlider>
+        
+        {/* Add caveat text */}
+        <CaveatText>
+          *1주에 1회 진행하는 밋업에 모두 참여 시 4회입니다. 운영진 귀책 사유로 밋업을 1주 진행하지 못할 경우 구독 기간을 2주 연장해드립니다. 멤버 분 귀책 사유로 밋업을 불참하실 경우 연장이 되지는 않습니다.
+        </CaveatText>
+        
+        {/* Add this button below the feature slider */}
+        <MeetupButton onClick={() => navigate('/meetup')}>
+          밋업 일정 확인하기
+        </MeetupButton>
       </FeaturesSection>
 
       {/* FAQ Section */}

@@ -508,7 +508,7 @@ export default function GNB({
               )}
             </ProfileWrapper>
           ) : (
-            <AuthButton to="/auth">시작하기</AuthButton>
+            <AuthButton to="/auth">로그인 · 가입</AuthButton>
           )}
 
           {/* MobileMenuContainer was here previously */}
