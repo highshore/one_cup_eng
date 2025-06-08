@@ -19,6 +19,7 @@ import { CommunityPage, NewTopicPage, TopicDetailPage } from "./features/communi
 import { ShadowPage } from "./features/shadow";
 import { LibraryPage } from "./features/library";
 import { MeetupPage, EventDetailPage } from "./features/meetup";
+import { BlogPage, BlogDetailPage } from "./features/blog";
 import styled, { createGlobalStyle } from "styled-components";
 import reset from "styled-reset";
 import { useEffect, useState } from "react";
@@ -73,6 +74,15 @@ const router = createBrowserRouter([
       {
         path: "shadow",
         element: <ShadowPage />,
+      },
+      // Add the blog routes
+      {
+        path: "blog",
+        element: <BlogPage />,
+      },
+      {
+        path: "blog/:postId",
+        element: <BlogDetailPage />,
       },
       {
         path: "library",

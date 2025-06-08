@@ -1,0 +1,35 @@
+
+> one-cup-eng@0.0.0 build
+> tsc -b && vite build
+
+vite v6.3.4 building for production...
+transforming...
+node_modules/lottie-web/build/player/lottie.js (17010:32): Use of eval in "node_modules/lottie-web/build/player/lottie.js" is strongly discouraged as it poses security risks and may cause issues with minification.
+✓ 1149 modules transformed.
+[plugin vite:reporter] 
+(!) /Users/ksk/Desktop/one_cup_eng/node_modules/firebase/firestore/dist/esm/index.esm.js is dynamically imported by /Users/ksk/Desktop/one_cup_eng/src/features/meetup/routes/event_detail.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/routes/event_detail.tsx but also statically imported by /Users/ksk/Desktop/one_cup_eng/src/features/admin/routes/admin.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/auth/routes/auth.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/blog/services/blog_service.ts, /Users/ksk/Desktop/one_cup_eng/src/features/community/routes/index.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/community/routes/new_topic.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/community/routes/topic_detail.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/components/admin_event_dialog.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/services/meetup_service.ts, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/services/user_service.ts, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/utils/meetup_helpers.ts, /Users/ksk/Desktop/one_cup_eng/src/features/payment/routes/payment.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/profile/routes/profile.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/shadow/routes/shadow.tsx, /Users/ksk/Desktop/one_cup_eng/src/firebase.ts, /Users/ksk/Desktop/one_cup_eng/src/shared/contexts/auth_context.tsx, /Users/ksk/Desktop/one_cup_eng/src/shared/routes/article.tsx, /Users/ksk/Desktop/one_cup_eng/src/shared/routes/sample.tsx, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/ksk/Desktop/one_cup_eng/src/firebase.ts is dynamically imported by /Users/ksk/Desktop/one_cup_eng/src/features/meetup/routes/event_detail.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/routes/event_detail.tsx but also statically imported by /Users/ksk/Desktop/one_cup_eng/src/app.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/admin/routes/admin.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/auth/routes/auth.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/blog/services/blog_service.ts, /Users/ksk/Desktop/one_cup_eng/src/features/community/routes/index.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/community/routes/new_topic.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/community/routes/topic_detail.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/routes/event_detail.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/services/image_upload_service.ts, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/services/meetup_service.ts, /Users/ksk/Desktop/one_cup_eng/src/features/meetup/services/user_service.ts, /Users/ksk/Desktop/one_cup_eng/src/features/payment/routes/payment.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/payment/routes/payment_result.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/profile/routes/profile.tsx, /Users/ksk/Desktop/one_cup_eng/src/features/shadow/routes/shadow.tsx, /Users/ksk/Desktop/one_cup_eng/src/shared/components/gnb.tsx, /Users/ksk/Desktop/one_cup_eng/src/shared/contexts/auth_context.tsx, /Users/ksk/Desktop/one_cup_eng/src/shared/routes/article.tsx, /Users/ksk/Desktop/one_cup_eng/src/shared/routes/kakao_callback.tsx, /Users/ksk/Desktop/one_cup_eng/src/shared/routes/sample.tsx, dynamic import will not move module into another chunk.
+
+rendering chunks...
+computing gzip size...
+dist/index.html                              0.98 kB │ gzip:   0.56 kB
+dist/assets/kakao_btn-CTybM8yg.png           6.15 kB
+dist/assets/default_user-CkATLBgf.jpg       45.18 kB
+dist/assets/signup-MNCRlGPZ.jpeg           133.47 kB
+dist/assets/profile-oP4HYsdJ.jpeg          155.79 kB
+dist/assets/kakao-ALTgTNBo.jpeg            160.12 kB
+dist/assets/feature_card_3-DI9fRTru.png    178.85 kB
+dist/assets/feature_card_1-BuLuAaSY.png    180.66 kB
+dist/assets/feature_card_2-BzBR733D.png    205.93 kB
+dist/assets/homepage-hGBCNQAM.jpeg         247.09 kB
+dist/assets/article-DWX8k7ZV.jpeg          676.12 kB
+dist/assets/alphabet-DgEu0B1W.mp4        1,067.24 kB
+dist/assets/index-BarS3grs.js            2,719.03 kB │ gzip: 625.58 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.39s

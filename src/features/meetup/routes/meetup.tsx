@@ -7,6 +7,8 @@ import { formatEventDateTime, isEventLocked, formatEventTitleWithCountdown } fro
 import { UserAvatarStack } from '../components/user_avatar';
 import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { PinIcon, CalendarIcon } from '../components/meetup_icons';
+import { BlogPost } from '../../blog/types/blog_types';
+import { fetchBlogPosts } from '../../blog/services/blog_service';
 
 // Add subtle glow animation keyframes
 const subtleGlow = keyframes`
@@ -25,9 +27,7 @@ const subtleGlow = keyframes`
 const MeetupContainer = styled.div`
   min-height: 100vh;
   background-color: transparent;
-  color: #333;
-  padding-top: 80px;
-  
+  color: #333;  
   @media (max-width: 768px) {
     padding-top: 60px; // Reduced for mobile
   }
@@ -95,14 +95,99 @@ const ContentContainer = styled.div`
   }
 `;
 
+// Blog Banner Styled Components
+const BlogBanner = styled.div<{ $imageUrl?: string }>`
+  background: ${props => 
+    props.$imageUrl 
+      ? `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(${props.$imageUrl}) center/cover`
+      : '#212121'
+  };
+  border-radius: 20px;
+  margin: 20px 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  height: 180px;
+  aspect-ratio: 16 / 9;
+  position: relative;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (max-width: 768px) {
+    margin: 12px 0;
+    border-radius: 16px;
+  }
+`;
+
+const BlogBannerContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
+`;
+
+
+
+const BlogBannerText = styled.div`
+  flex: 1;
+  color: white;
+`;
+
+const BlogBannerLabel = styled.div`
+  font-size: 1rem;
+  font-weight: 600;
+  color: #C8A27A;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    margin-bottom: 0.375rem;
+  }
+`;
+
+const BlogBannerTitle = styled.h3`
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  line-height: 1.3;
+  word-wrap: break-word;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+
+  @media (max-width: 768px) {
+    font-size: 20px;
+    line-height: 1.2;
+  }
+`;
+
+
+
+
+
 const SectionTitle = styled.h2`
   color: #333;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   font-weight: 800;
-  margin: 1.5rem 0 0.5rem 0;
+  margin: 3rem 0 1rem 0;
   
   @media (max-width: 768px) {
-    font-size: 1.1rem;
+    font-size: 1.3rem;
     margin: 1.25rem 0 0.75rem 0;
   }
 `;
@@ -342,6 +427,7 @@ const MeetupPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
+  const [latestBlogPost, setLatestBlogPost] = useState<BlogPost | null>(null);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
 
   // Helper function to convert MeetupEvent date and time to Date object
@@ -440,9 +526,22 @@ const MeetupPage: React.FC = () => {
     };
   }, [hasMore, loadingMore, loadMoreEvents]);
 
+  // Load latest blog post
+  const loadLatestBlogPost = useCallback(async () => {
+    try {
+      const posts = await fetchBlogPosts();
+      if (posts.length > 0) {
+        setLatestBlogPost(posts[0]); // Get the latest post
+      }
+    } catch (err) {
+      console.error('Failed to load latest blog post:', err);
+    }
+  }, []);
+
   // Initial load
   useEffect(() => {
     loadEvents(true);
+    loadLatestBlogPost();
   }, []);
 
   // Scroll to top when component mounts or when filters change
@@ -456,6 +555,27 @@ const MeetupPage: React.FC = () => {
 
   const handleAvatarClick = (_uid: string) => {
     // Handle avatar click - could show user profile modal, etc.
+  };
+
+  const handleBlogClick = () => {
+    if (latestBlogPost) {
+      navigate(`/blog/${latestBlogPost.id}`);
+    }
+  };
+
+  const renderBlogBanner = () => {
+    if (!latestBlogPost) return null;
+
+    return (
+      <BlogBanner $imageUrl={latestBlogPost.featuredImage} onClick={handleBlogClick}>
+        <BlogBannerContent>
+          <BlogBannerText>
+            <BlogBannerLabel>따끈따끈한 밋업 후기</BlogBannerLabel>
+            <BlogBannerTitle>{latestBlogPost.title}</BlogBannerTitle>
+          </BlogBannerText>
+        </BlogBannerContent>
+      </BlogBanner>
+    );
   };
 
   const renderEventCard = (meetup: MeetupEvent, isPast: boolean = false, isClosest: boolean = false) => {
@@ -540,6 +660,9 @@ const MeetupPage: React.FC = () => {
       </Header>
 
       <ContentContainer>
+        {/* Blog Banner */}
+        {renderBlogBanner()}
+
         {loading && (
           <LoadingContainer>
             Loading events...

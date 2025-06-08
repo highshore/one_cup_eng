@@ -484,6 +484,9 @@ export default function GNB({
             <MenuItem to="/meetup" $isTransparent={makeTransparent}>
               밋업
             </MenuItem>
+            <MenuItem to="/blog" $isTransparent={makeTransparent}>
+              블로그
+            </MenuItem>
             {/* <MenuItem to="/community">커뮤니티</MenuItem> */}
           </MenuContainer>
 
@@ -537,6 +540,13 @@ export default function GNB({
           $isOpen={isMenuOpen}
         >
           밋업
+        </MobileMenuItem>
+        <MobileMenuItem
+          to="/blog"
+          onClick={() => setIsMenuOpen(false)}
+          $isOpen={isMenuOpen}
+        >
+          블로그
         </MobileMenuItem>
         {/* <MobileMenuItem to="/community" onClick={() => setIsMenuOpen(false)} $isOpen={isMenuOpen}>
           커뮤니티
