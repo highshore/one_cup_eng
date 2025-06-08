@@ -15,7 +15,7 @@ import {
   formatEventTitleWithCountdown,
 } from "../utils/meetup_helpers";
 import { UserAvatar } from "../components/user_avatar";
-import { isUserAdmin, hasActiveSubscription } from "../services/user_service";
+import { hasActiveSubscription } from "../services/user_service";
 import { useAuth } from "../../../shared/contexts/auth_context";
 import AdminEventDialog from "../components/admin_event_dialog";
 import {
@@ -25,6 +25,8 @@ import {
   JoinIcon,
   CancelIcon,
 } from "../components/meetup_icons";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../../firebase";
 
 // TypeScript declarations for Naver Maps
 declare global {
@@ -33,6 +35,30 @@ declare global {
     initNaverMaps?: () => void;
     navermap_authFailure?: () => void;
   }
+}
+
+// Interface for user data including phone numbers
+interface UserWithDetails {
+  uid: string;
+  displayName?: string;
+  photoURL?: string;
+  phoneNumber?: string;
+  phoneLast4?: string;
+}
+
+// Interface for seating arrangement
+interface SeatingAssignment {
+  sessionNumber: 1 | 2;
+  leaderUid: string;
+  leaderDetails: UserWithDetails;
+  participants: UserWithDetails[];
+}
+
+// Interface for saved seating data
+interface SavedSeatingArrangement {
+  assignments: SeatingAssignment[];
+  generatedAt: Date;
+  generatedBy: string;
 }
 
 // Gradient shining sweep animation for join button
@@ -640,6 +666,173 @@ const DialogButton = styled.button<{ $primary?: boolean }>`
   }
 `;
 
+// Seating arrangement styled components
+const SeatingSection = styled.div`
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+
+  @media (max-width: 768px) {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+`;
+
+const SeatingControls = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+`;
+
+const SeatingButton = styled.button`
+  padding: 0.75rem 1.5rem;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &:hover {
+    background-color: #555;
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.625rem 1.25rem;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+`;
+
+const SeatingTable = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+`;
+
+const SessionCard = styled.div`
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+`;
+
+const SessionTitle = styled.h3`
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #333;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    margin: 0 0 0.75rem 0;
+  }
+`;
+
+const GroupCard = styled.div`
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+`;
+
+const LeaderInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eee;
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+`;
+
+const LeaderBadge = styled.span`
+  background-color: #333;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+
+  @media (max-width: 768px) {
+    font-size: 10px;
+    padding: 0.2rem 0.4rem;
+  }
+`;
+
+const UserName = styled.span`
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  flex: 1;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+  }
+`;
+
+const ParticipantsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+`;
+
+const ParticipantItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+
+  @media (max-width: 768px) {
+    gap: 0.375rem;
+  }
+`;
+
 // Naver Map Component - Updated with dynamic script loading
 interface NaverMapProps {
   latitude: number;
@@ -974,7 +1167,8 @@ const EventDetailPage: React.FC = () => {
     top: number;
     height: number;
   } | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  // Use accountStatus from auth context instead of separate isAdmin state
+  const isAdmin = accountStatus === 'admin';
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [dialogTemplateEvent, setDialogTemplateEvent] =
     useState<MeetupEvent | null>(null);
@@ -988,6 +1182,11 @@ const EventDetailPage: React.FC = () => {
     boolean | null
   >(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  
+  // Seating arrangement state
+  const [seatingAssignments, setSeatingAssignments] = useState<SeatingAssignment[]>([]);
+  const [showSeatingTable, setShowSeatingTable] = useState(false);
+  const [seatingLoading, setSeatingLoading] = useState(false);
 
   const isCurrentUserParticipant = useMemo(() => {
     if (!currentUser || !event) return false;
@@ -997,15 +1196,7 @@ const EventDetailPage: React.FC = () => {
     );
   }, [currentUser, event]);
 
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (currentUser) {
-        const adminFlag = await isUserAdmin(currentUser.uid);
-        setIsAdmin(adminFlag);
-      }
-    };
-    checkAdminStatus();
-  }, [currentUser]);
+  // No longer need to check admin status separately since we use accountStatus from auth context
 
   useEffect(() => {
     const checkSubscriptionStatus = async () => {
@@ -1082,6 +1273,62 @@ const EventDetailPage: React.FC = () => {
 
     fetchArticles();
   }, [event]);
+
+  // Load existing seating arrangement when event loads
+  useEffect(() => {
+    const loadExistingSeating = async () => {
+      console.log('🔍 Seating load check:', { event: !!event, isAdmin, currentUser: !!currentUser });
+      
+      if (event && isAdmin) {
+        console.log('📋 Attempting to load existing seating arrangement...');
+        try {
+          const savedSeating = await loadSeatingArrangement();
+          console.log('💾 Loaded seating data:', savedSeating);
+          
+          if (savedSeating) {
+            console.log('✅ Setting seating assignments and showing table');
+            setSeatingAssignments(savedSeating.assignments);
+            setShowSeatingTable(true);
+          } else {
+            console.log('❌ No saved seating arrangement found');
+          }
+        } catch (error) {
+          console.error("Error loading existing seating arrangement:", error);
+        }
+      } else {
+        console.log('⏸️ Seating load skipped - missing requirements');
+      }
+    };
+
+    loadExistingSeating();
+  }, [event, isAdmin]);
+
+  // Additional effect to handle case where admin status is determined after event loads
+  useEffect(() => {
+    const loadSeatingOnAdminConfirmed = async () => {
+      console.log('👑 Admin status changed:', { isAdmin, event: !!event, hasSeatingData: seatingAssignments.length > 0 });
+      
+      if (isAdmin && event && seatingAssignments.length === 0 && !showSeatingTable) {
+        console.log('🔄 Trying to load seating after admin confirmation...');
+        try {
+          const savedSeating = await loadSeatingArrangement();
+          console.log('💾 Late-loaded seating data:', savedSeating);
+          
+          if (savedSeating) {
+            console.log('✅ Late-setting seating assignments and showing table');
+            setSeatingAssignments(savedSeating.assignments);
+            setShowSeatingTable(true);
+          }
+        } catch (error) {
+          console.error("Error in late seating load:", error);
+        }
+      }
+    };
+
+    // Small delay to ensure event data is fully loaded
+    const timeoutId = setTimeout(loadSeatingOnAdminConfirmed, 500);
+    return () => clearTimeout(timeoutId);
+  }, [isAdmin]);
 
   useEffect(() => {
     const calculatePositionAndCheckFloat = () => {
@@ -1341,6 +1588,281 @@ const EventDetailPage: React.FC = () => {
 
   const handleArticleTopicClick = (articleId: string) => {
     navigate(`/article/${articleId}`);
+  };
+
+  // Function to save seating arrangement to Firestore
+  const saveSeatingArrangement = async (assignments: SeatingAssignment[]) => {
+    if (!event || !currentUser) {
+      console.log('❌ Cannot save seating: missing event or user', { event: !!event, currentUser: !!currentUser });
+      alert('Cannot save seating: missing event or user data');
+      return;
+    }
+
+    try {
+      console.log('💾 Starting save process for event:', event.id);
+      console.log('👤 Current user:', currentUser.uid);
+      console.log('📊 Assignments to save:', assignments.length);
+      
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../../../firebase');
+      
+      const eventRef = doc(db, 'meetup', event.id);
+      const seatingData: SavedSeatingArrangement = {
+        assignments,
+        generatedAt: new Date(),
+        generatedBy: currentUser.uid,
+      };
+
+      console.log('📝 Seating data structure:', {
+        assignmentsCount: assignments.length,
+        generatedBy: currentUser.uid,
+        generatedAt: seatingData.generatedAt,
+        firstAssignment: assignments[0] ? {
+          sessionNumber: assignments[0].sessionNumber,
+          leaderUid: assignments[0].leaderUid,
+          participantCount: assignments[0].participants.length
+        } : null
+      });
+
+      console.log('🔄 Calling updateDoc...');
+      const updateResult = await updateDoc(eventRef, {
+        seatingArrangement: seatingData
+      });
+      
+      console.log('✅ UpdateDoc completed:', updateResult);
+      console.log('✅ Seating arrangement saved to Firestore successfully');
+      
+      // Add user feedback
+      alert('좌석 배치가 성공적으로 저장되었습니다!');
+      
+    } catch (error) {
+      console.error('💥 Error saving seating arrangement:', error);
+      console.error('💥 Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack'
+      });
+      alert('좌석 배치 저장 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  // Function to load seating arrangement from Firestore
+  const loadSeatingArrangement = async (): Promise<SavedSeatingArrangement | null> => {
+    if (!event) {
+      console.log('❌ Cannot load seating: no event');
+      return null;
+    }
+
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('../../../firebase');
+      
+      console.log('🔍 Loading seating for event:', event.id);
+      const eventRef = doc(db, 'meetup', event.id);
+      const eventDoc = await getDoc(eventRef);
+      
+      console.log('📄 Event doc exists:', eventDoc.exists());
+      
+      if (eventDoc.exists()) {
+        const data = eventDoc.data();
+        console.log('📋 Event doc data keys:', Object.keys(data || {}));
+        console.log('🪑 Has seatingArrangement:', !!data?.seatingArrangement);
+        
+        if (data.seatingArrangement) {
+          console.log('🎯 Found seating arrangement:', data.seatingArrangement);
+          
+          // Re-fetch user details to ensure we have current data
+          const allUserUids = [...event.leaders, ...event.participants];
+          console.log('👥 Re-fetching details for users:', allUserUids);
+          
+          const userDetails = await fetchUserDetails(allUserUids);
+          console.log('📞 Fetched user details:', userDetails.length, 'users');
+          
+          // Reconstruct assignments with fresh user details
+          const reconstructedAssignments = data.seatingArrangement.assignments.map((assignment: any) => {
+            const leaderDetails = userDetails.find(user => user.uid === assignment.leaderUid);
+            const participantDetails = assignment.participants.map((p: any) => 
+              userDetails.find(user => user.uid === p.uid) || p
+            );
+            
+            console.log(`🔧 Reconstructed group for leader ${assignment.leaderUid}:`, {
+              leader: leaderDetails?.displayName,
+              participants: participantDetails.length
+            });
+            
+            return {
+              ...assignment,
+              leaderDetails: leaderDetails || assignment.leaderDetails,
+              participants: participantDetails
+            };
+          });
+          
+          const result = {
+            assignments: reconstructedAssignments,
+            generatedAt: data.seatingArrangement.generatedAt.toDate(),
+            generatedBy: data.seatingArrangement.generatedBy,
+          };
+          
+          console.log('✅ Successfully reconstructed seating data');
+          return result;
+        }
+      }
+      console.log('❌ No seating arrangement found in Firestore');
+      return null;
+    } catch (error) {
+      console.error('💥 Error loading seating arrangement:', error);
+      return null;
+    }
+  };
+
+  // Function to check if a display name is valid (not auto-generated)
+  const isValidDisplayName = (displayName?: string): boolean => {
+    if (!displayName) return false;
+    // Check if it matches the pattern "User xxxxxx" where x is alphanumeric
+    const userPattern = /^User [a-zA-Z0-9]{6}$/;
+    return !userPattern.test(displayName);
+  };
+
+  // Function to mask one character in a name
+  const maskName = (name: string): string => {
+    if (name.length <= 2) return name;
+    const midIndex = Math.floor(name.length / 2);
+    return name.substring(0, midIndex) + '*' + name.substring(midIndex + 1);
+  };
+
+  // Function to format participant display (with masked name and phone)
+  const formatParticipantDisplay = (user: UserWithDetails): string => {
+    const validName = isValidDisplayName(user.displayName);
+    if (!validName) return `익명 (${user.phoneLast4 || '****'})`;
+    
+    const maskedName = maskName(user.displayName!);
+    return `${maskedName} (${user.phoneLast4 || '****'})`;
+  };
+
+  // Function to format leader display (clean name only)
+  const formatLeaderDisplay = (user: UserWithDetails): string => {
+    const validName = isValidDisplayName(user.displayName);
+    return validName ? user.displayName! : '익명';
+  };
+
+  // Function to get user details with phone numbers
+  const fetchUserDetails = async (uids: string[]): Promise<UserWithDetails[]> => {
+    try {
+      const getUserDisplayNames = httpsCallable(functions, "getUserDisplayNames");
+      const response = await getUserDisplayNames({ userIds: uids });
+      const result = response.data as {
+        displayNames: Record<string, string>;
+        phoneNumbers: Record<string, string>;
+      };
+
+      return uids.map(uid => ({
+        uid,
+        displayName: result.displayNames[uid] || `User ${uid.substring(0, 6)}`,
+        phoneNumber: result.phoneNumbers[uid] || "",
+        phoneLast4: result.phoneNumbers[uid] 
+          ? result.phoneNumbers[uid].replace(/\D/g, "").slice(-4)
+          : "",
+      }));
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+      return uids.map(uid => ({
+        uid,
+        displayName: `User ${uid.substring(0, 6)}`,
+        phoneNumber: "",
+        phoneLast4: "",
+      }));
+    }
+  };
+
+  // Function to evenly distribute participants among leaders
+  const distributeParticipants = (participants: UserWithDetails[], leaders: UserWithDetails[]): UserWithDetails[][] => {
+    if (leaders.length === 0) return [];
+    
+    const shuffledParticipants = [...participants].sort(() => Math.random() - 0.5);
+    const groups: UserWithDetails[][] = leaders.map(() => []);
+    
+    // Distribute participants evenly
+    shuffledParticipants.forEach((participant, index) => {
+      const groupIndex = index % leaders.length;
+      groups[groupIndex].push(participant);
+    });
+    
+    return groups;
+  };
+
+  // Function to generate seating arrangement
+  const generateSeatingArrangement = async () => {
+    if (!event) {
+      console.log('❌ Cannot generate seating: no event');
+      return;
+    }
+    
+    console.log('🎲 Starting seating generation for event:', event.id);
+    console.log('👥 Leaders:', event.leaders.length, 'Participants:', event.participants.length);
+    
+    setSeatingLoading(true);
+    try {
+      // Get all user UIDs
+      const allUserUids = [...event.leaders, ...event.participants];
+      console.log('📋 All user UIDs:', allUserUids);
+      
+      // Fetch user details
+      console.log('📞 Fetching user details...');
+      const userDetails = await fetchUserDetails(allUserUids);
+      console.log('✅ User details fetched:', userDetails.length, 'users');
+      
+      // Separate leaders and participants
+      const leaderDetails = userDetails.filter(user => event.leaders.includes(user.uid));
+      const participantDetails = userDetails.filter(user => event.participants.includes(user.uid));
+      
+      console.log('👑 Leader details:', leaderDetails.length);
+      console.log('👤 Participant details:', participantDetails.length);
+      
+      // Generate assignments for both sessions
+      const assignments: SeatingAssignment[] = [];
+      
+      for (let session = 1; session <= 2; session++) {
+        console.log(`🎯 Generating session ${session}...`);
+        const distributedGroups = distributeParticipants(participantDetails, leaderDetails);
+        
+        leaderDetails.forEach((leader, index) => {
+          const assignment: SeatingAssignment = {
+            sessionNumber: session as 1 | 2,
+            leaderUid: leader.uid,
+            leaderDetails: leader,
+            participants: distributedGroups[index] || [],
+          };
+          assignments.push(assignment);
+          console.log(`   👑 Leader ${leader.displayName} (${leader.uid}) -> ${assignment.participants.length} participants`);
+        });
+      }
+      
+      console.log('✅ Generated assignments:', assignments.length, 'total assignments');
+      
+      setSeatingAssignments(assignments);
+      setShowSeatingTable(true);
+      
+      // Save to Firestore
+      console.log('💾 About to save to Firestore...');
+      await saveSeatingArrangement(assignments);
+      console.log('✅ Save process completed');
+      
+    } catch (error) {
+      console.error("💥 Error generating seating arrangement:", error);
+      console.error('💥 Generation error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack'
+      });
+      alert("좌석 배치 생성 중 오류가 발생했습니다: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setSeatingLoading(false);
+    }
+  };
+
+  // Function to refresh seating arrangement
+  const refreshSeatingArrangement = () => {
+    generateSeatingArrangement();
   };
 
   // Loading state
@@ -1666,8 +2188,62 @@ const EventDetailPage: React.FC = () => {
               <AdminButton onClick={handleDuplicate}>
                 📋 Duplicate This Event
               </AdminButton>
+              <AdminButton onClick={generateSeatingArrangement} disabled={seatingLoading}>
+                {seatingLoading ? "⏳ Generating..." : "🪑 Generate Seating"}
+              </AdminButton>
             </AdminButtons>
           </ActionButtons>
+        )}
+
+        {/* Seating Arrangement Section */}
+        {isAdmin && showSeatingTable && (
+          <SeatingSection>
+            <SectionTitle>좌석 배치</SectionTitle>
+            <SeatingControls>
+              <SeatingButton onClick={refreshSeatingArrangement} disabled={seatingLoading}>
+                {seatingLoading ? "⏳" : "🔄"} 다시 배치하기
+              </SeatingButton>
+              <SeatingButton onClick={() => setShowSeatingTable(false)}>
+                ❌ 닫기
+              </SeatingButton>
+            </SeatingControls>
+            
+            <SeatingTable>
+              {[1, 2].map(sessionNumber => (
+                <SessionCard key={sessionNumber}>
+                  <SessionTitle>세션 {sessionNumber}</SessionTitle>
+                  {seatingAssignments
+                    .filter(assignment => assignment.sessionNumber === sessionNumber)
+                    .map((assignment) => (
+                      <GroupCard key={`${sessionNumber}-${assignment.leaderUid}`}>
+                        <LeaderInfo>
+                          <UserAvatar 
+                            uid={assignment.leaderDetails.uid} 
+                            size={32} 
+                            isLeader={true}
+                          />
+                          <UserName>{formatLeaderDisplay(assignment.leaderDetails)}</UserName>
+                          <LeaderBadge>리더</LeaderBadge>
+                        </LeaderInfo>
+                        
+                        <ParticipantsList>
+                          {assignment.participants.map((participant) => (
+                            <ParticipantItem key={participant.uid}>
+                              <UserAvatar 
+                                uid={participant.uid} 
+                                size={24} 
+                                isLeader={false}
+                              />
+                              <UserName>{formatParticipantDisplay(participant)}</UserName>
+                            </ParticipantItem>
+                          ))}
+                        </ParticipantsList>
+                      </GroupCard>
+                    ))}
+                </SessionCard>
+              ))}
+            </SeatingTable>
+          </SeatingSection>
         )}
       </Content>
 
