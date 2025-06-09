@@ -1,14 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import styled, { keyframes, css } from 'styled-components';
-import { MeetupEvent } from '../types/meetup_types';
-import { fetchMeetupEvents } from '../services/meetup_service';
-import { formatEventDateTime, isEventLocked, formatEventTitleWithCountdown } from '../utils/meetup_helpers';
-import { UserAvatarStack } from '../components/user_avatar';
-import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { PinIcon, CalendarIcon } from '../components/meetup_icons';
-import { BlogPost } from '../../blog/types/blog_types';
-import { fetchBlogPosts } from '../../blog/services/blog_service';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import styled, { keyframes, css } from "styled-components";
+import { MeetupEvent } from "../types/meetup_types";
+import { fetchMeetupEvents } from "../services/meetup_service";
+import {
+  formatEventDateTime,
+  isEventLocked,
+  formatEventTitleWithCountdown,
+} from "../utils/meetup_helpers";
+import { UserAvatarStack } from "../components/user_avatar";
+import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import { PinIcon, CalendarIcon } from "../components/meetup_icons";
+import { BlogPost } from "../../blog/types/blog_types";
+import { fetchBlogPosts } from "../../blog/services/blog_service";
 
 // Add subtle glow animation keyframes
 const subtleGlow = keyframes`
@@ -27,10 +31,7 @@ const subtleGlow = keyframes`
 const MeetupContainer = styled.div`
   min-height: 100vh;
   background-color: transparent;
-  color: #333;  
-  @media (max-width: 768px) {
-    padding-top: 60px; // Reduced for mobile
-  }
+  color: #333;
 `;
 
 const Header = styled.header`
@@ -45,7 +46,7 @@ const Header = styled.header`
   right: 0;
   z-index: 100;
   height: 80px;
-  
+
   @media (max-width: 768px) {
     height: 60px;
     padding: 0.75rem;
@@ -61,11 +62,11 @@ const HeaderIcon = styled.button`
   padding: 0.5rem;
   border-radius: 50%;
   transition: background-color 0.2s;
-  
+
   &:hover {
     background-color: rgba(0, 0, 0, 0.1);
   }
-  
+
   @media (max-width: 768px) {
     font-size: 1.25rem;
     padding: 0.375rem;
@@ -77,31 +78,18 @@ const Logo = styled.h1`
   font-size: 1.2rem;
   font-weight: 600;
   margin: 0;
-  
+
   @media (max-width: 768px) {
     font-size: 1rem;
   }
 `;
 
-const ContentContainer = styled.div`
-  padding: 0 1rem;
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
-  
-  @media (max-width: 768px) {
-    max-width: 100%;
-    padding: 0;
-  }
-`;
-
 // Blog Banner Styled Components
 const BlogBanner = styled.div<{ $imageUrl?: string }>`
-  background: ${props => 
-    props.$imageUrl 
+  background: ${(props) =>
+    props.$imageUrl
       ? `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(${props.$imageUrl}) center/cover`
-      : '#212121'
-  };
+      : "#212121"};
   border-radius: 20px;
   margin: 20px 0;
   cursor: pointer;
@@ -109,7 +97,7 @@ const BlogBanner = styled.div<{ $imageUrl?: string }>`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
   height: 180px;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 5 / 3;
   position: relative;
 
   &:hover {
@@ -140,8 +128,6 @@ const BlogBannerContent = styled.div`
   }
 `;
 
-
-
 const BlogBannerText = styled.div`
   flex: 1;
   color: white;
@@ -150,7 +136,7 @@ const BlogBannerText = styled.div`
 const BlogBannerLabel = styled.div`
   font-size: 1rem;
   font-weight: 600;
-  color: #C8A27A;
+  color: #c8a27a;
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -176,16 +162,12 @@ const BlogBannerTitle = styled.h3`
   }
 `;
 
-
-
-
-
 const SectionTitle = styled.h2`
   color: #333;
   font-size: 1.4rem;
   font-weight: 800;
   margin: 3rem 0 1rem 0;
-  
+
   @media (max-width: 768px) {
     font-size: 1.3rem;
     margin: 1.25rem 0 0.75rem 0;
@@ -202,20 +184,23 @@ const EventCard = styled.div<{ $isPast?: boolean; $isClosest?: boolean }>`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
   width: 100%;
-  opacity: ${props => props.$isPast ? 0.6 : 1};
-  
+  opacity: ${(props) => (props.$isPast ? 0.6 : 1)};
+
   /* Add subtle glow animation for closest upcoming event */
-  ${props => props.$isClosest ? css`
-    animation: ${subtleGlow} 3s ease-in-out infinite;
-    border: 1px solid rgba(76, 175, 80, 0.3);
-  ` : ''}
-  
+  ${(props) =>
+    props.$isClosest
+      ? css`
+          animation: ${subtleGlow} 3s ease-in-out infinite;
+          border: 1px solid rgba(76, 175, 80, 0.3);
+        `
+      : ""}
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    opacity: ${props => props.$isPast ? 0.8 : 1};
+    opacity: ${(props) => (props.$isPast ? 0.8 : 1)};
   }
-  
+
   @media (max-width: 768px) {
     padding: 16px;
     margin: 12px 0;
@@ -227,7 +212,7 @@ const EventContent = styled.div`
   display: flex;
   align-items: flex-start;
   gap: 20px;
-  
+
   @media (max-width: 768px) {
     gap: 12px;
   }
@@ -243,8 +228,8 @@ const EventImageContainer = styled.div<{ $isPast?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: ${props => props.$isPast ? 'grayscale(50%)' : 'none'};
-  
+  filter: ${(props) => (props.$isPast ? "grayscale(50%)" : "none")};
+
   @media (max-width: 768px) {
     width: 80px;
     height: 80px;
@@ -261,7 +246,7 @@ const EventImage = styled.img`
 const EventImagePlaceholder = styled.div`
   color: #ccc;
   font-size: 2.5rem;
-  
+
   @media (max-width: 768px) {
     font-size: 1.5rem;
   }
@@ -275,13 +260,13 @@ const EventDetails = styled.div`
 `;
 
 const EventTitle = styled.h3<{ $isPast?: boolean }>`
-  color: ${props => props.$isPast ? '#999' : '#333'};
+  color: ${(props) => (props.$isPast ? "#999" : "#333")};
   font-size: 18px;
   font-weight: 700;
   margin: 0 0 8px 0;
   line-height: 1.3;
   word-wrap: break-word; // Prevents long titles from overflowing
-  
+
   @media (max-width: 768px) {
     font-size: 15px;
     margin: 0 0 6px 0;
@@ -290,8 +275,9 @@ const EventTitle = styled.h3<{ $isPast?: boolean }>`
 `;
 
 const CountdownPrefix = styled.span<{ $isUrgent?: boolean }>`
-  color: ${props => props.$isUrgent ? '#DC143C' : 'inherit'}; /* Crimson for urgent countdown */
-  font-weight: ${props => props.$isUrgent ? 'bold' : 'inherit'};
+  color: ${(props) =>
+    props.$isUrgent ? "#DC143C" : "inherit"}; /* Crimson for urgent countdown */
+  font-weight: ${(props) => (props.$isUrgent ? "bold" : "inherit")};
 `;
 
 const EventInfo = styled.div`
@@ -299,7 +285,7 @@ const EventInfo = styled.div`
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  
+
   @media (max-width: 768px) {
     gap: 6px;
     margin-bottom: 4px;
@@ -307,22 +293,22 @@ const EventInfo = styled.div`
 `;
 
 const EventIcon = styled.span<{ $isPast?: boolean }>`
-  color: ${props => props.$isPast ? '#999' : '#666'};
+  color: ${(props) => (props.$isPast ? "#999" : "#666")};
   flex-shrink: 0; // Prevents icons from shrinking
   display: flex; // Added for better alignment of SVG
   align-items: center; // Added for better alignment of SVG
-  
+
   @media (max-width: 768px) {
     /* font-size: 14px; // Removed */
   }
 `;
 
 const EventText = styled.span<{ $isPast?: boolean }>`
-  color: ${props => props.$isPast ? '#999' : '#666'};
+  color: ${(props) => (props.$isPast ? "#999" : "#666")};
   font-size: 16px;
   letter-spacing: 0;
   word-wrap: break-word; // Prevents long text from overflowing
-  
+
   @media (max-width: 768px) {
     font-size: 13px;
   }
@@ -334,7 +320,7 @@ const EventBottom = styled.div`
   align-items: center;
   margin-top: 8px;
   gap: 8px; // Adds gap to prevent overlap
-  
+
   @media (max-width: 768px) {
     margin-top: 4px;
     gap: 6px;
@@ -347,8 +333,8 @@ const StatusBadge = styled.span<{ $statusColor: string }>`
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 700;
-  color: #FFFFFF; // White text for better contrast
-  background-color: ${props => props.$statusColor};
+  color: #ffffff; // White text for better contrast
+  background-color: ${(props) => props.$statusColor};
   border-radius: 20px;
   text-align: center;
   min-width: 80px; // Minimum width for the badge
@@ -365,7 +351,7 @@ const LoadingContainer = styled.div`
   text-align: center;
   padding: 2rem 1rem;
   color: #666;
-  
+
   @media (max-width: 768px) {
     padding: 1.5rem 0.75rem;
     font-size: 14px;
@@ -385,19 +371,19 @@ const LoadMoreButton = styled.button`
   cursor: pointer;
   transition: all 0.2s;
   min-width: 100px;
-  
+
   &:hover {
     background-color: #eeeeee;
     border-color: #bbb;
     transform: translateY(-1px);
   }
-  
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
   }
-  
+
   @media (max-width: 768px) {
     padding: 0.625rem 1.25rem;
     margin: 1.5rem auto 0.75rem auto;
@@ -410,7 +396,7 @@ const EmptyState = styled.div`
   text-align: center;
   padding: 3rem 1rem;
   color: #666;
-  
+
   @media (max-width: 768px) {
     padding: 2rem 1rem;
     font-size: 14px;
@@ -425,7 +411,8 @@ const MeetupPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [lastDoc, setLastDoc] =
+    useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [latestBlogPost, setLatestBlogPost] = useState<BlogPost | null>(null);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
@@ -440,58 +427,67 @@ const MeetupPage: React.FC = () => {
     const now = new Date();
     const upcoming: MeetupEvent[] = [];
     const past: MeetupEvent[] = [];
-    
-    events.forEach(event => {
+
+    events.forEach((event) => {
       if (getEventDateTime(event) >= now) {
         upcoming.push(event);
       } else {
         past.push(event);
       }
     });
-    
+
     // Sort upcoming events by date (ascending)
-    upcoming.sort((a, b) => getEventDateTime(a).getTime() - getEventDateTime(b).getTime());
-    
+    upcoming.sort(
+      (a, b) => getEventDateTime(a).getTime() - getEventDateTime(b).getTime()
+    );
+
     // Sort past events by date (descending - most recent first)
-    past.sort((a, b) => getEventDateTime(b).getTime() - getEventDateTime(a).getTime());
-    
+    past.sort(
+      (a, b) => getEventDateTime(b).getTime() - getEventDateTime(a).getTime()
+    );
+
     setUpcomingEvents(upcoming);
     setPastEvents(past);
   }, []);
 
   // Load initial events
-  const loadEvents = useCallback(async (reset: boolean = false) => {
-    try {
-      if (reset) {
-        setLoading(true);
-        setAllEvents([]);
-        setLastDoc(null);
-        setHasMore(true);
-      } else {
-        setLoadingMore(true);
-      }
+  const loadEvents = useCallback(
+    async (reset: boolean = false) => {
+      try {
+        if (reset) {
+          setLoading(true);
+          setAllEvents([]);
+          setLastDoc(null);
+          setHasMore(true);
+        } else {
+          setLoadingMore(true);
+        }
 
-      const result = await fetchMeetupEvents(reset ? undefined : (lastDoc ?? undefined));
-      
-      if (reset) {
-        setAllEvents(result.events);
-        categorizeEvents(result.events);
-      } else {
-        const newAllEvents = [...allEvents, ...result.events];
-        setAllEvents(newAllEvents);
-        categorizeEvents(newAllEvents);
+        const result = await fetchMeetupEvents(
+          reset ? undefined : lastDoc ?? undefined
+        );
+
+        if (reset) {
+          setAllEvents(result.events);
+          categorizeEvents(result.events);
+        } else {
+          const newAllEvents = [...allEvents, ...result.events];
+          setAllEvents(newAllEvents);
+          categorizeEvents(newAllEvents);
+        }
+
+        setLastDoc(result.lastDoc);
+        setHasMore(result.lastDoc !== null && result.events.length > 0);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load events");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-      
-      setLastDoc(result.lastDoc);
-      setHasMore(result.lastDoc !== null && result.events.length > 0);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load events');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [lastDoc, allEvents, categorizeEvents]);
+    },
+    [lastDoc, allEvents, categorizeEvents]
+  );
 
   // Load more events
   const loadMoreEvents = useCallback(() => {
@@ -511,7 +507,7 @@ const MeetupPage: React.FC = () => {
       },
       {
         threshold: 0.1,
-        rootMargin: '100px'
+        rootMargin: "100px",
       }
     );
 
@@ -534,7 +530,7 @@ const MeetupPage: React.FC = () => {
         setLatestBlogPost(posts[0]); // Get the latest post
       }
     } catch (err) {
-      console.error('Failed to load latest blog post:', err);
+      console.error("Failed to load latest blog post:", err);
     }
   }, []);
 
@@ -567,7 +563,10 @@ const MeetupPage: React.FC = () => {
     if (!latestBlogPost) return null;
 
     return (
-      <BlogBanner $imageUrl={latestBlogPost.featuredImage} onClick={handleBlogClick}>
+      <BlogBanner
+        $imageUrl={latestBlogPost.featuredImage}
+        onClick={handleBlogClick}
+      >
         <BlogBannerContent>
           <BlogBannerText>
             <BlogBannerLabel>따끈따끈한 밋업 후기</BlogBannerLabel>
@@ -578,30 +577,46 @@ const MeetupPage: React.FC = () => {
     );
   };
 
-  const renderEventCard = (meetup: MeetupEvent, isPast: boolean = false, isClosest: boolean = false) => {
-    const { countdownPrefix, eventTitle, isUrgent } = formatEventTitleWithCountdown(meetup);
+  const renderEventCard = (
+    meetup: MeetupEvent,
+    isPast: boolean = false,
+    isClosest: boolean = false
+  ) => {
+    const { countdownPrefix, eventTitle, isUrgent } =
+      formatEventTitleWithCountdown(meetup);
     const lockStatus = isEventLocked(meetup);
     const isCurrentlyLocked = lockStatus.isLocked;
-    
+
     // Calculate total participants (leaders + participants)
-    const totalParticipants = meetup.leaders.length + meetup.participants.length;
+    const totalParticipants =
+      meetup.leaders.length + meetup.participants.length;
 
     const getStatusText = () => {
-      if (isPast) return '종료';
-      if (!isCurrentlyLocked) return '참가 가능';
+      if (isPast) return "종료";
+      if (!isCurrentlyLocked) return "참가 가능";
       switch (lockStatus.reason) {
-        case 'started': return '진행중';
-        case 'full': return '정원 마감';
-        case 'lockdown': return '모집 종료';
-        default: return '모집 종료';
+        case "started":
+          return "진행중";
+        case "full":
+          return "정원 마감";
+        case "lockdown":
+          return "모집 종료";
+        default:
+          return "모집 종료";
       }
     };
 
-    const statusColor = isPast ? '#757575' : (isCurrentlyLocked ? (lockStatus.reason === 'full' ? '#ff4d4f' : '#888') : '#4CAF50');
-    
+    const statusColor = isPast
+      ? "#757575"
+      : isCurrentlyLocked
+      ? lockStatus.reason === "full"
+        ? "#ff4d4f"
+        : "#888"
+      : "#4CAF50";
+
     return (
-      <EventCard 
-        key={meetup.id} 
+      <EventCard
+        key={meetup.id}
         onClick={() => handleEventClick(meetup.id)}
         $isPast={isPast}
         $isClosest={isClosest}
@@ -616,33 +631,42 @@ const MeetupPage: React.FC = () => {
           </EventImageContainer>
           <EventDetails>
             <EventTitle $isPast={isPast}>
-              {countdownPrefix && <CountdownPrefix $isUrgent={isUrgent}>{countdownPrefix}</CountdownPrefix>}
+              {countdownPrefix && (
+                <CountdownPrefix $isUrgent={isUrgent}>
+                  {countdownPrefix}
+                </CountdownPrefix>
+              )}
               {eventTitle}
             </EventTitle>
             <EventInfo>
-              <EventIcon $isPast={isPast}><PinIcon width="16px" height="16px" /></EventIcon>
+              <EventIcon $isPast={isPast}>
+                <PinIcon width="16px" height="16px" />
+              </EventIcon>
               <EventText $isPast={isPast}>{meetup.location_name}</EventText>
             </EventInfo>
             <EventInfo>
-              <EventIcon $isPast={isPast}><CalendarIcon width="16px" height="16px" /></EventIcon>
-              <EventText $isPast={isPast}>{formatEventDateTime(meetup)}</EventText>
+              <EventIcon $isPast={isPast}>
+                <CalendarIcon width="16px" height="16px" />
+              </EventIcon>
+              <EventText $isPast={isPast}>
+                {formatEventDateTime(meetup)}
+              </EventText>
             </EventInfo>
             <EventBottom>
-          <UserAvatarStack 
-            uids={[...meetup.leaders, ...meetup.participants]}
-            maxAvatars={5}
-            size={30}
-            isPast={isPast}
-            onAvatarClick={handleAvatarClick} 
-          />
-          <StatusBadge $statusColor={statusColor}>
-            {getStatusText()} ({totalParticipants}/{meetup.max_participants})
-          </StatusBadge>
-        </EventBottom>
+              <UserAvatarStack
+                uids={[...meetup.leaders, ...meetup.participants]}
+                maxAvatars={5}
+                size={30}
+                isPast={isPast}
+                onAvatarClick={handleAvatarClick}
+              />
+              <StatusBadge $statusColor={statusColor}>
+                {getStatusText()} ({totalParticipants}/{meetup.max_participants}
+                )
+              </StatusBadge>
+            </EventBottom>
           </EventDetails>
-  
         </EventContent>
-        
       </EventCard>
     );
   };
@@ -650,71 +674,57 @@ const MeetupPage: React.FC = () => {
   return (
     <MeetupContainer>
       <Header>
-        <HeaderIcon>
-          ❓
-        </HeaderIcon>
+        <HeaderIcon>❓</HeaderIcon>
         <Logo>English Meetups</Logo>
-        <HeaderIcon>
-          📱
-        </HeaderIcon>
+        <HeaderIcon>📱</HeaderIcon>
       </Header>
 
-      <ContentContainer>
-        {/* Blog Banner */}
-        {renderBlogBanner()}
+      {/* Blog Banner */}
+      {renderBlogBanner()}
 
-        {loading && (
-          <LoadingContainer>
-            Loading events...
-          </LoadingContainer>
-        )}
+      {loading && <LoadingContainer>Loading events...</LoadingContainer>}
 
-        {error && (
-          <EmptyState>
-            Error loading events: {error}
-          </EmptyState>
-        )}
-        
-        {!loading && !error && (
-          <>
-            {/* Upcoming Events Section */}
-            {upcomingEvents.length > 0 && (
-              <>
-                <SectionTitle>현재 모집 중 🥳</SectionTitle>
-                {upcomingEvents.map((meetup, index) => renderEventCard(meetup, false, index === 0))}
-              </>
-            )}
+      {error && <EmptyState>Error loading events: {error}</EmptyState>}
 
-            {/* Past Events Section */}
-            {pastEvents.length > 0 && (
-              <>
-                <SectionTitle>이전 밋업</SectionTitle>
-                {pastEvents.map(meetup => renderEventCard(meetup, true, false))}
-              </>
-            )}
+      {!loading && !error && (
+        <>
+          {/* Upcoming Events Section */}
+          {upcomingEvents.length > 0 && (
+            <>
+              <SectionTitle>현재 모집 중 🥳</SectionTitle>
+              {upcomingEvents.map((meetup, index) =>
+                renderEventCard(meetup, false, index === 0)
+              )}
+            </>
+          )}
 
-            {/* Load More Button */}
-            {hasMore && (
-              <LoadMoreButton
-                ref={loadMoreButtonRef}
-                onClick={loadMoreEvents}
-                disabled={loadingMore}
-              >
-                {loadingMore ? '로딩 중...' : '더 보기'}
-              </LoadMoreButton>
-            )}
+          {/* Past Events Section */}
+          {pastEvents.length > 0 && (
+            <>
+              <SectionTitle>이전 밋업</SectionTitle>
+              {pastEvents.map((meetup) => renderEventCard(meetup, true, false))}
+            </>
+          )}
 
-            {/* No Events Message */}
-            {upcomingEvents.length === 0 && pastEvents.length === 0 && !loading && (
-              <EmptyState>
-                No events found.
-              </EmptyState>
-            )}
-          </>
-        )}
-      </ContentContainer>
+          {/* Load More Button */}
+          {hasMore && (
+            <LoadMoreButton
+              ref={loadMoreButtonRef}
+              onClick={loadMoreEvents}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "로딩 중..." : "더 보기"}
+            </LoadMoreButton>
+          )}
+
+          {/* No Events Message */}
+          {upcomingEvents.length === 0 &&
+            pastEvents.length === 0 &&
+            !loading && <EmptyState>No events found.</EmptyState>}
+        </>
+      )}
     </MeetupContainer>
   );
 };
 
-export default MeetupPage; 
+export default MeetupPage;

@@ -27,7 +27,7 @@ const CardContainer = styled.article`
   cursor: pointer;
   position: relative;
   font-family: "Noto Sans KR", sans-serif;
-  
+
   aspect-ratio: 4 / 3;
   max-width: 100%;
   display: flex;
@@ -41,8 +41,8 @@ const CardContainer = styled.article`
 
   @media (max-width: 768px) {
     border-radius: 14px;
-  aspect-ratio: 4 / 3;
-    
+    aspect-ratio: 4 / 3;
+
     &:hover {
       transform: translateY(-3px);
     }
@@ -52,11 +52,10 @@ const CardContainer = styled.article`
 const FeaturedImage = styled.div<{ $hasImage: boolean; $imageUrl?: string }>`
   width: 100%;
   flex: 0 0 55%; /* Takes up 55% of the card height */
-  background: ${props => 
-    props.$hasImage && props.$imageUrl 
-      ? `url(${props.$imageUrl}) center/cover` 
-      : `linear-gradient(135deg, ${colors.accent} 0%, ${colors.primary} 100%)`
-  };
+  background: ${(props) =>
+    props.$hasImage && props.$imageUrl
+      ? `url(${props.$imageUrl}) center/cover`
+      : `linear-gradient(135deg, ${colors.accent} 0%, ${colors.primary} 100%)`};
   position: relative;
   display: flex;
   align-items: center;
@@ -90,12 +89,16 @@ const StatusBadge = styled.div<{ $status: string }>`
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: white;
-  background: ${props => {
+  background: ${(props) => {
     switch (props.$status) {
-      case 'published': return '#22c55e';
-      case 'draft': return '#f59e0b';
-      case 'archived': return '#6b7280';
-      default: return '#6b7280';
+      case "published":
+        return "#22c55e";
+      case "draft":
+        return "#f59e0b";
+      case "archived":
+        return "#6b7280";
+      default:
+        return "#6b7280";
     }
   }};
 
@@ -220,8 +223,6 @@ const Tag = styled.span`
   }
 `;
 
-
-
 const AdminActions = styled.div`
   position: absolute;
   top: 10px;
@@ -290,7 +291,7 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({
   isAdmin,
   onEdit,
   onDelete,
-  onClick
+  onClick,
 }) => {
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -303,43 +304,51 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(date).toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const getExcerpt = () => {
     if (post.excerpt) return post.excerpt;
-    
+
     // Create excerpt from content if not provided
-    const textContent = post.content.replace(/<[^>]*>/g, ''); // Strip HTML
-    return textContent.length > 150 
-      ? textContent.substring(0, 150) + '...'
+    let textContent = post.content
+      .replace(/<[^>]*>/g, "") // Strip HTML
+      // Strip bold markdown from ****text**** and **text**
+      .replace(/\*{4}([\s\S]+?)\*{4}/g, "$1")
+      .replace(/\*\*(\S(?:[\s\S]*?\S)?)\*\*/g, "$1")
+      .replace(/^# (.*$)/gim, "$1") // Remove header markdown
+      .replace(/^## (.*$)/gim, "$1")
+      .replace(/^### (.*$)/gim, "$1");
+
+    return textContent.length > 150
+      ? textContent.substring(0, 150) + "..."
       : textContent;
   };
 
   return (
     <CardContainer onClick={onClick}>
-      <FeaturedImage 
-        $hasImage={!!post.featuredImage} 
+      <FeaturedImage
+        $hasImage={!!post.featuredImage}
         $imageUrl={post.featuredImage}
       >
-        {!post.featuredImage && (
-          <ImagePlaceholder>📝</ImagePlaceholder>
-        )}
-        
+        {!post.featuredImage && <ImagePlaceholder>📝</ImagePlaceholder>}
+
         {isAdmin && (
           <>
-            <StatusBadge $status={post.status}>
-              {post.status}
-            </StatusBadge>
+            <StatusBadge $status={post.status}>{post.status}</StatusBadge>
             <AdminActions>
               <ActionButton className="edit" onClick={handleEdit} title="편집">
                 ✏️
               </ActionButton>
-              <ActionButton className="delete" onClick={handleDelete} title="삭제">
+              <ActionButton
+                className="delete"
+                onClick={handleDelete}
+                title="삭제"
+              >
                 🗑️
               </ActionButton>
             </AdminActions>
@@ -352,11 +361,13 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({
           <PostTitle>{post.title}</PostTitle>
           <PostExcerpt>{getExcerpt()}</PostExcerpt>
         </ContentMain>
-        
+
         <ContentFooter>
           <PostMeta>
             <Author>by 영어 한잔</Author>
-            <PostDate>{formatDate(post.publishedAt || post.createdAt)}</PostDate>
+            <PostDate>
+              {formatDate(post.publishedAt || post.createdAt)}
+            </PostDate>
           </PostMeta>
 
           {post.tags && post.tags.length > 0 && (
@@ -364,13 +375,11 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({
               {post.tags.slice(0, 3).map((tag, index) => (
                 <Tag key={index}>{tag}</Tag>
               ))}
-              {post.tags.length > 3 && (
-                <Tag>+{post.tags.length - 3}</Tag>
-              )}
+              {post.tags.length > 3 && <Tag>+{post.tags.length - 3}</Tag>}
             </TagsContainer>
           )}
         </ContentFooter>
       </CardContent>
     </CardContainer>
   );
-}; 
+};

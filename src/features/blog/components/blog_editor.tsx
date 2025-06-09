@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { BlogPost } from "../types/blog_types";
-import { uploadBlogImage, validateBlogImageFiles } from "../services/blog_image_service";
+import {
+  uploadBlogImage,
+  validateBlogImageFiles,
+} from "../services/blog_image_service";
 
 // Define colors for consistency
 const colors = {
@@ -42,7 +45,7 @@ const EditorContainer = styled.div`
   overflow-y: auto;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
   font-family: "Noto Sans KR", sans-serif;
-  
+
   @media (max-width: 768px) {
     max-height: 95vh;
     border-radius: 14px;
@@ -251,7 +254,7 @@ const ButtonGroup = styled.div`
   }
 `;
 
-const Button = styled.button<{ $variant?: 'primary' | 'secondary' | 'danger' }>`
+const Button = styled.button<{ $variant?: "primary" | "secondary" | "danger" }>`
   padding: 0.6rem 1.25rem;
   border: none;
   border-radius: 25px;
@@ -261,10 +264,10 @@ const Button = styled.button<{ $variant?: 'primary' | 'secondary' | 'danger' }>`
   cursor: pointer;
   transition: all 0.3s ease;
   min-width: 110px;
-  
-  ${props => {
+
+  ${(props) => {
     switch (props.$variant) {
-      case 'primary':
+      case "primary":
         return `
           background: ${colors.primary};
           color: white;
@@ -276,7 +279,7 @@ const Button = styled.button<{ $variant?: 'primary' | 'secondary' | 'danger' }>`
             box-shadow: 0 6px 20px rgba(44, 24, 16, 0.3);
           }
         `;
-      case 'danger':
+      case "danger":
         return `
           background: #ef4444;
           color: white;
@@ -334,8 +337,6 @@ const HelpText = styled.div`
   line-height: 1.4;
   font-family: "Noto Sans KR", sans-serif;
 `;
-
-
 
 const UploadButton = styled.button`
   padding: 0.6rem 0.8rem;
@@ -395,7 +396,7 @@ const ImagePreview = styled.div`
   @media (max-width: 768px) {
     margin-top: 0.3rem;
     gap: 0.3rem;
-    
+
     img {
       width: 40px;
       height: 40px;
@@ -432,6 +433,53 @@ const ContentImageControls = styled.div`
 
   @media (max-width: 768px) {
     gap: 0.375rem;
+  }
+`;
+
+const FormattingControls = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem;
+  background: ${colors.primaryBg};
+  border-radius: 8px;
+
+  @media (max-width: 768px) {
+    gap: 0.4rem;
+    padding: 0.4rem;
+  }
+`;
+
+const FormatButton = styled.button<{ $active?: boolean }>`
+  background: ${(props) => (props.$active ? colors.accent : "white")};
+  color: ${(props) => (props.$active ? "white" : colors.text.dark)};
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: "Noto Sans KR", sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  &:hover {
+    background: ${(props) =>
+      props.$active ? colors.primaryLight : colors.primaryPale};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
   }
 `;
 
@@ -490,21 +538,21 @@ interface BlogEditorProps {
 export const BlogEditor: React.FC<BlogEditorProps> = ({
   post,
   onSave,
-  onCancel
+  onCancel,
 }) => {
   const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    excerpt: '',
-    status: 'draft' as 'draft' | 'published',
-    featuredImage: '',
-    tags: '',
+    title: "",
+    content: "",
+    excerpt: "",
+    status: "draft" as "draft" | "published",
+    featuredImage: "",
+    tags: "",
   });
 
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<string>('');
-  
+  const [uploadProgress, setUploadProgress] = useState<string>("");
+
   const featuredImageInputRef = useRef<HTMLInputElement>(null);
   const contentImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -512,36 +560,38 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
   useEffect(() => {
     if (post) {
       setFormData({
-        title: post.title || '',
-        content: post.content || '',
-        excerpt: post.excerpt || '',
-        status: post.status as 'draft' | 'published' || 'draft',
-        featuredImage: post.featuredImage || '',
-        tags: post.tags?.join(', ') || '',
+        title: post.title || "",
+        content: post.content || "",
+        excerpt: post.excerpt || "",
+        status: (post.status as "draft" | "published") || "draft",
+        featuredImage: post.featuredImage || "",
+        tags: post.tags?.join(", ") || "",
       });
     }
   }, [post]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title.trim()) {
-      alert('제목을 입력해주세요.');
+      alert("제목을 입력해주세요.");
       return;
     }
 
     if (!formData.content.trim()) {
-      alert('내용을 입력해주세요.');
+      alert("내용을 입력해주세요.");
       return;
     }
 
@@ -564,17 +614,20 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
       }
 
       if (formData.tags.trim()) {
-        const tags = formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+        const tags = formData.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0);
         if (tags.length > 0) {
           postData.tags = tags;
         }
       }
 
-      console.log('Submitting blog post data:', postData);
+      console.log("Submitting blog post data:", postData);
       await onSave(postData);
     } catch (error) {
-      console.error('Failed to save post:', error);
-      alert('저장에 실패했습니다. 다시 시도해주세요.');
+      console.error("Failed to save post:", error);
+      alert("저장에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setSaving(false);
     }
@@ -586,14 +639,16 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     }
   };
 
-  const handleFeaturedImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFeaturedImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const { valid, errors } = validateBlogImageFiles(files);
-    
+
     if (errors.length > 0) {
-      alert('이미지 업로드 오류:\n' + errors.join('\n'));
+      alert("이미지 업로드 오류:\n" + errors.join("\n"));
       return;
     }
 
@@ -601,35 +656,40 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
 
     try {
       setUploading(true);
-      setUploadProgress('대표 이미지 업로드 중...');
-      
+      setUploadProgress("대표 이미지 업로드 중...");
+
       const imageUrl = await uploadBlogImage(valid[0]);
-      
-      setFormData(prev => ({
+
+      setFormData((prev) => ({
         ...prev,
-        featuredImage: imageUrl
+        featuredImage: imageUrl,
       }));
-      
-      setUploadProgress('');
+
+      setUploadProgress("");
     } catch (error) {
-      console.error('Featured image upload failed:', error);
-      alert('이미지 업로드에 실패했습니다: ' + (error instanceof Error ? error.message : String(error)));
+      console.error("Featured image upload failed:", error);
+      alert(
+        "이미지 업로드에 실패했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
     } finally {
       setUploading(false);
       if (featuredImageInputRef.current) {
-        featuredImageInputRef.current.value = '';
+        featuredImageInputRef.current.value = "";
       }
     }
   };
 
-  const handleContentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleContentImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const { valid, errors } = validateBlogImageFiles(files);
-    
+
     if (errors.length > 0) {
-      alert('이미지 업로드 오류:\n' + errors.join('\n'));
+      alert("이미지 업로드 오류:\n" + errors.join("\n"));
       return;
     }
 
@@ -637,57 +697,66 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
 
     try {
       setUploading(true);
-      setUploadProgress('컨텐츠 이미지 업로드 중...');
-      
+      setUploadProgress("컨텐츠 이미지 업로드 중...");
+
       const imageUrl = await uploadBlogImage(valid[0]);
-      
+
       // Insert image markdown at cursor position or end of content
       const imageMarkdown = `\n![이미지 설명](${imageUrl})\n`;
-      const textarea = document.getElementById('content') as HTMLTextAreaElement;
-      
+      const textarea = document.getElementById(
+        "content"
+      ) as HTMLTextAreaElement;
+
       if (textarea) {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const currentContent = formData.content;
-        
-        const newContent = currentContent.substring(0, start) + 
-                          imageMarkdown + 
-                          currentContent.substring(end);
-        
-        setFormData(prev => ({
+
+        const newContent =
+          currentContent.substring(0, start) +
+          imageMarkdown +
+          currentContent.substring(end);
+
+        setFormData((prev) => ({
           ...prev,
-          content: newContent
+          content: newContent,
         }));
-        
+
         // Focus back to textarea and set cursor position
         setTimeout(() => {
           textarea.focus();
-          textarea.setSelectionRange(start + imageMarkdown.length, start + imageMarkdown.length);
+          textarea.setSelectionRange(
+            start + imageMarkdown.length,
+            start + imageMarkdown.length
+          );
         }, 100);
       } else {
         // Fallback: append to end
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          content: prev.content + imageMarkdown
+          content: prev.content + imageMarkdown,
         }));
       }
-      
-      setUploadProgress('');
+
+      setUploadProgress("");
     } catch (error) {
-      console.error('Content image upload failed:', error);
-      alert('이미지 업로드에 실패했습니다: ' + (error instanceof Error ? error.message : String(error)));
+      console.error("Content image upload failed:", error);
+      alert(
+        "이미지 업로드에 실패했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
     } finally {
       setUploading(false);
       if (contentImageInputRef.current) {
-        contentImageInputRef.current.value = '';
+        contentImageInputRef.current.value = "";
       }
     }
   };
 
   const handleRemoveFeaturedImage = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      featuredImage: ''
+      featuredImage: "",
     }));
   };
 
@@ -700,32 +769,85 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
   };
 
   const handleInsertHeader = () => {
-    const textarea = document.getElementById('content') as HTMLTextAreaElement;
-    
+    const textarea = document.getElementById("content") as HTMLTextAreaElement;
+
     if (textarea) {
+      // Save current scroll position to prevent jumping
+      const scrollTop = textarea.scrollTop;
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       const currentContent = formData.content;
-      
+
       // Check if we're at the beginning of a line or add a new line
       const beforeCursor = currentContent.substring(0, start);
-      const atLineStart = beforeCursor === '' || beforeCursor.endsWith('\n');
-      const headerText = atLineStart ? '# ' : '\n# ';
-      
-      const newContent = currentContent.substring(0, start) + 
-                        headerText + 
-                        currentContent.substring(end);
-      
-      setFormData(prev => ({
+      const atLineStart = beforeCursor === "" || beforeCursor.endsWith("\n");
+      const headerText = atLineStart ? "# " : "\n# ";
+
+      const newContent =
+        currentContent.substring(0, start) +
+        headerText +
+        currentContent.substring(end);
+
+      setFormData((prev) => ({
         ...prev,
-        content: newContent
+        content: newContent,
       }));
-      
+
       // Focus back to textarea and set cursor position after the header
       setTimeout(() => {
+        textarea.setSelectionRange(
+          start + headerText.length,
+          start + headerText.length
+        );
+        // Restore scroll position to prevent jumping to top
+        textarea.scrollTop = scrollTop;
         textarea.focus();
-        textarea.setSelectionRange(start + headerText.length, start + headerText.length);
-      }, 100);
+      }, 50);
+    }
+  };
+
+  const handleFormatText = (formatType: "bold" | "crimson") => {
+    const textarea = document.getElementById("content") as HTMLTextAreaElement;
+
+    if (textarea) {
+      const scrollTop = textarea.scrollTop;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const originalContent = formData.content;
+
+      // The segment of text that is actually selected by the user
+      const selectedText = originalContent.substring(start, end);
+
+      // Don't do anything if the selection is empty
+      if (!selectedText) {
+        // Or, we could insert placeholder text like before, but let's be safe.
+        return;
+      }
+
+      let formattedSelection = "";
+      if (formatType === "bold") {
+        formattedSelection = `**${selectedText}**`;
+      } else if (formatType === "crimson") {
+        formattedSelection = `<span style="color: crimson; font-weight: bold;">${selectedText}</span>`;
+      }
+
+      const newContent =
+        originalContent.substring(0, start) +
+        formattedSelection +
+        originalContent.substring(end);
+
+      setFormData((prev) => ({
+        ...prev,
+        content: newContent,
+      }));
+
+      // Restore focus and cursor position
+      setTimeout(() => {
+        const newCursorPos = start + formattedSelection.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.scrollTop = scrollTop;
+        textarea.focus();
+      }, 50);
     }
   };
 
@@ -733,9 +855,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     <EditorOverlay onClick={handleOverlayClick}>
       <EditorContainer>
         <EditorHeader>
-          <EditorTitle>
-            {post ? '포스트 편집' : '새 포스트 작성'}
-          </EditorTitle>
+          <EditorTitle>{post ? "포스트 편집" : "새 포스트 작성"}</EditorTitle>
         </EditorHeader>
 
         <EditorForm onSubmit={handleSubmit}>
@@ -783,10 +903,36 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
               >
                 🖼️ 이미지 삽입
               </ContentImageButton>
-              <HelpText style={{ margin: 0, fontSize: '0.75rem' }}>
-                헤더는 '# ' 형식으로, 이미지는 마크다운 형식으로 커서 위치에 삽입됩니다
+              <HelpText style={{ margin: 0, fontSize: "0.75rem" }}>
+                헤더는 '# ' 형식으로, 이미지는 마크다운 형식으로 커서 위치에
+                삽입됩니다
               </HelpText>
             </ContentImageControls>
+            <FormattingControls>
+              <FormatButton
+                type="button"
+                onClick={() => handleFormatText("bold")}
+                disabled={uploading}
+                title="굵은 텍스트"
+              >
+                <strong>B</strong>
+                굵게
+              </FormatButton>
+              <FormatButton
+                type="button"
+                onClick={() => handleFormatText("crimson")}
+                disabled={uploading}
+                title="빨간 굵은 텍스트"
+                style={{ color: "crimson" }}
+              >
+                <strong style={{ color: "crimson" }}>A</strong>
+                빨간색
+              </FormatButton>
+              <HelpText style={{ margin: 0, fontSize: "0.75rem" }}>
+                텍스트를 선택한 후 버튼을 클릭하거나, 버튼을 클릭하여 서식을
+                삽입하세요
+              </HelpText>
+            </FormattingControls>
             <ContentEditor
               id="content"
               name="content"
@@ -796,7 +942,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
               required
             />
             <CharCount>{formData.content.length} 글자</CharCount>
-            
+
             <HiddenFileInput
               ref={contentImageInputRef}
               type="file"
@@ -829,10 +975,13 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                 >
                   📁 파일 선택
                 </UploadButton>
-                
+
                 {formData.featuredImage && (
                   <ImagePreview>
-                    <img src={formData.featuredImage} alt="대표 이미지 미리보기" />
+                    <img
+                      src={formData.featuredImage}
+                      alt="대표 이미지 미리보기"
+                    />
                     <RemoveImageButton
                       type="button"
                       onClick={handleRemoveFeaturedImage}
@@ -842,7 +991,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                     </RemoveImageButton>
                   </ImagePreview>
                 )}
-                
+
                 <HiddenFileInput
                   ref={featuredImageInputRef}
                   type="file"
@@ -864,26 +1013,33 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
               placeholder="태그를 쉼표로 구분하여 입력하세요 (예: 영어학습, 비즈니스, 팁)"
             />
             <HelpText>
-              태그는 쉼표(,)로 구분하여 입력해주세요. 독자들이 관련 포스트를 찾는데 도움이 됩니다.
+              태그는 쉼표(,)로 구분하여 입력해주세요. 독자들이 관련 포스트를
+              찾는데 도움이 됩니다.
             </HelpText>
           </FormGroup>
 
-          {uploadProgress && (
-            <UploadProgress>
-              {uploadProgress}
-            </UploadProgress>
-          )}
+          {uploadProgress && <UploadProgress>{uploadProgress}</UploadProgress>}
 
           <ButtonGroup>
             <Button type="button" onClick={onCancel} disabled={uploading}>
               취소
             </Button>
-            <Button type="submit" $variant="primary" disabled={saving || uploading}>
-              {saving ? '저장 중...' : uploading ? '업로드 중...' : post ? '수정하기' : '발행하기'}
+            <Button
+              type="submit"
+              $variant="primary"
+              disabled={saving || uploading}
+            >
+              {saving
+                ? "저장 중..."
+                : uploading
+                ? "업로드 중..."
+                : post
+                ? "수정하기"
+                : "발행하기"}
             </Button>
           </ButtonGroup>
         </EditorForm>
       </EditorContainer>
     </EditorOverlay>
   );
-}; 
+};
