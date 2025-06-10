@@ -10,107 +10,110 @@ import {
 } from "../services/blog_service";
 import { useAuth } from "../../../shared/contexts/auth_context";
 import { BlogEditor } from "../components/blog_editor";
+import logoImage from "../../../shared/assets/1cup_logo.jpg";
 
-// Define colors for consistency
+// Define colors for consistency - Updated for more modern, crisp design
 const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
+  primary: "#1a1a1a",
+  primaryLight: "#333333",
+  primaryDark: "#000000",
+  primaryPale: "#f8f9fa",
+  primaryBg: "#ffffff",
+  accent: "#0066cc",
+  accentHover: "#0052a3",
   text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
+    dark: "#1a1a1a",
+    medium: "#4a5568",
+    light: "#718096",
   },
+  border: "#e2e8f0",
+  shadow: "rgba(0, 0, 0, 0.1)",
 };
 
 const DetailContainer = styled.div`
-  padding: 2rem 0;
-  font-family: "Noto Sans KR", sans-serif;
+  max-width: 960px;
+  padding: 2rem 0rem;
+  font-family: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.6;
 
   @media (max-width: 768px) {
-    padding: 1rem 0;
+    padding: 1.5rem 0rem;
   }
 `;
 
 const BackButton = styled.button`
-  background: ${colors.primaryPale};
-  color: ${colors.text.dark};
-  border: none;
-  border-radius: 25px;
-  padding: 0.6rem 1.25rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  font-family: "Noto Sans KR", sans-serif;
+  background: transparent;
+  color: ${colors.accent};
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   margin-bottom: 1.5rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
 
   &:hover {
-    background: ${colors.accent};
-    color: white;
-    transform: translateY(-1px);
+    background: ${colors.primaryPale};
+    border-color: ${colors.accent};
+    color: ${colors.accentHover};
   }
 
   @media (max-width: 768px) {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
     margin-bottom: 1.25rem;
   }
 `;
 
 const FeaturedImage = styled.div<{ $hasImage: boolean; $imageUrl?: string }>`
   width: 100%;
-  height: 350px;
+  height: 400px;
   background: ${(props) =>
     props.$hasImage && props.$imageUrl
       ? `url(${props.$imageUrl}) center/cover`
-      : `linear-gradient(135deg, ${colors.accent} 0%, ${colors.primary} 100%)`};
-  border-radius: 16px;
+      : `linear-gradient(135deg, ${colors.primaryPale} 0%, ${colors.border} 100%)`};
+  border-radius: 8px;
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  border: 1px solid ${colors.border};
 
   @media (max-width: 768px) {
-    height: 220px;
-    border-radius: 14px;
+    height: 250px;
     margin-bottom: 1.25rem;
   }
 `;
 
 const ImagePlaceholder = styled.div`
-  color: white;
-  font-size: 4rem;
+  color: ${colors.text.light};
+  font-size: 3rem;
   font-weight: 300;
-  opacity: 0.8;
 
   @media (max-width: 768px) {
-    font-size: 3rem;
+    font-size: 2.5rem;
   }
 `;
 
 const StatusBadge = styled.div<{ $status: string }>`
   position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 0.9rem;
+  top: 12px;
+  right: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
   color: white;
   background: ${(props) => {
     switch (props.$status) {
       case "published":
-        return "#22c55e";
+        return "#10b981";
       case "draft":
         return "#f59e0b";
       case "archived":
@@ -119,187 +122,168 @@ const StatusBadge = styled.div<{ $status: string }>`
         return "#6b7280";
     }
   }};
-
-  @media (max-width: 768px) {
-    font-size: 0.8rem;
-    padding: 4px 12px;
-  }
 `;
 
 const PostHeader = styled.header`
   margin-bottom: 1.5rem;
-
-  @media (max-width: 768px) {
-    margin-bottom: 1.25rem;
-  }
+  border-bottom: 1px solid ${colors.border};
+  padding-bottom: 1.25rem;
 `;
 
 const PostTitle = styled.h1`
-  font-size: 2.2rem;
+  font-size: 2.5rem;
   font-weight: 800;
   color: ${colors.text.dark};
   margin-bottom: 0.75rem;
-  line-height: 1.25;
-  font-family: "Noto Sans KR", sans-serif;
+  line-height: 1.2;
+  font-family: inherit;
+  letter-spacing: -0.02em;
 
   @media (max-width: 768px) {
-    font-size: 1.8rem;
+    font-size: 2rem;
     margin-bottom: 0.6rem;
-    line-height: 1.3;
   }
 `;
 
 const PostMeta = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid ${colors.primaryPale};
-  font-family: "Noto Sans KR", sans-serif;
+  gap: 0.5rem;
+  margin: 1.5rem 0 0 0;
+  color: ${colors.text.medium};
+`;
 
+const AuthorAvatar = styled.img`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid ${colors.border};
+  
   @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 0.4rem;
-    align-items: flex-start;
-    margin-bottom: 0.6rem;
-    padding-bottom: 0.6rem;
+    width: 36px;
+    height: 36px;
   }
 `;
 
 const AuthorInfo = styled.div`
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: ${colors.text.medium};
+  flex-direction: column;
+  flex: 1;
+`;
+
+const AuthorName = styled.span`
   font-size: 0.95rem;
-  font-family: "Noto Sans KR", sans-serif;
-  font-weight: 500;
+  font-weight: 600;
+  color: ${colors.text.dark};
+  
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const PostDate = styled.span`
   color: ${colors.text.light};
   font-size: 0.85rem;
-  font-family: "Noto Sans KR", sans-serif;
   font-weight: 400;
+  
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+  }
 `;
 
 const TagsContainer = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 1.25rem;
-
-  @media (max-width: 768px) {
-    margin-bottom: 1rem;
-    gap: 0.3rem;
-  }
 `;
 
 const Tag = styled.span`
   background: ${colors.primaryPale};
   color: ${colors.text.medium};
-  padding: 0.3rem 0.8rem;
-  border-radius: 16px;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
   font-size: 0.8rem;
   font-weight: 500;
-  font-family: "Noto Sans KR", sans-serif;
-
-  @media (max-width: 768px) {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.7rem;
-    border-radius: 14px;
-  }
+  border: 1px solid ${colors.border};
 `;
 
 const PostContent = styled.div`
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   line-height: 1.7;
   color: ${colors.text.dark};
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
   margin-bottom: 1.5rem;
 
-  /* Markdown styles */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-family: "Noto Sans KR", sans-serif;
+  /* Enhanced typography styles */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: inherit;
     color: ${colors.text.dark};
-    margin: 1rem 0 0 0;
+    margin: 1.5rem 0 0.75rem 0;
     font-weight: 700;
     line-height: 1.3;
+    letter-spacing: -0.01em;
   }
 
-  h1 {
-    font-size: 1.8rem;
-  }
-  h2 {
-    font-size: 1.6rem;
-  }
-  h3 {
-    font-size: 1.4rem;
-  }
-  h4 {
-    font-size: 1.2rem;
-  }
-  h5 {
-    font-size: 1.1rem;
-  }
-  h6 {
-    font-size: 1rem;
+  h1 { font-size: 2rem; font-weight: 800; }
+  h2 { font-size: 1.75rem; font-weight: 700; }
+  h3 { font-size: 1.5rem; font-weight: 600; }
+  h4 { font-size: 1.25rem; font-weight: 600; }
+  h5 { font-size: 1.125rem; font-weight: 600; }
+  h6 { font-size: 1rem; font-weight: 600; }
+
+  /* First paragraph after heading has no top margin */
+  h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
+    margin-top: 0.4rem;
   }
 
   p {
     margin-bottom: 1.25rem;
-    font-family: "Noto Sans KR", sans-serif;
+    font-family: inherit;
+  }
+
+  /* Enhanced bold text styling */
+  strong, b {
+    font-weight: 700;
+    color: ${colors.text.dark};
   }
 
   img {
     max-width: 60%;
     height: auto;
-    border-radius: 10px;
+    border-radius: 8px;
     margin: 1.5rem auto;
-    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px ${colors.shadow};
     display: block;
     cursor: pointer;
     transition: transform 0.2s ease;
+    border: 1px solid ${colors.border};
 
-    /* Size options via class names */
-    &.size-small {
-      max-width: 40%;
-    }
-    &.size-medium {
-      max-width: 60%;
-    }
-    &.size-large {
-      max-width: 80%;
-    }
-    &.size-full {
-      max-width: 100%;
-    }
+    &.size-small { max-width: 40%; }
+    &.size-medium { max-width: 60%; }
+    &.size-large { max-width: 80%; }
+    &.size-full { max-width: 100%; }
 
     &:hover {
       transform: scale(1.02);
+      box-shadow: 0 8px 20px ${colors.shadow};
     }
   }
 
   blockquote {
-    border-left: 3px solid ${colors.accent};
-    padding-left: 1.25rem;
+    border-left: 4px solid ${colors.accent};
+    padding-left: 1.5rem;
     margin: 1.5rem 0;
     font-style: italic;
     color: ${colors.text.medium};
-    font-family: "Noto Sans KR", sans-serif;
+    background: ${colors.primaryPale};
+    padding: 0.75rem 1.5rem;
+    border-radius: 0 4px 4px 0;
   }
 
-  ul,
-  ol {
+  ul, ol {
     padding-left: 1.5rem;
     margin-bottom: 1.25rem;
-    font-family: "Noto Sans KR", sans-serif;
   }
 
   li {
@@ -307,46 +291,40 @@ const PostContent = styled.div`
   }
 
   code {
-    background: ${colors.primaryBg};
-    padding: 0.2rem 0.4rem;
+    background: ${colors.primaryPale};
+    padding: 0.25rem 0.5rem;
     border-radius: 4px;
-    font-family: "Monaco", "Consolas", monospace;
+    font-family: "JetBrains Mono", "Monaco", "Consolas", monospace;
     font-size: 0.9em;
+    border: 1px solid ${colors.border};
   }
 
   pre {
-    background: ${colors.primaryBg};
+    background: ${colors.primaryPale};
     padding: 1.25rem;
     border-radius: 8px;
     overflow-x: auto;
-    margin: 1.25rem 0;
-    border: 1px solid ${colors.primaryPale};
+    margin: 1.5rem 0;
+    border: 1px solid ${colors.border};
+    font-family: "JetBrains Mono", "Monaco", "Consolas", monospace;
+  }
+
+  /* Better spacing for br tags */
+  br {
+    line-height: 1.8;
   }
 
   @media (max-width: 768px) {
     font-size: 1rem;
-    line-height: 1.6;
     margin-bottom: 1.25rem;
+    
+    h1 { font-size: 1.75rem; }
+    h2 { font-size: 1.5rem; }
+    h3 { font-size: 1.25rem; }
+    h4 { font-size: 1.125rem; }
+    h5, h6 { font-size: 1rem; }
 
-    h1 {
-      font-size: 1.6rem;
-      margin: 1.25rem 0 0.6rem 0;
-    }
-    h2 {
-      font-size: 1.4rem;
-      margin: 1.25rem 0 0.6rem 0;
-    }
-    h3 {
-      font-size: 1.2rem;
-      margin: 1.25rem 0 0.6rem 0;
-    }
-    h4 {
-      font-size: 1.1rem;
-      margin: 1.25rem 0 0.6rem 0;
-    }
-    h5,
-    h6 {
-      font-size: 1rem;
+    h1, h2, h3, h4, h5, h6 {
       margin: 1.25rem 0 0.6rem 0;
     }
 
@@ -355,37 +333,27 @@ const PostContent = styled.div`
     }
 
     img {
+      max-width: 80%;
       margin: 1.25rem auto;
-      max-width: 80%; /* Larger on mobile for better readability */
 
-      &.size-small {
-        max-width: 60%;
-      }
-      &.size-medium {
-        max-width: 80%;
-      }
-      &.size-large {
-        max-width: 95%;
-      }
-      &.size-full {
-        max-width: 100%;
-      }
+      &.size-small { max-width: 60%; }
+      &.size-medium { max-width: 80%; }
+      &.size-large { max-width: 95%; }
+      &.size-full { max-width: 100%; }
     }
 
     blockquote {
-      padding-left: 1rem;
+      padding: 0.6rem 1rem;
       margin: 1.25rem 0;
     }
 
-    ul,
-    ol {
-      padding-left: 1.25rem;
+    ul, ol {
       margin-bottom: 1rem;
     }
 
     pre {
       padding: 1rem;
-      margin: 1rem 0;
+      margin: 1.25rem 0;
     }
   }
 `;
@@ -395,17 +363,17 @@ const LoadingState = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 50vh;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   color: ${colors.text.medium};
 `;
 
 const ErrorState = styled.div`
   text-align: center;
   padding: 2rem;
-  color: #dc3545;
-  background: #fff5f5;
-  border-radius: 12px;
-  border: 1px solid #f5c6cb;
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
   margin: 2rem 0;
 `;
 
@@ -420,21 +388,16 @@ const gradientShine = keyframes`
 `;
 
 const CTASection = styled.div`
-  margin: 3rem 0 2rem 0;
-  padding: 2rem;
-  background: linear-gradient(
-    135deg,
-    ${colors.primaryBg} 0%,
-    ${colors.primaryPale} 100%
-  );
-  border-radius: 16px;
-  border: 1px solid ${colors.primaryPale};
+  margin: 2rem 0;
+  padding: 1.75rem;
+  background: linear-gradient(135deg, ${colors.primaryBg} 0%, ${colors.primaryPale} 100%);
+  border-radius: 20px;
+  border: 1px solid ${colors.border};
   text-align: center;
 
   @media (max-width: 768px) {
-    margin: 2rem 0 1.5rem 0;
+    margin: 1.5rem 0;
     padding: 1.5rem;
-    border-radius: 12px;
   }
 `;
 
@@ -442,30 +405,31 @@ const CTATitle = styled.h3`
   font-size: 1.4rem;
   font-weight: 700;
   color: ${colors.text.dark};
-  margin-bottom: 0.75rem;
-  font-family: "Noto Sans KR", sans-serif;
+  margin-bottom: 0.6rem;
+  font-family: inherit;
+  letter-spacing: -0.01em;
 
   @media (max-width: 768px) {
-    font-size: 1.2rem;
-    margin-bottom: 0.6rem;
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
   }
 `;
 
 const CTADescription = styled.p`
   font-size: 1rem;
   color: ${colors.text.medium};
-  margin-bottom: 1.5rem;
-  line-height: 1.5;
-  font-family: "Noto Sans KR", sans-serif;
+  margin-bottom: 1.25rem;
+  line-height: 1.6;
+  font-family: inherit;
 
   @media (max-width: 768px) {
     font-size: 0.9rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
   }
 `;
 
 const CTAButton = styled.button`
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 20px;
   font-size: 16px;
@@ -479,7 +443,7 @@ const CTAButton = styled.button`
   position: relative;
   overflow: hidden;
   color: white;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
 
   /* Gradient background similar to event detail join button */
   background: linear-gradient(
@@ -519,11 +483,12 @@ const AdminControls = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid ${colors.border};
 
   @media (max-width: 768px) {
     justify-content: center;
-    margin-bottom: 1.25rem;
   }
 `;
 
@@ -531,39 +496,30 @@ const AdminButton = styled.button`
   background: ${colors.primary};
   color: white;
   border: none;
-  border-radius: 25px;
-  padding: 10px 20px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  font-family: "Noto Sans KR", sans-serif;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 3px 10px rgba(44, 24, 16, 0.2);
+  gap: 0.5rem;
+  box-shadow: 0 2px 4px ${colors.shadow};
 
   &:hover {
     background: ${colors.primaryLight};
     transform: translateY(-1px);
-    box-shadow: 0 5px 15px rgba(44, 24, 16, 0.3);
+    box-shadow: 0 4px 8px ${colors.shadow};
   }
 
   &.delete {
-    background: #dc3545;
+    background: #dc2626;
 
     &:hover {
-      background: #c82333;
+      background: #b91c1c;
     }
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  @media (max-width: 768px) {
-    padding: 8px 16px;
-    font-size: 0.9rem;
   }
 `;
 
@@ -674,7 +630,7 @@ export default function BlogDetail() {
   };
 
   const renderContent = (content: string) => {
-    // Enhanced markdown-like rendering
+    // Enhanced markdown-like rendering with better bold text handling
     let processedContent = content
       // Normalize quad-asterisks to double-asterisks, but only if they surround content
       .replace(/\*{4}([\s\S]+?)\*{4}/g, "**$1**")
@@ -690,15 +646,15 @@ export default function BlogDetail() {
         '<img alt="$1" src="$2" class="size-medium" />'
       );
 
-    // Convert newlines to <br />
-    processedContent = processedContent.replace(/\n/g, "<br />");
-
-    // Support for bold text: **text**
+    // Support for bold text with heavy font weight: **text**
     // This regex ensures that it doesn't accidentally match parts of HTML tags
     processedContent = processedContent.replace(
-      /\*\*(\S(?:[\s\S]*?\S)?)\*\*/g,
+      /\*\*([^*\n]+?)\*\*/g,
       "<strong>$1</strong>"
     );
+
+    // Convert newlines to <br /> after processing other markdown
+    processedContent = processedContent.replace(/\n/g, "<br />");
 
     return processedContent;
   };
@@ -737,10 +693,11 @@ export default function BlogDetail() {
       <PostHeader>
         <PostTitle>{post.title}</PostTitle>
         <PostMeta>
+          <AuthorAvatar src={logoImage} alt="영어 한잔 로고" />
           <AuthorInfo>
-            <span>by 영어 한잔</span>
+            <AuthorName>영어 한잔 운영진</AuthorName>
+            <PostDate>{formatDate(post.publishedAt || post.createdAt)}</PostDate>
           </AuthorInfo>
-          <PostDate>{formatDate(post.publishedAt || post.createdAt)}</PostDate>
         </PostMeta>
 
         {post.tags && post.tags.length > 0 && (
