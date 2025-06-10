@@ -32,20 +32,16 @@ const colors = {
 
 const DetailContainer = styled.div`
   max-width: 960px;
-  padding: 2rem 0rem;
+  padding: 1.5rem 0rem;
   font-family: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.6;
-
-  @media (max-width: 768px) {
-    padding: 1.5rem 0rem;
-  }
 `;
 
 const BackButton = styled.button`
   background: transparent;
-  color: ${colors.accent};
+  color: #424242;
   border: 1px solid ${colors.border};
-  border-radius: 6px;
+  border-radius: 12px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   font-weight: 500;
@@ -127,14 +123,14 @@ const StatusBadge = styled.div<{ $status: string }>`
 const PostHeader = styled.header`
   margin-bottom: 1.5rem;
   border-bottom: 1px solid ${colors.border};
-  padding-bottom: 1.25rem;
+  padding-bottom: 1.5rem;
 `;
 
 const PostTitle = styled.h1`
   font-size: 2.5rem;
   font-weight: 800;
   color: ${colors.text.dark};
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
   line-height: 1.2;
   font-family: inherit;
   letter-spacing: -0.02em;
@@ -219,7 +215,7 @@ const PostContent = styled.div`
   h1, h2, h3, h4, h5, h6 {
     font-family: inherit;
     color: ${colors.text.dark};
-    margin: 1.5rem 0 0.75rem 0;
+    margin: 0.75rem 0 0.25rem 0;
     font-weight: 700;
     line-height: 1.3;
     letter-spacing: -0.01em;
@@ -325,11 +321,11 @@ const PostContent = styled.div`
     h5, h6 { font-size: 1rem; }
 
     h1, h2, h3, h4, h5, h6 {
-      margin: 1.25rem 0 0.6rem 0;
+      margin: 0.5rem 0 0.15rem 0;
     }
 
     p {
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
     }
 
     img {
