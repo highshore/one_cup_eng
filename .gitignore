@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Next.js build output
+.next/
+out/
+*.tsbuildinfo
+
+# Firebase Functions build output
+functions/.next/
+functions/out/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,5 +1,5 @@
 import React from "react";
-import StyledComponentsRegistry from "../lib/registry";
+import StyledComponentsRegistry from "./lib/styled-components/registry";
 import AuthProvider from "./lib/contexts/auth_context";
 import GlobalStyles from "./lib/components/GlobalStyles";
 
