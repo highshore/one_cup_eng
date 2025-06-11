@@ -2,6 +2,7 @@ import React from "react";
 import StyledComponentsRegistry from "./lib/styled-components/registry";
 import AuthProvider from "./lib/contexts/auth_context";
 import GlobalStyles from "./lib/components/GlobalStyles";
+import MainLayoutWrapper from "./lib/components/MainLayoutWrapper";
 
 export const metadata = {
   title: "영어 한잔 - 1 Cup English",
@@ -43,7 +44,9 @@ export default function RootLayout({
       <body suppressHydrationWarning={true}>
         <StyledComponentsRegistry>
           <GlobalStyles />
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <MainLayoutWrapper>{children}</MainLayoutWrapper>
+          </AuthProvider>
         </StyledComponentsRegistry>
       </body>
     </html>

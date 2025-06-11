@@ -2,9 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import styled from "styled-components";
-import GNB from "../lib/components/gnb";
-import Footer from "../lib/components/footer";
-import { GnbProvider } from "../lib/contexts/gnb_context";
+import GNB from "./gnb";
+import Footer from "./footer";
+import { GnbProvider } from "../contexts/gnb_context";
 
 const LayoutWrapper = styled.div`
   min-height: 100vh;
@@ -30,7 +30,7 @@ const PageContainer = styled.div<{ $isHomePage: boolean }>`
   }
 `;
 
-export default function MainLayout({
+export default function MainLayoutWrapper({
   children,
 }: {
   children: React.ReactNode;
