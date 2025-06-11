@@ -36,7 +36,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isHomePage = pathname === "/home";
+  const isHomePage = pathname === "/";
 
   return (
     <GnbProvider>
