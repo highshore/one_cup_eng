@@ -820,12 +820,12 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
 
       // Don't do anything if the selection is empty
       if (!selectedText) {
-        // Or, we could insert placeholder text like before, but let's be safe.
         return;
       }
 
       let formattedSelection = "";
       if (formatType === "bold") {
+        // Make sure to format as **text** without any extra line breaks
         formattedSelection = `**${selectedText}**`;
       } else if (formatType === "crimson") {
         formattedSelection = `<span style="color: crimson; font-weight: bold;">${selectedText}</span>`;
@@ -841,7 +841,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
         content: newContent,
       }));
 
-      // Restore focus and cursor position
+      // Restore focus and cursor position - place cursor right after the formatted text
       setTimeout(() => {
         const newCursorPos = start + formattedSelection.length;
         textarea.setSelectionRange(newCursorPos, newCursorPos);
