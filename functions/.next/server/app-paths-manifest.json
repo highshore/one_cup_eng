@@ -1,0 +1,20 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/page": "app/auth/page.js",
+  "/page": "app/page.js",
+  "/(main)/article/[articleId]/page": "app/(main)/article/[articleId]/page.js",
+  "/(main)/home/page": "app/(main)/home/page.js",
+  "/(main)/meetup/[id]/page": "app/(main)/meetup/[id]/page.js",
+  "/(main)/meetup/page": "app/(main)/meetup/page.js",
+  "/(main)/blog/page": "app/(main)/blog/page.js",
+  "/(main)/guide/page": "app/(main)/guide/page.js",
+  "/(main)/policy/[type]/page": "app/(main)/policy/[type]/page.js",
+  "/(main)/page": "app/(main)/page.js",
+  "/(main)/admin/page": "app/(main)/admin/page.js",
+  "/(main)/shadow/page": "app/(main)/shadow/page.js",
+  "/(main)/blog/[id]/page": "app/(main)/blog/[id]/page.js",
+  "/(main)/payment/result/page": "app/(main)/payment/result/page.js",
+  "/(main)/payment/page": "app/(main)/payment/page.js",
+  "/(main)/library/page": "app/(main)/library/page.js",
+  "/(main)/profile/page": "app/(main)/profile/page.js"
+}

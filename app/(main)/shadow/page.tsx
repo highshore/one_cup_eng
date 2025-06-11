@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import ShadowClient from "./ShadowClient";
+import ClientWrapper from "./ClientWrapper";
 
 export const metadata: Metadata = {
   title: "Shadow Learning | OneCup English",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function ShadowPage() {
-  return <ShadowClient />;
+  return <ClientWrapper />;
 }

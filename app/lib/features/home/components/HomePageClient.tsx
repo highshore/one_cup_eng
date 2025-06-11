@@ -617,15 +617,25 @@ const CaveatText = styled.p`
   }
 `;
 
-export default function HomePageClient() {
+interface HomePageClientProps {
+  initialUpcomingEvents?: MeetupEvent[];
+}
+
+export default function HomePageClient({
+  initialUpcomingEvents,
+}: HomePageClientProps) {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
   const { setIsTransparent } = useGnb();
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
 
-  const [closestEvent, setClosestEvent] = useState<MeetupEvent | null>(null);
-  const [loadingEvent, setLoadingEvent] = useState(true);
+  const [closestEvent, setClosestEvent] = useState<MeetupEvent | null>(
+    initialUpcomingEvents && initialUpcomingEvents.length > 0
+      ? initialUpcomingEvents[0]
+      : null
+  );
+  const [loadingEvent, setLoadingEvent] = useState(!initialUpcomingEvents);
 
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -671,6 +681,11 @@ export default function HomePageClient() {
 
   // Effect to fetch upcoming events
   useEffect(() => {
+    // If we already have initial events, don't fetch again
+    if (initialUpcomingEvents && initialUpcomingEvents.length > 0) {
+      return;
+    }
+
     const loadClosestEvent = async () => {
       try {
         setLoadingEvent(true);
@@ -686,7 +701,7 @@ export default function HomePageClient() {
       }
     };
     loadClosestEvent();
-  }, []);
+  }, [initialUpcomingEvents]);
 
   const toggleFAQ = (index: number) => {
     setOpenFAQ(openFAQ === index ? null : index);

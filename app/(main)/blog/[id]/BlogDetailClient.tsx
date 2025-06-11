@@ -587,18 +587,29 @@ const AdminButton = styled.button`
   }
 `;
 
-export default function BlogDetailClient() {
+interface BlogDetailClientProps {
+  initialPost?: BlogPost | null;
+}
+
+export default function BlogDetailClient({
+  initialPost,
+}: BlogDetailClientProps) {
   const { id: postId } = useParams<{ id: string }>();
   const router = useRouter();
   const { accountStatus } = useAuth();
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [post, setPost] = useState<BlogPost | null>(initialPost || null);
+  const [loading, setLoading] = useState(!initialPost);
   const [error, setError] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
 
   const isAdmin = accountStatus === "admin";
 
   useEffect(() => {
+    // If we already have initial post data, don't fetch again unless user is admin
+    if (initialPost && !isAdmin) {
+      return;
+    }
+
     const loadPost = async () => {
       if (!postId) {
         setError("포스트 ID가 없습니다.");
@@ -628,7 +639,7 @@ export default function BlogDetailClient() {
     };
 
     loadPost();
-  }, [postId, isAdmin]);
+  }, [postId, isAdmin, initialPost]);
 
   const handleBack = () => {
     router.push("/blog");

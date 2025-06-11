@@ -159,7 +159,12 @@ export const searchNaverLocal = onRequest(
         return;
       }
 
-      const { query, display = "5", start = "1", sort = "random" } = request.query;
+      const {
+        query,
+        display = "5",
+        start = "1",
+        sort = "random",
+      } = request.query;
 
       if (!query || typeof query !== "string") {
         logger.warn("Missing or invalid query parameter.");
@@ -174,18 +179,33 @@ export const searchNaverLocal = onRequest(
       const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
       if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-        logger.error("Naver API credentials not found in Firebase Function environment variables.", {id: !!NAVER_CLIENT_ID, secret: !!NAVER_CLIENT_SECRET });
-        response.status(500).send("API credentials configuration error. Check Firebase Function environment variables.");
+        logger.error(
+          "Naver API credentials not found in Firebase Function environment variables.",
+          { id: !!NAVER_CLIENT_ID, secret: !!NAVER_CLIENT_SECRET }
+        );
+        response
+          .status(500)
+          .send(
+            "API credentials configuration error. Check Firebase Function environment variables."
+          );
         return;
       }
 
-      const apiUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(query)}&display=${display}&start=${start}&sort=${sort}`;
+      const apiUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(
+        query
+      )}&display=${display}&start=${start}&sort=${sort}`;
 
       try {
-        logger.info(`Calling Naver API: ${apiUrl} with client ID: ${NAVER_CLIENT_ID ? NAVER_CLIENT_ID.substring(0,4) + '...': 'MISSING'}`);
-        
+        logger.info(
+          `Calling Naver API: ${apiUrl} with client ID: ${
+            NAVER_CLIENT_ID
+              ? NAVER_CLIENT_ID.substring(0, 4) + "..."
+              : "MISSING"
+          }`
+        );
+
         const fetch = (await import("node-fetch")).default;
-        
+
         const naverResponse = await fetch(apiUrl, {
           method: "GET",
           headers: {
@@ -196,12 +216,18 @@ export const searchNaverLocal = onRequest(
 
         if (naverResponse.ok) {
           const data = await naverResponse.json();
-          logger.info(`Successfully fetched ${data.items?.length || 0} results from Naver API`);
+          logger.info(
+            `Successfully fetched ${
+              data.items?.length || 0
+            } results from Naver API`
+          );
           response.status(200).json(data);
         } else {
           const errorText = await naverResponse.text();
           logger.error("Naver API Error:", naverResponse.status, errorText);
-          response.status(naverResponse.status).send(`Naver API Error: ${errorText}`);
+          response
+            .status(naverResponse.status)
+            .send(`Naver API Error: ${errorText}`);
         }
       } catch (error: any) {
         logger.error("Error calling Naver API:", error);

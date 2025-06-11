@@ -1,0 +1,21 @@
+1:"$Sreact.fragment"
+2:I[63681,["992","static/chunks/bc9e92e6-88dc2c29e5777e11.js","888","static/chunks/2e5b0c64-aeed0ee072bcaca0.js","262","static/chunks/262-7a9d3d16c958e2f7.js","432","static/chunks/432-2a226cba9118457a.js","177","static/chunks/app/layout-00e9f856d985a2f8.js"],"default"]
+3:I[61854,["992","static/chunks/bc9e92e6-88dc2c29e5777e11.js","888","static/chunks/2e5b0c64-aeed0ee072bcaca0.js","262","static/chunks/262-7a9d3d16c958e2f7.js","432","static/chunks/432-2a226cba9118457a.js","177","static/chunks/app/layout-00e9f856d985a2f8.js"],"default"]
+4:I[62269,["992","static/chunks/bc9e92e6-88dc2c29e5777e11.js","888","static/chunks/2e5b0c64-aeed0ee072bcaca0.js","262","static/chunks/262-7a9d3d16c958e2f7.js","432","static/chunks/432-2a226cba9118457a.js","177","static/chunks/app/layout-00e9f856d985a2f8.js"],"default"]
+5:I[87555,[],""]
+6:I[31295,[],""]
+8:I[59665,[],"MetadataBoundary"]
+a:I[59665,[],"OutletBoundary"]
+d:I[74911,[],"AsyncMetadataOutlet"]
+f:I[59665,[],"ViewportBoundary"]
+11:I[26614,[],""]
+0:{"P":null,"b":"I3shYdzNiBq2tdDSyploB","p":"","c":["",""],"i":false,"f":[[["",{"children":["__PAGE__",{}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[null,["$","html",null,{"lang":"ko","children":[["$","head",null,{"children":[["$","meta",null,{"charSet":"utf-8"}],["$","meta",null,{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","body",null,{"suppressHydrationWarning":true,"children":["$","$L2",null,{"children":[["$","$L3",null,{}],["$","$L4",null,{"children":["$","$L5",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L6",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]]}]}]]}]]}],{"children":["__PAGE__",["$","$1","c",{"children":["$L7",["$","$L8",null,{"children":"$L9"}],null,["$","$La",null,{"children":["$Lb","$Lc",["$","$Ld",null,{"promise":"$@e"}]]}]]}],{},null,false]},null,false],["$","$1","h",{"children":[null,["$","$1","4nCzHYbZPCh7VKjHFwqGg",{"children":[["$","$Lf",null,{"children":"$L10"}],null]}],null]}],false]],"m":"$undefined","G":["$11","$undefined"],"s":false,"S":true}
+7:E{"digest":"NEXT_REDIRECT;replace;/home;307;"}
+12:"$Sreact.suspense"
+13:I[74911,[],"AsyncMetadata"]
+9:["$","$12",null,{"fallback":null,"children":["$","$L13",null,{"promise":"$@14"}]}]
+c:null
+10:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+b:null
+14:{"metadata":[["$","title","0",{"children":"영어 한잔 - 1 Cup English"}],["$","meta","1",{"name":"description","content":"통역사 출신이 개발한 비즈니스 영어 습관 형성 서비스"}],["$","link","2",{"rel":"icon","href":"/images/logos/1cup_logo.jpg","sizes":"32x32","type":"image/jpeg"}],["$","link","3",{"rel":"icon","href":"/images/logos/1cup_logo.jpg","sizes":"16x16","type":"image/jpeg"}],["$","link","4",{"rel":"apple-touch-icon","href":"/images/logos/1cup_logo.jpg","sizes":"180x180","type":"image/jpeg"}]],"error":null,"digest":"$undefined"}
+e:{"metadata":"$14:metadata","error":null,"digest":"$undefined"}

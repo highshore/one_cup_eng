@@ -1,0 +1,20 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/auth/page": "/auth",
+  "/page": "/",
+  "/(main)/article/[articleId]/page": "/article/[articleId]",
+  "/(main)/home/page": "/home",
+  "/(main)/meetup/[id]/page": "/meetup/[id]",
+  "/(main)/meetup/page": "/meetup",
+  "/(main)/blog/page": "/blog",
+  "/(main)/guide/page": "/guide",
+  "/(main)/policy/[type]/page": "/policy/[type]",
+  "/(main)/page": "/",
+  "/(main)/admin/page": "/admin",
+  "/(main)/shadow/page": "/shadow",
+  "/(main)/blog/[id]/page": "/blog/[id]",
+  "/(main)/payment/result/page": "/payment/result",
+  "/(main)/payment/page": "/payment",
+  "/(main)/library/page": "/library",
+  "/(main)/profile/page": "/profile"
+}
