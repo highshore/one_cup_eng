@@ -1,4 +1,6 @@
 import React from "react";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import StyledComponentsRegistry from "./lib/styled-components/registry";
 import AuthProvider from "./lib/contexts/auth_context";
 import GlobalStyles from "./lib/components/GlobalStyles";
@@ -48,6 +50,8 @@ export default function RootLayout({
             <ConditionalLayoutWrapper>{children}</ConditionalLayoutWrapper>
           </AuthProvider>
         </StyledComponentsRegistry>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -20,6 +20,8 @@
   "dependencies": {
     "@speechmatics/real-time-client": "^6.0.0",
     "@types/react-lottie": "^1.2.10",
+    "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.8.4",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
