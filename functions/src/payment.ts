@@ -260,11 +260,17 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
               .replace(/^\+82/, "0")
               .replace(/\D/g, "");
 
-            // Get just the last 8 digits
-            payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
-            logger.debug(
-              `Using phone from Auth (last 8 digits): ${payerPhoneNumber}`
-            );
+            // Ensure the phone number is in the correct format
+            if (payerPhoneNumber.length >= 10) {
+              // Keep full phone number if it's valid (010xxxxxxxx)
+              logger.debug(`Using full phone from Auth: ${payerPhoneNumber}`);
+            } else {
+              // Get just the last 8 digits and pad if needed
+              payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
+              logger.debug(
+                `Using phone from Auth (last 8 digits): ${payerPhoneNumber}`
+              );
+            }
           }
 
           if (authUser.displayName && authUser.displayName.trim() !== "") {
@@ -281,10 +287,17 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
             payerPhoneNumber = userData.phone
               .replace(/^\+82/, "0")
               .replace(/\D/g, "");
-            payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
-            logger.debug(
-              `Using phone from Firestore as fallback (last 8 digits): ${payerPhoneNumber}`
-            );
+
+            if (payerPhoneNumber.length >= 10) {
+              logger.debug(
+                `Using full phone from Firestore as fallback: ${payerPhoneNumber}`
+              );
+            } else {
+              payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
+              logger.debug(
+                `Using phone from Firestore as fallback (last 8 digits): ${payerPhoneNumber}`
+              );
+            }
           }
 
           if (userData?.name) {
@@ -295,12 +308,19 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
           }
         }
       } else {
-        // Format the provided phone number and take last 8 digits
+        // Format the provided phone number
         payerPhoneNumber = payerPhoneNumber.replace(/\D/g, "");
-        payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
-        logger.debug(
-          `Using phone from request data (last 8 digits): ${payerPhoneNumber}`
-        );
+
+        if (payerPhoneNumber.length >= 10) {
+          logger.debug(
+            `Using full phone from request data: ${payerPhoneNumber}`
+          );
+        } else {
+          payerPhoneNumber = payerPhoneNumber.slice(-8).padStart(8, "0");
+          logger.debug(
+            `Using phone from request data (last 8 digits): ${payerPhoneNumber}`
+          );
+        }
       }
 
       // Last resort fallback for phone number - generate a numeric value based on timestamp
@@ -342,8 +362,8 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         PCD_PAY_YEAR: orderDate.getFullYear().toString(),
         PCD_PAY_MONTH: orderMonth,
 
-        // Customer details
-        PCD_PAYER_NO: payerPhoneNumber,
+        // Customer details - use user ID for consistency
+        PCD_PAYER_NO: request.auth.uid,
         PCD_PAYER_NAME: displayName,
         PCD_PAYER_EMAIL: email,
         PCD_PAYER_HP: payerPhoneNumber,
@@ -921,8 +941,8 @@ export const processRecurringPayments = onSchedule(
             PCD_PAY_TOTAL: userSpecificPrice, // << USE DYNAMIC PRICE
             PCD_PAY_OID: orderNumber, // 주문번호
 
-            // Optional parameters for better tracking - using numeric values for required fields
-            PCD_PAYER_NO: Date.now(), // Generate a numeric ID based on timestamp
+            // Optional parameters for better tracking - use consistent user ID
+            PCD_PAYER_NO: userId, // Use consistent user ID
             PCD_PAY_YEAR: new Date().getFullYear().toString(), // 결제 년도
             PCD_PAY_MONTH: (new Date().getMonth() + 1)
               .toString()
@@ -1522,7 +1542,7 @@ export const paymentCallback = onRequest(
       redirectParams.append("payment_id", paymentId);
 
       // Redirect to the frontend result page with the payment data as query parameters
-      const frontendUrl = `https://1cupenglish.com/payment-result?${redirectParams.toString()}`;
+      const frontendUrl = `https://1cupenglish.com/payment/result?${redirectParams.toString()}`;
 
       logger.info(`Redirecting to: ${frontendUrl}`);
       res.redirect(303, frontendUrl);

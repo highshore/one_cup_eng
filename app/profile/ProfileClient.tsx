@@ -1,7 +1,7 @@
 "use client";
 
 import { styled } from "styled-components";
-import { auth, storage, db, functions } from "../../lib/firebase/firebase";
+import { auth, storage, db, functions } from "../lib/firebase/firebase";
 import { useState, useEffect } from "react";
 import {
   getDownloadURL,
@@ -457,7 +457,7 @@ interface UserData {
   paymentMethod?: string;
 }
 
-const defaultUserImage = "/default_user.jpg"; // Using public folder
+const defaultUserImage = "/images/default_user.jpg"; // Using public folder
 
 export default function ProfileClient() {
   const user = auth.currentUser;

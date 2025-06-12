@@ -3,15 +3,15 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import styled, { keyframes } from "styled-components";
-import { BlogPost } from "../../../lib/features/blog/types/blog_types";
+import { BlogPost } from "../../lib/features/blog/types/blog_types";
 import {
   fetchBlogPost,
   fetchPublishedBlogPost,
   deleteBlogPost,
   updateBlogPost,
-} from "../../../lib/features/blog/services/blog_service";
-import { useAuth } from "../../../lib/contexts/auth_context";
-import { BlogEditor } from "../../../lib/features/blog/components/blog_editor";
+} from "../../lib/features/blog/services/blog_service";
+import { useAuth } from "../../lib/contexts/auth_context";
+import { BlogEditor } from "../../lib/features/blog/components/blog_editor";
 
 // Define colors for consistency - Updated for more modern, crisp design
 const colors = {

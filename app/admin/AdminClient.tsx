@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { auth, db } from "../../lib/firebase/firebase";
+import { auth, db } from "../lib/firebase/firebase";
 import {
   collection,
   getDocs,

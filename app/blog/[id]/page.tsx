@@ -2,8 +2,8 @@ import BlogDetailClient from "./BlogDetailClient";
 import {
   fetchPublishedBlogPostByIdServer,
   getPublishedBlogPostIdsServer,
-} from "../../../lib/features/blog/services/blog_service_server";
-import { BlogPost } from "../../../lib/features/blog/types/blog_types";
+} from "../../lib/features/blog/services/blog_service_server";
+import { BlogPost } from "../../lib/features/blog/types/blog_types";
 import { notFound } from "next/navigation";
 
 interface BlogDetailPageProps {

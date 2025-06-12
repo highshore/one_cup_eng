@@ -10,8 +10,11 @@
     "lint": "next lint",
     "predeploy": "npm run build",
     "deploy:firebase": "firebase deploy --only firestore,storage",
+    "deploy:functions": "firebase deploy --only functions",
     "deploy:vercel": "vercel --prod",
-    "deploy": "npm run deploy:vercel",
+    "deploy:vercel-only": "npm run deploy:vercel",
+    "deploy": "npm run build && npm run deploy:functions && npm run deploy:firebase && npm run deploy:vercel",
+    "deploy:enhanced": "node scripts/deploy.js",
     "proxy": "node proxy-server.js"
   },
   "dependencies": {

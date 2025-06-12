@@ -627,7 +627,7 @@ export default function Auth() {
             전화번호로 시작하기
           </PhoneButton>
           <KakaoButton onClick={handleKakaoLoginClick}>
-            <img src="/kakao_btn.png" alt="Kakao Login" />
+            <img src="/images/kakao_btn.png" alt="Kakao Login" />
             카카오로 시작하기
           </KakaoButton>
         </ChoiceButtonContainer>

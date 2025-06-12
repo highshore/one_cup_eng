@@ -311,8 +311,9 @@ export default function GNB({ variant = "default" }: GNBProps) {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { currentUser, hasActiveSubscription, logout } = useAuth();
   const { isTransparent: contextIsTransparent } = useGnb();
-  const [userProfileImage, setUserProfileImage] =
-    useState<string>("/default_user.jpg");
+  const [userProfileImage, setUserProfileImage] = useState<string>(
+    "/images/default_user.jpg"
+  );
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   // Use context transparency for home page, fallback to prop-based logic for other pages
@@ -326,7 +327,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
       if (storedPhotoURL) {
         setUserProfileImage(storedPhotoURL);
       } else {
-        setUserProfileImage("/default_user.jpg");
+        setUserProfileImage("/images/default_user.jpg");
       }
     }
   }, [currentUser]);
@@ -456,7 +457,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.onerror = null;
-                      target.src = "/default_user.jpg";
+                      target.src = "/images/default_user.jpg";
                     }}
                   />
                 </ProfileButton>

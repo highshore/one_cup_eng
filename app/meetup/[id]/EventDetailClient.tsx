@@ -1,37 +1,37 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import styled, { keyframes, css } from "styled-components";
 import {
   MeetupEvent,
   Article,
-} from "../../../lib/features/meetup/types/meetup_types";
+} from "../../lib/features/meetup/types/meetup_types";
 import {
   subscribeToEvent,
   joinEventAsRole,
   cancelParticipation,
   fetchArticlesByIds,
-} from "../../../lib/features/meetup/services/meetup_service";
+} from "../../lib/features/meetup/services/meetup_service";
 import {
   formatEventDateTime,
   isEventLocked,
   sampleTopics,
   formatEventTitleWithCountdown,
-} from "../../../lib/features/meetup/utils/meetup_helpers";
-import { UserAvatar } from "../../../lib/features/meetup/components/user_avatar";
-import { hasActiveSubscription } from "../../../lib/features/meetup/services/user_service";
-import { useAuth } from "../../../lib/contexts/auth_context";
-import AdminEventDialog from "../../../lib/features/meetup/components/admin_event_dialog";
+} from "../../lib/features/meetup/utils/meetup_helpers";
+import { UserAvatar } from "../../lib/features/meetup/components/user_avatar";
+import { hasActiveSubscription } from "../../lib/features/meetup/services/user_service";
+import { useAuth } from "../../lib/contexts/auth_context";
+import AdminEventDialog from "../../lib/features/meetup/components/admin_event_dialog";
 import {
   PinIcon,
   CalendarIcon,
   ClockIcon,
   JoinIcon,
   CancelIcon,
-} from "../../../lib/features/meetup/components/meetup_icons";
+} from "../../lib/features/meetup/components/meetup_icons";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../../lib/firebase/firebase";
+import { functions } from "../../lib/firebase/firebase";
 
 // TypeScript declarations for Naver Maps
 declare global {
@@ -268,6 +268,46 @@ const DetailText = styled.span`
   }
 `;
 
+const MapContainer = styled.div`
+  height: 300px;
+  border-radius: 12px;
+  margin: 1rem 0;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    height: 250px;
+    margin: 0.75rem 0;
+    border-radius: 8px;
+  }
+`;
+
+const MapLoadingPlaceholder = styled.div`
+  height: 300px;
+  background-color: #f5f5f5;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 1rem;
+  margin: 1rem 0;
+  border: 1px solid #e0e0e0;
+
+  @media (max-width: 768px) {
+    height: 250px;
+    margin: 0.75rem 0;
+    border-radius: 8px;
+    font-size: 0.875rem;
+  }
+`;
+
 const ParticipantsGrid = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -277,6 +317,130 @@ const ParticipantsGrid = styled.div`
   @media (max-width: 768px) {
     gap: 6px;
     margin: 0.375rem 0;
+  }
+`;
+
+const TopicsSection = styled.div`
+  margin: 1rem 0;
+
+  @media (max-width: 768px) {
+    margin: 0.75rem 0;
+  }
+`;
+
+const ArticleTopicsSection = styled.div`
+  margin: 1.5rem 0;
+
+  @media (max-width: 768px) {
+    margin: 1.25rem 0;
+  }
+`;
+
+const ArticleTopicCard = styled.div`
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    margin: 0.375rem 0;
+    border-radius: 8px;
+  }
+`;
+
+const ArticleTopicNumber = styled.span`
+  display: inline-block;
+  background-color: #333;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  line-height: 24px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 0.5rem;
+
+  @media (max-width: 768px) {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    font-size: 11px;
+  }
+`;
+
+const ArticleTopicTitle = styled.span`
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+  }
+`;
+
+const TopicCard = styled.div`
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    margin: 0.375rem 0;
+    border-radius: 8px;
+  }
+`;
+
+const TopicTitle = styled.h3`
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+    margin: 0 0 0.375rem 0;
+  }
+`;
+
+const TopicContent = styled.div<{ $expanded: boolean }>`
+  max-height: ${(props) => (props.$expanded ? "1000px" : "0")};
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
+`;
+
+const DiscussionPoint = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0.5rem 0;
+  color: #666;
+  font-size: 14px;
+
+  @media (max-width: 768px) {
+    gap: 6px;
+    margin: 0.375rem 0;
+    font-size: 13px;
   }
 `;
 
@@ -332,6 +496,43 @@ const ActionButtons = styled.div<{ $isFloating: boolean }>`
             backdrop-filter: none;
             -webkit-backdrop-filter: none;
           `}
+  }
+`;
+
+const AdminButtons = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: 6px;
+    margin-bottom: 0.75rem;
+  }
+`;
+
+const AdminButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #181818;
+  color: white;
+  border: none;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: #181818;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.375rem 0.75rem;
+    font-size: 11px;
+    border-radius: 12px;
+    flex: 1;
   }
 `;
 
@@ -409,7 +610,7 @@ const ActionButton = styled.button<{
   }
 `;
 
-// Dialog components
+// Dialog styled components
 const DialogOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -464,24 +665,442 @@ const DialogButton = styled.button<{ $primary?: boolean }>`
   }
 `;
 
+// Seating arrangement styled components
+const SeatingSection = styled.div`
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+
+  @media (max-width: 768px) {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+`;
+
+const SeatingControls = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+`;
+
+const SeatingButton = styled.button`
+  padding: 0.75rem 1.5rem;
+  background-color: #333;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &:hover {
+    background-color: #555;
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.625rem 1.25rem;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+`;
+
+const SeatingTable = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+`;
+
+const SessionCard = styled.div`
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+`;
+
+const SessionTitle = styled.h3`
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #333;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    margin: 0 0 0.75rem 0;
+  }
+`;
+
+const GroupCard = styled.div`
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+`;
+
+const LeaderInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eee;
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+`;
+
+const LeaderBadge = styled.span`
+  background-color: #333;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+
+  @media (max-width: 768px) {
+    font-size: 10px;
+    padding: 0.2rem 0.4rem;
+  }
+`;
+
+const UserName = styled.span`
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  flex: 1;
+
+  @media (max-width: 768px) {
+    font-size: 13px;
+  }
+`;
+
+const ParticipantsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+`;
+
+const ParticipantItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+
+  @media (max-width: 768px) {
+    gap: 0.375rem;
+  }
+`;
+
+// Naver Map Component - Updated with dynamic script loading
+interface NaverMapProps {
+  latitude: number;
+  longitude: number;
+  locationName: string;
+  mapUrl?: string;
+}
+
+const NaverMapComponent: React.FC<NaverMapProps> = ({
+  latitude,
+  longitude,
+  locationName,
+  mapUrl,
+}) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [isApiReady, setIsApiReady] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [componentMounted, setComponentMounted] = useState(false);
+
+  // Ensure component is mounted before trying to access DOM
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setComponentMounted(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadNaverMapsAPI = () => {
+      // Check if API is already loaded
+      if (
+        window.naver &&
+        window.naver.maps &&
+        typeof window.naver.maps.Map === "function"
+      ) {
+        setIsApiReady(true);
+        return;
+      }
+
+      // Always set up global callbacks first, regardless of script loading state
+      window.initNaverMaps = () => {
+        setIsApiReady(true);
+      };
+
+      window.navermap_authFailure = () => {
+        setLoadError("Naver Maps API Authentication Failed");
+      };
+
+      // Check if script is already loading
+      const existingScript = document.querySelector(
+        'script[src*="oapi.map.naver.com"]'
+      );
+      if (existingScript) {
+        // Set up a fallback timer to check if API becomes available
+        const checkTimer = setInterval(() => {
+          if (
+            window.naver &&
+            window.naver.maps &&
+            typeof window.naver.maps.Map === "function"
+          ) {
+            setIsApiReady(true);
+            clearInterval(checkTimer);
+          }
+        }, 500);
+
+        // Give up after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkTimer);
+          if (!window.naver || !window.naver.maps) {
+            setLoadError("Timeout loading Naver Maps API");
+          }
+        }, 10000);
+
+        return;
+      }
+
+      // Create and inject script tag
+      const script = document.createElement("script");
+      script.type = "text/javascript";
+      script.src =
+        "https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=3cyz9x5q6l&submodules=geocoder&callback=initNaverMaps";
+      script.async = true;
+      script.defer = true;
+
+      script.onerror = () => {
+        setLoadError("Failed to load Naver Maps API");
+      };
+
+      document.head.appendChild(script);
+    };
+
+    loadNaverMapsAPI();
+
+    return () => {
+      // Cleanup global callbacks
+      delete window.initNaverMaps;
+      delete window.navermap_authFailure;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isApiReady || !mapRef.current || loadError || !componentMounted) {
+      return;
+    }
+
+    try {
+      // Validate coordinates
+      if (isNaN(latitude) || isNaN(longitude)) {
+        throw new Error(
+          `Invalid coordinates: lat=${latitude}, lng=${longitude}`
+        );
+      }
+
+      const position = new window.naver.maps.LatLng(latitude, longitude);
+
+      const mapOptions = {
+        center: position,
+        zoom: 16,
+        minZoom: 10,
+        maxZoom: 20,
+        mapTypeControl: false,
+        scaleControl: false,
+        logoControl: false,
+        mapDataControl: false,
+      };
+
+      const map = new window.naver.maps.Map(mapRef.current, mapOptions);
+
+      // Create custom marker
+      const marker = new window.naver.maps.Marker({
+        position: position,
+        map: map,
+        title: locationName,
+        icon: {
+          content: `
+            <div style="
+              width: 30px; 
+              height: 30px; 
+              background-color: #181818; 
+              border-radius: 50%; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+              cursor: pointer;
+            ">
+              <span style="color: white; font-size: 16px;">📍</span>
+            </div>
+          `,
+          size: new window.naver.maps.Size(30, 30),
+          anchor: new window.naver.maps.Point(15, 15),
+        },
+      });
+
+      // Add click event handlers
+      const handleMapClick = () => {
+        const searchUrl = `https://map.naver.com/v5/search/${encodeURIComponent(
+          locationName
+        )}`;
+        window.open(searchUrl, "_blank");
+      };
+
+      if (window.naver.maps.Event) {
+        window.naver.maps.Event.addListener(marker, "click", handleMapClick);
+        window.naver.maps.Event.addListener(map, "click", handleMapClick);
+      }
+
+      setMapLoaded(true);
+    } catch (error) {
+      setLoadError(
+        `Error initializing map: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }, [
+    isApiReady,
+    latitude,
+    longitude,
+    locationName,
+    mapUrl,
+    loadError,
+    componentMounted,
+  ]);
+
+  if (loadError) {
+    return <MapLoadingPlaceholder>❌ {loadError}</MapLoadingPlaceholder>;
+  }
+
+  if (!isApiReady) {
+    return (
+      <MapLoadingPlaceholder>
+        🗺️ Loading Naver Maps API...
+      </MapLoadingPlaceholder>
+    );
+  }
+
+  return (
+    <MapContainer ref={mapRef}>
+      {!mapLoaded && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#f5f5f5",
+            color: "#999",
+            fontSize: "1rem",
+            borderRadius: "12px",
+            zIndex: 10,
+          }}
+        >
+          🗺️ Initializing map...
+        </div>
+      )}
+    </MapContainer>
+  );
+};
+
 export function EventDetailClient() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const router = useRouter();
+  const pathname = usePathname();
   const { currentUser, accountStatus } = useAuth();
   const [event, setEvent] = useState<MeetupEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [expandedTopics, setExpandedTopics] = useState<Record<string, boolean>>(
+    {}
+  );
   const actionButtonRef = useRef<HTMLDivElement>(null);
   const [isButtonFloating, setIsButtonFloating] = useState(false);
+  const staticButtonPositionRef = useRef<{
+    top: number;
+    height: number;
+  } | null>(null);
 
-  const eventId = params?.id as string;
+  // Use accountStatus from auth context
   const isAdmin = accountStatus === "admin";
+  const [showAdminDialog, setShowAdminDialog] = useState(false);
+  const [dialogTemplateEvent, setDialogTemplateEvent] =
+    useState<MeetupEvent | null>(null);
+  const [dialogEditEvent, setDialogEditEvent] = useState<MeetupEvent | null>(
+    null
+  );
   const [showRoleChoiceDialog, setShowRoleChoiceDialog] = useState(false);
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+  const [articleTopics, setArticleTopics] = useState<Article[]>([]);
   const [userHasSubscription, setUserHasSubscription] = useState<
     boolean | null
   >(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
+  // Seating arrangement state
+  const [seatingAssignments, setSeatingAssignments] = useState<
+    SeatingAssignment[]
+  >([]);
+  const [showSeatingTable, setShowSeatingTable] = useState(false);
+  const [seatingLoading, setSeatingLoading] = useState(false);
+
+  const eventId = params?.id;
 
   const isCurrentUserParticipant = useMemo(() => {
     if (!currentUser || !event) return false;
@@ -490,6 +1109,242 @@ export function EventDetailClient() {
       event.leaders.includes(currentUser.uid)
     );
   }, [currentUser, event]);
+
+  // Function to save seating arrangement to Firestore
+  const saveSeatingArrangement = async (assignments: SeatingAssignment[]) => {
+    if (!event || !currentUser) {
+      alert("Cannot save seating: missing event or user data");
+      return;
+    }
+
+    try {
+      const { doc, updateDoc } = await import("firebase/firestore");
+      const { db } = await import("../../lib/firebase/firebase");
+
+      const eventRef = doc(db, "meetup", event.id);
+      const seatingData: SavedSeatingArrangement = {
+        assignments,
+        generatedAt: new Date(),
+        generatedBy: currentUser.uid,
+      };
+
+      await updateDoc(eventRef, {
+        seatingArrangement: seatingData,
+      });
+
+      alert("좌석 배치가 성공적으로 저장되었습니다!");
+    } catch (error) {
+      alert(
+        "좌석 배치 저장 중 오류가 발생했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
+  };
+
+  // Function to load seating arrangement from Firestore
+  const loadSeatingArrangement =
+    async (): Promise<SavedSeatingArrangement | null> => {
+      if (!event) return null;
+
+      try {
+        const { doc, getDoc } = await import("firebase/firestore");
+        const { db } = await import("../../lib/firebase/firebase");
+
+        const eventRef = doc(db, "meetup", event.id);
+        const eventDoc = await getDoc(eventRef);
+
+        if (eventDoc.exists()) {
+          const data = eventDoc.data();
+          if (data.seatingArrangement) {
+            const allUserUids = [...event.leaders, ...event.participants];
+            const userDetails = await fetchUserDetails(allUserUids);
+
+            const reconstructedAssignments =
+              data.seatingArrangement.assignments.map((assignment: any) => {
+                const leaderDetails = userDetails.find(
+                  (user) => user.uid === assignment.leaderUid
+                );
+                const participantDetails = assignment.participants.map(
+                  (p: any) =>
+                    userDetails.find((user) => user.uid === p.uid) || p
+                );
+
+                return {
+                  ...assignment,
+                  leaderDetails: leaderDetails || assignment.leaderDetails,
+                  participants: participantDetails,
+                };
+              });
+
+            return {
+              assignments: reconstructedAssignments,
+              generatedAt: data.seatingArrangement.generatedAt.toDate(),
+              generatedBy: data.seatingArrangement.generatedBy,
+            };
+          }
+        }
+        return null;
+      } catch (error) {
+        console.error("Error loading seating arrangement:", error);
+        return null;
+      }
+    };
+
+  // Function to get user details with phone numbers
+  const fetchUserDetails = async (
+    uids: string[]
+  ): Promise<UserWithDetails[]> => {
+    try {
+      const getUserDisplayNames = httpsCallable(
+        functions,
+        "getUserDisplayNames"
+      );
+      const response = await getUserDisplayNames({ userIds: uids });
+      const result = response.data as {
+        displayNames: Record<string, string>;
+        phoneNumbers: Record<string, string>;
+      };
+
+      return uids.map((uid) => ({
+        uid,
+        displayName: result.displayNames[uid] || `User ${uid.substring(0, 6)}`,
+        phoneNumber: result.phoneNumbers[uid] || "",
+        phoneLast4: result.phoneNumbers[uid]
+          ? result.phoneNumbers[uid].replace(/\D/g, "").slice(-4)
+          : "",
+      }));
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+      return uids.map((uid) => ({
+        uid,
+        displayName: `User ${uid.substring(0, 6)}`,
+        phoneNumber: "",
+        phoneLast4: "",
+      }));
+    }
+  };
+
+  // Function to evenly distribute participants among leaders
+  const distributeParticipants = (
+    participants: UserWithDetails[],
+    leaders: UserWithDetails[]
+  ): UserWithDetails[][] => {
+    if (leaders.length === 0) return [];
+
+    const shuffledParticipants = [...participants].sort(
+      () => Math.random() - 0.5
+    );
+    const groups: UserWithDetails[][] = leaders.map(() => []);
+
+    shuffledParticipants.forEach((participant, index) => {
+      const groupIndex = index % leaders.length;
+      groups[groupIndex].push(participant);
+    });
+
+    return groups;
+  };
+
+  // Function to generate seating arrangement
+  const generateSeatingArrangement = async () => {
+    if (!event) return;
+
+    setSeatingLoading(true);
+    try {
+      const allUserUids = [...event.leaders, ...event.participants];
+      const userDetails = await fetchUserDetails(allUserUids);
+
+      const leaderDetails = userDetails.filter((user) =>
+        event.leaders.includes(user.uid)
+      );
+      const participantDetails = userDetails.filter((user) =>
+        event.participants.includes(user.uid)
+      );
+
+      const assignments: SeatingAssignment[] = [];
+
+      for (let session = 1; session <= 2; session++) {
+        const distributedGroups = distributeParticipants(
+          participantDetails,
+          leaderDetails
+        );
+
+        leaderDetails.forEach((leader, index) => {
+          const assignment: SeatingAssignment = {
+            sessionNumber: session as 1 | 2,
+            leaderUid: leader.uid,
+            leaderDetails: leader,
+            participants: distributedGroups[index] || [],
+          };
+          assignments.push(assignment);
+        });
+      }
+
+      setSeatingAssignments(assignments);
+      setShowSeatingTable(true);
+      await saveSeatingArrangement(assignments);
+    } catch (error) {
+      alert(
+        "좌석 배치 생성 중 오류가 발생했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    } finally {
+      setSeatingLoading(false);
+    }
+  };
+
+  // Function to refresh seating arrangement
+  const refreshSeatingArrangement = () => {
+    generateSeatingArrangement();
+  };
+
+  // Helper functions
+  const isValidDisplayName = (displayName?: string): boolean => {
+    if (!displayName) return false;
+    const userPattern = /^User [a-zA-Z0-9]{6}$/;
+    return !userPattern.test(displayName);
+  };
+
+  const maskName = (name: string): string => {
+    if (name.length <= 2) return name;
+    const midIndex = Math.floor(name.length / 2);
+    return name.substring(0, midIndex) + "*" + name.substring(midIndex + 1);
+  };
+
+  const formatParticipantDisplay = (user: UserWithDetails): string => {
+    const validName = isValidDisplayName(user.displayName);
+    if (!validName) return `익명 (${user.phoneLast4 || "****"})`;
+
+    const maskedName = maskName(user.displayName!);
+    return `${maskedName} (${user.phoneLast4 || "****"})`;
+  };
+
+  const formatLeaderDisplay = (user: UserWithDetails): string => {
+    const validName = isValidDisplayName(user.displayName);
+    return validName ? user.displayName! : "익명";
+  };
+
+  // useEffect hooks
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      if (!currentUser) {
+        setUserHasSubscription(null);
+        setSubscriptionLoading(false);
+        return;
+      }
+
+      try {
+        const hasSubscription = await hasActiveSubscription(currentUser.uid);
+        setUserHasSubscription(hasSubscription);
+      } catch (error) {
+        console.error("Error checking subscription status:", error);
+        setUserHasSubscription(false);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    checkSubscriptionStatus();
+  }, [currentUser]);
 
   useEffect(() => {
     if (!eventId) {
@@ -525,12 +1380,142 @@ export function EventDetailClient() {
     }
   }, [event]);
 
+  useEffect(() => {
+    const fetchArticles = async () => {
+      if (event && event.articles && event.articles.length > 0) {
+        try {
+          const articles = await fetchArticlesByIds(event.articles);
+          setArticleTopics(articles);
+        } catch (error) {
+          console.error("Error fetching articles for topics:", error);
+          setArticleTopics([]);
+        }
+      } else {
+        setArticleTopics([]);
+      }
+    };
+
+    fetchArticles();
+  }, [event]);
+
+  useEffect(() => {
+    const loadExistingSeating = async () => {
+      if (event && isAdmin) {
+        try {
+          const savedSeating = await loadSeatingArrangement();
+          if (savedSeating) {
+            setSeatingAssignments(savedSeating.assignments);
+            setShowSeatingTable(true);
+          }
+        } catch (error) {
+          console.error("Error loading existing seating arrangement:", error);
+        }
+      }
+    };
+
+    loadExistingSeating();
+  }, [event, isAdmin]);
+
+  useEffect(() => {
+    const loadSeatingOnAdminConfirmed = async () => {
+      if (
+        isAdmin &&
+        event &&
+        seatingAssignments.length === 0 &&
+        !showSeatingTable
+      ) {
+        try {
+          const savedSeating = await loadSeatingArrangement();
+          if (savedSeating) {
+            setSeatingAssignments(savedSeating.assignments);
+            setShowSeatingTable(true);
+          }
+        } catch (error) {
+          console.error("Error in late seating load:", error);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(loadSeatingOnAdminConfirmed, 500);
+    return () => clearTimeout(timeoutId);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    const calculatePositionAndCheckFloat = () => {
+      if (!actionButtonRef.current) {
+        setIsButtonFloating(false);
+        return;
+      }
+
+      if (!isButtonFloating || !staticButtonPositionRef.current) {
+        const rect = actionButtonRef.current.getBoundingClientRect();
+        staticButtonPositionRef.current = {
+          top: rect.top + window.scrollY,
+          height: actionButtonRef.current.offsetHeight,
+        };
+      }
+
+      if (!staticButtonPositionRef.current) {
+        setIsButtonFloating(false);
+        return;
+      }
+
+      const { top: staticTop, height: staticHeight } =
+        staticButtonPositionRef.current;
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const staticBottom = staticTop + staticHeight;
+
+      const isMobile = window.innerWidth <= 768;
+      const buffer = isMobile ? 80 : 50;
+      const bottomThreshold = isMobile ? 50 : 150;
+      const isNearBottom =
+        scrollY + windowHeight >= documentHeight - bottomThreshold;
+      const wouldBeOutOfView = scrollY + windowHeight < staticBottom + buffer;
+      const shouldFloat = wouldBeOutOfView && !isNearBottom;
+
+      setIsButtonFloating(shouldFloat);
+    };
+
+    calculatePositionAndCheckFloat();
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          calculatePositionAndCheckFloat();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    const handleResize = () => {
+      staticButtonPositionRef.current = null;
+      setIsButtonFloating(false);
+      setTimeout(calculatePositionAndCheckFloat, 100);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("touchmove", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("touchmove", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  // Handler functions
   const handleBack = () => {
     router.push("/meetup");
   };
 
   const handleJoin = async () => {
     if (!currentUser) {
+      localStorage.setItem("returnUrl", pathname);
       router.push("/auth");
       return;
     }
@@ -620,6 +1605,13 @@ export function EventDetailClient() {
     }
   };
 
+  const toggleTopic = (topicId: string) => {
+    setExpandedTopics((prev) => ({
+      ...prev,
+      [topicId]: !prev[topicId],
+    }));
+  };
+
   const getCategoryEmoji = (categoryName: string): string => {
     switch (categoryName.toLowerCase()) {
       case "discussion":
@@ -635,13 +1627,69 @@ export function EventDetailClient() {
     }
   };
 
+  const handleAvatarClick = (_uid: string) => {
+    // Handle avatar click - could show user profile modal, etc.
+  };
+
+  const handleCreateNew = () => {
+    setDialogTemplateEvent(null);
+    setDialogEditEvent(null);
+    setShowAdminDialog(true);
+  };
+
+  const handleDuplicate = () => {
+    setDialogTemplateEvent(event);
+    setDialogEditEvent(null);
+    setShowAdminDialog(true);
+  };
+
+  const handleEdit = () => {
+    setDialogTemplateEvent(null);
+    setDialogEditEvent(event);
+    setShowAdminDialog(true);
+  };
+
+  const handleEventCreated = (newEventId: string) => {
+    router.push(`/meetup/${newEventId}`);
+    handleDialogClose();
+  };
+
+  const handleEventUpdated = () => {
+    handleDialogClose();
+  };
+
+  const handleDialogClose = () => {
+    setShowAdminDialog(false);
+    setDialogTemplateEvent(null);
+    setDialogEditEvent(null);
+  };
+
   const handleGoToPayment = () => {
     setShowSubscriptionDialog(false);
     router.push("/payment");
   };
 
+  const handleArticleTopicClick = (articleId: string) => {
+    router.push(`/article/${articleId}`);
+  };
+
+  const handleJoinClick = async () => {
+    if (!currentUser) {
+      localStorage.setItem("returnUrl", pathname);
+      router.push("/auth");
+      return;
+    }
+
+    if (userHasSubscription === false) {
+      setShowSubscriptionDialog(true);
+      return;
+    }
+
+    await handleJoin();
+  };
+
   // Loading state
-  if (loading) {
+  if (loading || (currentUser && subscriptionLoading)) {
     return (
       <Container>
         <div
@@ -684,21 +1732,22 @@ export function EventDetailClient() {
   const lockStatus = isEventLocked(event);
   const isLocked = lockStatus.isLocked;
 
-  // Determine category for styling
   const eventCategory = event.title.toLowerCase().includes("movie")
     ? "Movie Night"
     : event.title.toLowerCase().includes("business")
     ? "Socializing"
     : "Discussion";
 
-  // Get countdown information for the title
+  const eventTopics = event.topics
+    .map(
+      (topicRef) => sampleTopics[topicRef.topic_id as keyof typeof sampleTopics]
+    )
+    .filter(Boolean);
+
   const { countdownPrefix, eventTitle, isUrgent } =
     formatEventTitleWithCountdown(event);
-
-  // Calculate total participants including leaders
   const totalParticipants = event.participants.length + event.leaders.length;
 
-  // Determine button text based on lock reason and participation status
   const getButtonText = () => {
     if (!isLocked) {
       if (!currentUser) {
@@ -720,20 +1769,6 @@ export function EventDetailClient() {
       default:
         return "모집 종료";
     }
-  };
-
-  const handleJoinClick = async () => {
-    if (!currentUser) {
-      router.push("/auth");
-      return;
-    }
-
-    if (userHasSubscription === false) {
-      setShowSubscriptionDialog(true);
-      return;
-    }
-
-    await handleJoin();
   };
 
   return (
@@ -768,6 +1803,21 @@ export function EventDetailClient() {
           {eventTitle}
         </Title>
 
+        {articleTopics.length > 0 && isCurrentUserParticipant && (
+          <ArticleTopicsSection>
+            <SectionTitle>밋업 토픽</SectionTitle>
+            {articleTopics.map((topic, index) => (
+              <ArticleTopicCard
+                key={topic.id}
+                onClick={() => handleArticleTopicClick(topic.id)}
+              >
+                <ArticleTopicNumber>{index + 1}</ArticleTopicNumber>
+                <ArticleTopicTitle>{topic.title.english}</ArticleTopicTitle>
+              </ArticleTopicCard>
+            ))}
+          </ArticleTopicsSection>
+        )}
+
         <Description>{event.description}</Description>
 
         <SectionTitle>세부 사항</SectionTitle>
@@ -793,6 +1843,15 @@ export function EventDetailClient() {
           </DetailText>
         </DetailRow>
 
+        {event.latitude && event.longitude && (
+          <NaverMapComponent
+            latitude={event.latitude}
+            longitude={event.longitude}
+            locationName={event.location_name}
+            mapUrl={event.location_map_url}
+          />
+        )}
+
         <SectionTitle>
           참가 예정 ({totalParticipants}/{event.max_participants})
         </SectionTitle>
@@ -803,12 +1862,11 @@ export function EventDetailClient() {
               uid={participantUid}
               size={40}
               isLeader={false}
-              onClick={() => {}}
+              onClick={() => handleAvatarClick(participantUid)}
             />
           ))}
           {event.participants.length > 12 && (
             <div
-              key="more-participants"
               style={{
                 width: "40px",
                 height: "40px",
@@ -835,10 +1893,58 @@ export function EventDetailClient() {
               uid={leaderUid}
               size={40}
               isLeader={true}
-              onClick={() => {}}
+              onClick={() => handleAvatarClick(leaderUid)}
             />
           ))}
         </ParticipantsGrid>
+
+        {eventTopics.length > 0 && (
+          <TopicsSection>
+            <SectionTitle>Discussion Topics</SectionTitle>
+            {eventTopics.map((topic, index) => (
+              <TopicCard key={topic.id} onClick={() => toggleTopic(topic.id)}>
+                <TopicTitle>
+                  Topic {index + 1}: {topic.title}
+                  <span>{expandedTopics[topic.id] ? "▲" : "▼"}</span>
+                </TopicTitle>
+                <TopicContent $expanded={expandedTopics[topic.id]}>
+                  {"url" in topic && topic.url && (
+                    <DetailRow style={{ marginBottom: "1rem" }}>
+                      <DetailIcon>🔗</DetailIcon>
+                      <DetailText>
+                        <a
+                          href={topic.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "#2196f3" }}
+                        >
+                          {topic.url}
+                        </a>
+                      </DetailText>
+                    </DetailRow>
+                  )}
+                  <div
+                    style={{
+                      marginBottom: "0.5rem",
+                      fontWeight: "600",
+                      color: "#333",
+                    }}
+                  >
+                    Discussion Points:
+                  </div>
+                  {topic.discussion_points.map(
+                    (point: string, pointIndex: number) => (
+                      <DiscussionPoint key={pointIndex}>
+                        <span>•</span>
+                        <span>{point}</span>
+                      </DiscussionPoint>
+                    )
+                  )}
+                </TopicContent>
+              </TopicCard>
+            ))}
+          </TopicsSection>
+        )}
 
         <ActionButtons ref={actionButtonRef} $isFloating={isButtonFloating}>
           <ActionButton
@@ -865,7 +1971,99 @@ export function EventDetailClient() {
             {getButtonText()}
           </ActionButton>
         </ActionButtons>
+
+        {isAdmin && (
+          <ActionButtons ref={null} $isFloating={false}>
+            <AdminButtons>
+              <AdminButton onClick={handleEdit}>✏️ Edit Event</AdminButton>
+              <AdminButton onClick={handleCreateNew}>
+                🆕 Create New Event
+              </AdminButton>
+              <AdminButton onClick={handleDuplicate}>
+                📋 Duplicate This Event
+              </AdminButton>
+              <AdminButton
+                onClick={generateSeatingArrangement}
+                disabled={seatingLoading}
+              >
+                {seatingLoading ? "⏳ Generating..." : "🪑 Generate Seating"}
+              </AdminButton>
+            </AdminButtons>
+          </ActionButtons>
+        )}
+
+        {/* Seating Arrangement Section */}
+        {isAdmin && showSeatingTable && (
+          <SeatingSection>
+            <SectionTitle>좌석 배치</SectionTitle>
+            <SeatingControls>
+              <SeatingButton
+                onClick={refreshSeatingArrangement}
+                disabled={seatingLoading}
+              >
+                {seatingLoading ? "⏳" : "🔄"} 다시 배치하기
+              </SeatingButton>
+              <SeatingButton onClick={() => setShowSeatingTable(false)}>
+                ❌ 닫기
+              </SeatingButton>
+            </SeatingControls>
+
+            <SeatingTable>
+              {[1, 2].map((sessionNumber) => (
+                <SessionCard key={sessionNumber}>
+                  <SessionTitle>세션 {sessionNumber}</SessionTitle>
+                  {seatingAssignments
+                    .filter(
+                      (assignment) => assignment.sessionNumber === sessionNumber
+                    )
+                    .map((assignment) => (
+                      <GroupCard
+                        key={`${sessionNumber}-${assignment.leaderUid}`}
+                      >
+                        <LeaderInfo>
+                          <UserAvatar
+                            uid={assignment.leaderDetails.uid}
+                            size={32}
+                            isLeader={true}
+                          />
+                          <UserName>
+                            {formatLeaderDisplay(assignment.leaderDetails)}
+                          </UserName>
+                          <LeaderBadge>리더</LeaderBadge>
+                        </LeaderInfo>
+
+                        <ParticipantsList>
+                          {assignment.participants.map((participant) => (
+                            <ParticipantItem key={participant.uid}>
+                              <UserAvatar
+                                uid={participant.uid}
+                                size={24}
+                                isLeader={false}
+                              />
+                              <UserName>
+                                {formatParticipantDisplay(participant)}
+                              </UserName>
+                            </ParticipantItem>
+                          ))}
+                        </ParticipantsList>
+                      </GroupCard>
+                    ))}
+                </SessionCard>
+              ))}
+            </SeatingTable>
+          </SeatingSection>
+        )}
       </Content>
+
+      <AdminEventDialog
+        isOpen={showAdminDialog}
+        onClose={handleDialogClose}
+        templateEvent={dialogTemplateEvent}
+        editEvent={dialogEditEvent}
+        creatorUid={currentUser?.uid || ""}
+        onEventCreated={handleEventCreated}
+        onEventUpdated={handleEventUpdated}
+      />
 
       {showRoleChoiceDialog && (
         <DialogOverlay onClick={() => setShowRoleChoiceDialog(false)}>

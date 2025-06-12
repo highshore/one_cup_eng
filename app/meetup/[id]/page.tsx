@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { EventDetailClient } from "./EventDetailClient";
 
 interface MeetupDetailPageProps {
@@ -14,5 +15,9 @@ export async function generateStaticParams() {
 }
 
 export default function EventDetailPage({ params }: MeetupDetailPageProps) {
-  return <EventDetailClient />;
+  return (
+    <Suspense fallback={<div>Loading event details...</div>}>
+      <EventDetailClient />
+    </Suspense>
+  );
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { styled } from "styled-components";
 import { useRouter } from "next/navigation";
-import { auth, db, functions } from "../../lib/firebase/firebase";
+import { auth, db, functions } from "../lib/firebase/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 
@@ -227,9 +227,7 @@ const OptionsGrid = styled.div`
   margin-bottom: 1.5rem;
 `;
 
-const OptionCard = styled.div.withConfig({
-  shouldForwardProp: (prop) => prop !== "$selected" && prop !== "$disabled",
-})<{ $selected: boolean; $disabled?: boolean }>`
+const OptionCard = styled.div<{ $selected: boolean; $disabled?: boolean }>`
   border: 2px solid ${(props) => (props.$selected ? "#2c1810" : "#e0e0e0")};
   border-radius: 12px;
   padding: 1.25rem;
@@ -249,6 +247,8 @@ const OptionCard = styled.div.withConfig({
     box-shadow: ${(props) =>
       props.$disabled ? "none" : "0 4px 12px rgba(0, 0, 0, 0.1)"};
   }
+
+  ${(props) => props.$selected && ``}
 `;
 
 const OptionHeader = styled.div`
@@ -270,9 +270,7 @@ const OptionTitle = styled.h4`
   flex: 1;
 `;
 
-const OptionPrice = styled.span.withConfig({
-  shouldForwardProp: (prop) => prop !== "$highlighted",
-})<{ $highlighted?: boolean }>`
+const OptionPrice = styled.span<{ $highlighted?: boolean }>`
   font-size: 1rem;
   font-weight: ${(props) => (props.$highlighted ? "800" : "600")};
   color: ${(props) => (props.$highlighted ? "#2c1810" : "#666")};
@@ -320,9 +318,7 @@ const FeatureItem = styled.li`
   }
 `;
 
-const ActionButton = styled.button.withConfig({
-  shouldForwardProp: (prop) => prop !== "$variant",
-})<{ $variant?: "primary" | "secondary" }>`
+const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
   width: 100%;
   padding: 1rem 2rem;
   border: none;

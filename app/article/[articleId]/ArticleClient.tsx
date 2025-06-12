@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { doc, getDoc, Timestamp } from "firebase/firestore";
-import { db } from "../../../lib/firebase/firebase";
+import { db } from "../../lib/firebase/firebase";
 import styled from "styled-components";
 
-import GNB from "../../../lib/components/gnb";
+import GNB from "../../lib/components/gnb";
 import React from "react";
 
 interface AudioTimestamp {

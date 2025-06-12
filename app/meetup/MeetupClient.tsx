@@ -3,21 +3,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styled, { keyframes, css } from "styled-components";
-import { MeetupEvent } from "../../lib/features/meetup/types/meetup_types";
-import { fetchMeetupEvents } from "../../lib/features/meetup/services/meetup_service";
+import { MeetupEvent } from "../lib/features/meetup/types/meetup_types";
+import { fetchMeetupEvents } from "../lib/features/meetup/services/meetup_service";
 import {
   formatEventDateTime,
   isEventLocked,
   formatEventTitleWithCountdown,
-} from "../../lib/features/meetup/utils/meetup_helpers";
-import { UserAvatarStack } from "../../lib/features/meetup/components/user_avatar";
+} from "../lib/features/meetup/utils/meetup_helpers";
+import { UserAvatarStack } from "../lib/features/meetup/components/user_avatar";
 import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import {
   PinIcon,
   CalendarIcon,
-} from "../../lib/features/meetup/components/meetup_icons";
-import { BlogPost } from "../../lib/features/blog/types/blog_types";
-import { fetchBlogPosts } from "../../lib/features/blog/services/blog_service";
+} from "../lib/features/meetup/components/meetup_icons";
+import { BlogPost } from "../lib/features/blog/types/blog_types";
+import { fetchBlogPosts } from "../lib/features/blog/services/blog_service";
 
 // Add subtle glow animation keyframes
 const subtleGlow = keyframes`

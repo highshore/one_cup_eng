@@ -3,17 +3,17 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth } from "../../lib/contexts/auth_context";
-import { BlogPost } from "../../lib/features/blog/types/blog_types";
+import { useAuth } from "../lib/contexts/auth_context";
+import { BlogPost } from "../lib/features/blog/types/blog_types";
 import {
   fetchBlogPosts,
   fetchAllBlogPosts,
   createBlogPost,
   updateBlogPost,
   deleteBlogPost,
-} from "../../lib/features/blog/services/blog_service";
-import { BlogEditor } from "../../lib/features/blog/components/blog_editor";
-import { BlogPostCard } from "../../lib/features/blog/components/blog_post_card";
+} from "../lib/features/blog/services/blog_service";
+import { BlogEditor } from "../lib/features/blog/components/blog_editor";
+import { BlogPostCard } from "../lib/features/blog/components/blog_post_card";
 
 // Define colors for consistency
 const colors = {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { fetchUserProfile, UserProfile } from "../services/user_service";
 // Use the public directory image path
-const DEFAULT_AVATAR_URL = "/default_user.jpg";
+const DEFAULT_AVATAR_URL = "/images/default_user.jpg";
 
 interface UserAvatarProps {
   uid: string;

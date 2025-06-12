@@ -1,6 +1,6 @@
 import { BlogClient } from "./BlogClient";
-import { fetchPublishedBlogPostsServer } from "../../lib/features/blog/services/blog_service_server";
-import { BlogPost } from "../../lib/features/blog/types/blog_types";
+import { fetchPublishedBlogPostsServer } from "../lib/features/blog/services/blog_service_server";
+import { BlogPost } from "../lib/features/blog/types/blog_types";
 
 // This page will be statically generated at build time
 export default async function BlogPage() {

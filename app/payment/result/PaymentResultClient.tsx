@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { styled } from "styled-components";
 import { useRouter, useSearchParams } from "next/navigation";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../../lib/firebase/firebase";
+import { functions } from "../../lib/firebase/firebase";
 
 // Styled components
 const Wrapper = styled.div`
@@ -164,7 +164,11 @@ interface PaymentResult {
     PCD_PAYER_EMAIL: string;
     PCD_PAY_YEAR: string;
     PCD_PAY_MONTH: string;
-    [key: string]: string;
+    PCD_PAY_GOODS?: string;
+    PCD_PAY_TOTAL?: string;
+    PCD_PAY_WORK?: string;
+    PCD_PAY_CODE?: string;
+    [key: string]: string | undefined;
   };
 }
 
@@ -200,8 +204,7 @@ export default function PaymentResultClient() {
           sessionStorage.getItem("paymentSessionInfo") || "{}"
         );
         console.log("Session info userId:", sessionInfo.userId);
-        console.log("Session info amount:", sessionInfo.amount);
-        console.log("Session info productName:", sessionInfo.productName);
+        console.log("Session info timestamp:", sessionInfo.timestamp);
       } catch (e) {
         console.error("Error parsing session info:", e);
       }
@@ -211,215 +214,241 @@ export default function PaymentResultClient() {
   useEffect(() => {
     const processPaymentResult = async () => {
       try {
-        console.log("Starting payment result processing...");
+        // Get URL search params - parse them more carefully
+        const paymentParams: Record<string, string> = {};
 
-        // Method 1: Check sessionStorage for immediate callback response
-        const callbackResponse = sessionStorage.getItem(
-          "paypleCallbackResponse"
-        );
-        const verificationResult = sessionStorage.getItem(
-          "paymentVerificationResult"
-        );
-        const verificationError = sessionStorage.getItem(
-          "paymentVerificationError"
-        );
-
-        console.log("Session storage check:", {
-          hasCallbackResponse: !!callbackResponse,
-          hasVerificationResult: !!verificationResult,
-          hasVerificationError: !!verificationError,
+        // Extract all parameters from Next.js searchParams
+        Array.from(searchParams.entries()).forEach(([key, value]) => {
+          paymentParams[key] = value;
+          // Log each parameter to see what's coming through
+          console.log(`Parameter ${key}: ${value}`);
         });
 
-        // If we have verification error, show it
-        if (verificationError) {
-          try {
-            const errorData = JSON.parse(verificationError);
-            console.log("Found verification error:", errorData);
-            setError(errorData.message || "결제 검증 중 오류가 발생했습니다.");
-            setErrorCode(errorData.code || "VERIFICATION_ERROR");
-            setPaymentResult({
-              success: false,
-              message: errorData.message || "결제 검증 실패",
-              errorCode: errorData.code,
+        console.log("Payment result params from URL:", paymentParams);
+        console.log(
+          "Payment params count from URL:",
+          Object.keys(paymentParams).length
+        );
+
+        // If no parameters in the URL, check for form POST data, hash fragment or sessionStorage
+        if (Object.keys(paymentParams).length === 0) {
+          console.log(
+            "No URL parameters found, checking alternative sources..."
+          );
+
+          // Try to parse hash fragment (some payment gateways use this)
+          if (window.location.hash && window.location.hash.length > 1) {
+            const hashParams = new URLSearchParams(
+              window.location.hash.substring(1)
+            );
+            Array.from(hashParams.entries()).forEach(([key, value]) => {
+              paymentParams[key] = value;
             });
-            setLoading(false);
-            return;
-          } catch (e) {
-            console.error("Error parsing verification error:", e);
+            console.log("Found parameters in hash fragment:", paymentParams);
+          }
+
+          // If still no parameters, check sessionStorage for callback response
+          if (Object.keys(paymentParams).length === 0) {
+            console.log(
+              "Checking sessionStorage for paypleCallbackResponse..."
+            );
+            const callbackResponse = sessionStorage.getItem(
+              "paypleCallbackResponse"
+            );
+
+            if (callbackResponse) {
+              try {
+                const callbackData = JSON.parse(callbackResponse);
+                console.log(
+                  "Found callback data in sessionStorage:",
+                  callbackData
+                );
+
+                // Convert callback data to paymentParams format
+                for (const key in callbackData) {
+                  if (Object.prototype.hasOwnProperty.call(callbackData, key)) {
+                    paymentParams[key] = String(callbackData[key]);
+                  }
+                }
+
+                console.log(
+                  "Converted sessionStorage data to payment params:",
+                  paymentParams
+                );
+
+                // Remove the stored callback response to prevent reuse
+                sessionStorage.removeItem("paypleCallbackResponse");
+              } catch (e) {
+                console.error("Error parsing callback response:", e);
+              }
+            } else {
+              console.warn(
+                "No payment parameters found in URL, hash fragment, or sessionStorage"
+              );
+            }
           }
         }
 
-        // If we have verification result, use it
-        if (verificationResult) {
-          try {
-            const resultData = JSON.parse(verificationResult);
-            console.log("Found verification result:", resultData);
+        // Store the received parameters for debugging, even if incomplete
+        sessionStorage.setItem(
+          "rawPaymentParams",
+          JSON.stringify(paymentParams)
+        );
+
+        // Final check for necessary payment data
+        if (!paymentParams.PCD_PAY_RST) {
+          console.error("Missing payment result status (PCD_PAY_RST)");
+          console.log("Available params:", Object.keys(paymentParams));
+
+          // If there are no parameters at all, we might be in a strange state
+          if (Object.keys(paymentParams).length === 0) {
+            // Try refreshing the page once to see if it helps
+            if (!sessionStorage.getItem("payment_result_refreshed")) {
+              console.log("No parameters found, attempting one refresh");
+              sessionStorage.setItem("payment_result_refreshed", "true");
+              window.location.reload();
+              return; // Exit early since we're refreshing
+            }
+
+            setError(
+              "결제 응답 데이터가 없습니다. 결제가 정상적으로 진행되지 않았거나 페이플에서 리디렉션이 제대로 이루어지지 않았습니다."
+            );
+            setLoading(false);
+            return;
+          }
+
+          throw new Error("결제 결과 정보가 없습니다. 다시 시도해주세요.");
+        }
+
+        // Clean up refresh indicator
+        sessionStorage.removeItem("payment_result_refreshed");
+
+        // If payment failed, display the error immediately
+        if (paymentParams.PCD_PAY_RST !== "success") {
+          setPaymentResult({
+            success: false,
+            message: paymentParams.PCD_PAY_MSG || "결제 승인이 실패했습니다.",
+            errorCode: paymentParams.PCD_PAY_CODE || "unknown",
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Get the payment session info from sessionStorage
+        const sessionInfo = sessionStorage.getItem("paymentSessionInfo");
+        if (!sessionInfo) {
+          console.error(
+            "Payment session information not found in sessionStorage"
+          );
+
+          // Create a fallback using the PCD_PAYER_NO if available (this might be the user ID)
+          if (paymentParams.PCD_PAYER_NO) {
+            console.log(
+              "Attempting to use PCD_PAYER_NO as userId fallback:",
+              paymentParams.PCD_PAYER_NO
+            );
+
+            // Verify payment result with Firebase function using the parameter from Payple
+            const verifyPayment = httpsCallable(
+              functions,
+              "verifyPaymentResult"
+            );
+            const result = await verifyPayment({
+              userId: paymentParams.PCD_PAYER_NO,
+              paymentParams,
+              timestamp: Date.now(),
+            });
+
+            const resultData = result.data as PaymentResult;
             setPaymentResult(resultData);
             setLoading(false);
             return;
-          } catch (e) {
-            console.error("Error parsing verification result:", e);
           }
+
+          throw new Error(
+            "결제 세션 정보를 찾을 수 없습니다. 다시 시도해주세요."
+          );
         }
 
-        // If we have callback response but no verification result, try to verify now
-        if (callbackResponse) {
-          try {
-            const responseData = JSON.parse(callbackResponse);
-            console.log("Found callback response, verifying:", responseData);
+        const { userId, timestamp } = JSON.parse(sessionInfo);
+        console.log("Using userId from session:", userId);
 
-            const sessionInfo = sessionStorage.getItem("paymentSessionInfo");
-            if (sessionInfo) {
-              const parsedSession = JSON.parse(sessionInfo);
-              const verifyPayment = httpsCallable(
-                functions,
-                "verifyPaymentResult"
-              );
-
-              const result = await verifyPayment({
-                userId: parsedSession.userId,
-                paymentParams: responseData,
-                timestamp: Date.now(),
-              });
-
-              console.log("Verification result:", result.data);
-              setPaymentResult(result.data as PaymentResult);
-            } else {
-              throw new Error("세션 정보를 찾을 수 없습니다.");
-            }
-          } catch (e) {
-            console.error("Error verifying payment:", e);
-            setError(
-              e instanceof Error
-                ? e.message
-                : "결제 검증 중 오류가 발생했습니다."
-            );
-            setPaymentResult({
-              success: false,
-              message: "결제 검증 실패",
-            });
-          }
-          setLoading(false);
-          return;
-        }
-
-        // Method 2: Check URL parameters (backup method)
-        const urlParams = new URLSearchParams(window.location.search);
-        const hasUrlParams =
-          urlParams.has("PCD_PAY_RST") || urlParams.has("success");
-
-        console.log("URL parameters check:", {
-          hasUrlParams,
-          PCD_PAY_RST: urlParams.get("PCD_PAY_RST"),
-          success: urlParams.get("success"),
-        });
-
-        if (hasUrlParams) {
-          // Process URL parameters
-          const payResult = urlParams.get("PCD_PAY_RST");
-          const payMsg = urlParams.get("PCD_PAY_MSG");
-          const payOid = urlParams.get("PCD_PAY_OID");
-
-          const result: PaymentResult = {
-            success: payResult === "success",
-            message:
-              payMsg ||
-              (payResult === "success"
-                ? "결제가 완료되었습니다."
-                : "결제가 실패했습니다."),
-            data: Object.fromEntries(
-              urlParams.entries()
-            ) as PaymentResult["data"],
-          };
-
-          console.log("Processed URL result:", result);
-          setPaymentResult(result);
-          setLoading(false);
-          return;
-        }
-
-        // Method 3: Check for manual verification via session info
-        const sessionInfo = sessionStorage.getItem("paymentSessionInfo");
-        if (sessionInfo) {
-          console.log("Found session info, attempting manual verification...");
-
-          try {
-            const parsedSession = JSON.parse(sessionInfo);
-            const verifyPayment = httpsCallable(
-              functions,
-              "checkPaymentStatus"
-            );
-
-            const result = await verifyPayment({
-              userId: parsedSession.userId,
-              timestamp: parsedSession.timestamp,
-            });
-
-            console.log("Manual verification result:", result.data);
-            setPaymentResult(result.data as PaymentResult);
-          } catch (e) {
-            console.error("Manual verification failed:", e);
-            setError(
-              e instanceof Error
-                ? e.message
-                : "결제 상태 확인 중 오류가 발생했습니다."
-            );
-            setPaymentResult({
-              success: false,
-              message: "결제 상태 확인 실패",
-            });
-          }
+        // Add some additional info to the payment params
+        if (paymentParams.PCD_PAY_WORK === "CERT") {
+          console.log("This is a billing key authorization (CERT) response");
         } else {
-          // No payment information found
-          console.log("No payment information found");
-          setError("결제 정보를 찾을 수 없습니다.");
-          setPaymentResult({
-            success: false,
-            message: "결제 정보 없음",
-          });
+          console.log("This is a payment confirmation response");
         }
 
-        setLoading(false);
-      } catch (err) {
-        console.error("Error processing payment result:", err);
-        setError(
-          err instanceof Error
-            ? err.message
-            : "결제 결과 처리 중 오류가 발생했습니다."
-        );
-        setPaymentResult({
-          success: false,
-          message: "처리 오류",
+        // Verify payment result with Firebase function
+        console.log("Calling verifyPaymentResult with:", {
+          userId,
+          paymentParamsCount: Object.keys(paymentParams).length,
         });
+        const verifyPayment = httpsCallable(functions, "verifyPaymentResult");
+        const result = await verifyPayment({
+          userId,
+          paymentParams,
+          timestamp,
+        });
+
+        console.log("Verification result received:", result.data);
+        const resultData = result.data as PaymentResult;
+
+        // Check if there's an error code in the result
+        if (!resultData.success && resultData.errorCode) {
+          setErrorCode(resultData.errorCode);
+        }
+
+        setPaymentResult(resultData);
+
+        // Clean up session storage
+        sessionStorage.removeItem("paymentSessionInfo");
+      } catch (err: any) {
+        console.error("Error processing payment result:", err);
+        console.error("Full error object:", JSON.stringify(err, null, 2));
+        setError(err.message || "결제 결과 처리 중 오류가 발생했습니다.");
+        if (err.code) {
+          setErrorCode(err.code);
+        }
+      } finally {
         setLoading(false);
       }
     };
 
-    // Create debug info
+    processPaymentResult();
+  }, [searchParams, error]);
+
+  // Add useEffect to gather debug info
+  useEffect(() => {
+    // Collect debug info from session storage
     const debugData = {
-      url: window.location.href,
-      searchParams: searchParams.toString(),
-      sessionStorage: {
-        paymentSessionInfo: sessionStorage.getItem("paymentSessionInfo"),
-        paypleCallbackResponse: sessionStorage.getItem(
-          "paypleCallbackResponse"
-        ),
-        paymentVerificationResult: sessionStorage.getItem(
-          "paymentVerificationResult"
-        ),
-        paymentVerificationError: sessionStorage.getItem(
-          "paymentVerificationError"
-        ),
-      },
+      paymentSessionInfo: sessionStorage.getItem("paymentSessionInfo"),
+      paypleCallbackResponse: sessionStorage.getItem("paypleCallbackResponse"),
+      rawPaymentParams: sessionStorage.getItem("rawPaymentParams"),
+      paymentVerificationResult: sessionStorage.getItem(
+        "paymentVerificationResult"
+      ),
+      paymentVerificationError: sessionStorage.getItem(
+        "paymentVerificationError"
+      ),
+      paymentResultRefreshed: sessionStorage.getItem(
+        "payment_result_refreshed"
+      ),
+      rawLocationSearch: searchParams.toString(),
+      rawLocationHash:
+        typeof window !== "undefined" ? window.location.hash : "",
       timestamp: new Date().toISOString(),
     };
+
     setDebugInfo(debugData);
 
-    processPaymentResult();
+    // Log debug info to console
+    console.log("Payment result debug info:", debugData);
   }, [searchParams]);
 
   const handleContinue = () => {
-    router.push("/");
+    router.push("/profile");
   };
 
   const handleRetry = () => {
@@ -430,8 +459,8 @@ export default function PaymentResultClient() {
     return (
       <Wrapper>
         <Card>
+          <Title>결제 결과 처리 중</Title>
           <LoadingSpinner />
-          <Subtitle>결제 결과를 확인하고 있습니다...</Subtitle>
         </Card>
       </Wrapper>
     );
@@ -443,119 +472,275 @@ export default function PaymentResultClient() {
         {paymentResult?.success ? (
           <>
             <SuccessIcon />
-            <Title>결제 완료!</Title>
-            <Subtitle>{paymentResult.message}</Subtitle>
+            <Title>구독 등록 완료</Title>
+            <Subtitle>
+              One Cup English 프리미엄 멤버십에 가입되었습니다
+            </Subtitle>
 
             {paymentResult.data && (
               <ResultInfo>
                 <InfoRow>
-                  <InfoLabel>주문번호:</InfoLabel>
+                  <InfoLabel>결제 결과</InfoLabel>
+                  <InfoValue>{paymentResult.data.PCD_PAY_RST || "-"}</InfoValue>
+                </InfoRow>
+                <InfoRow>
+                  <InfoLabel>상품명</InfoLabel>
                   <InfoValue>
-                    {paymentResult.data.PCD_PAY_OID || "N/A"}
+                    {paymentResult.data.PCD_PAY_GOODS ||
+                      "One Cup English 프리미엄 멤버십"}
                   </InfoValue>
                 </InfoRow>
                 <InfoRow>
-                  <InfoLabel>결제수단:</InfoLabel>
+                  <InfoLabel>구독 금액</InfoLabel>
                   <InfoValue>
-                    {paymentResult.data.PCD_PAY_TYPE || "N/A"}
+                    ₩
+                    {paymentResult.data.PCD_PAY_TOTAL
+                      ? Number(
+                          paymentResult.data.PCD_PAY_TOTAL
+                        ).toLocaleString()
+                      : "-"}
+                    /월
                   </InfoValue>
                 </InfoRow>
                 <InfoRow>
-                  <InfoLabel>결제자 ID:</InfoLabel>
+                  <InfoLabel>다음 결제일</InfoLabel>
                   <InfoValue>
-                    {paymentResult.data.PCD_PAYER_ID || "N/A"}
-                  </InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>결제 상태:</InfoLabel>
-                  <InfoValue>
-                    {paymentResult.data.PCD_PAY_RST || "success"}
+                    {new Date(
+                      new Date().setMonth(new Date().getMonth() + 1)
+                    ).toLocaleDateString()}
                   </InfoValue>
                 </InfoRow>
               </ResultInfo>
             )}
 
-            <Button onClick={handleContinue}>메인으로 돌아가기</Button>
+            <Button onClick={handleContinue}>프로필로 이동</Button>
           </>
         ) : (
           <>
             <ErrorIcon />
-            <Title>결제 실패</Title>
+            <Title>구독 등록 실패</Title>
             <Subtitle>
-              {paymentResult?.message ||
-                error ||
-                "결제 처리 중 오류가 발생했습니다."}
+              {paymentResult?.message || "결제 처리 중 오류가 발생했습니다"}
             </Subtitle>
-
+            {error && <ErrorText>{error}</ErrorText>}
             {errorCode && <ErrorText>오류 코드: {errorCode}</ErrorText>}
 
-            {paymentResult?.data && (
-              <ResultInfo>
-                <InfoRow>
-                  <InfoLabel>오류 메시지:</InfoLabel>
-                  <InfoValue>
-                    {paymentResult.data.PCD_PAY_MSG || "N/A"}
-                  </InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>주문번호:</InfoLabel>
-                  <InfoValue>
-                    {paymentResult.data.PCD_PAY_OID || "N/A"}
-                  </InfoValue>
-                </InfoRow>
-                <InfoRow>
-                  <InfoLabel>결제 상태:</InfoLabel>
-                  <InfoValue>
-                    {paymentResult.data.PCD_PAY_RST || "failed"}
-                  </InfoValue>
-                </InfoRow>
-              </ResultInfo>
-            )}
+            <ResultInfo>
+              <InfoRow>
+                <InfoLabel>문제 해결 방법</InfoLabel>
+                <InfoValue>
+                  • 카드 정보를 다시 확인해 주세요
+                  <br />
+                  • 결제 한도를 확인해 주세요
+                  <br />
+                  • 다른 카드로 시도해 보세요
+                  <br />• 문제가 지속되면 고객센터로 문의해 주세요
+                </InfoValue>
+              </InfoRow>
+            </ResultInfo>
 
-            <Button onClick={handleRetry} style={{ marginBottom: "10px" }}>
-              다시 시도하기
-            </Button>
-            <Button
-              onClick={handleContinue}
-              style={{ backgroundColor: "#666" }}
-            >
-              메인으로 돌아가기
-            </Button>
+            <Button onClick={handleRetry}>다시 시도하기</Button>
           </>
         )}
 
-        {/* Debug section */}
-        {process.env.NODE_ENV === "development" && (
-          <div style={{ marginTop: "20px", textAlign: "left" }}>
-            <button
-              onClick={() => setShowDebug(!showDebug)}
+        {/* Debug section - only accessible by clicking a hidden button */}
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#999",
+              padding: "10px",
+              cursor: "pointer",
+            }}
+          >
+            {showDebug ? "Hide Debug Info" : "•••"}
+          </button>
+
+          {showDebug && (
+            <div
               style={{
-                background: "#f0f0f0",
-                border: "1px solid #ccc",
-                padding: "5px 10px",
-                cursor: "pointer",
+                textAlign: "left",
+                border: "1px solid #ddd",
+                padding: "10px",
+                borderRadius: "5px",
+                backgroundColor: "#f9f9f9",
+                marginTop: "10px",
                 fontSize: "12px",
+                whiteSpace: "pre-wrap",
+                overflow: "auto",
+                maxHeight: "400px",
               }}
             >
-              {showDebug ? "Hide" : "Show"} Debug Info
-            </button>
+              <h4>Debug Information</h4>
 
-            {showDebug && (
-              <pre
+              <h5>URL Data</h5>
+              <div>
+                Search: <code>{debugInfo.rawLocationSearch || "None"}</code>
+              </div>
+              <div>
+                Hash: <code>{debugInfo.rawLocationHash || "None"}</code>
+              </div>
+
+              <h5>Raw Payment Parameters</h5>
+              <pre>
+                {debugInfo.rawPaymentParams
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.rawPaymentParams),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
+              <h5>Session Info</h5>
+              <pre>
+                {debugInfo.paymentSessionInfo
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paymentSessionInfo),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
+              <h5>Callback Response</h5>
+              <pre>
+                {debugInfo.paypleCallbackResponse
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paypleCallbackResponse),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
+              <h5>Verification Result</h5>
+              <pre>
+                {debugInfo.paymentVerificationResult
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paymentVerificationResult),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
+              <h5>Verification Error</h5>
+              <pre>
+                {debugInfo.paymentVerificationError
+                  ? JSON.stringify(
+                      JSON.parse(debugInfo.paymentVerificationError),
+                      null,
+                      2
+                    )
+                  : "None"}
+              </pre>
+
+              <button
+                onClick={() => {
+                  // Call the manual verification if we have raw parameters or callback data
+                  const rawParams = debugInfo.rawPaymentParams
+                    ? JSON.parse(debugInfo.rawPaymentParams)
+                    : null;
+                  const callbackData = debugInfo.paypleCallbackResponse
+                    ? JSON.parse(debugInfo.paypleCallbackResponse)
+                    : null;
+                  const dataToVerify =
+                    rawParams && Object.keys(rawParams).length > 0
+                      ? rawParams
+                      : callbackData;
+
+                  if (dataToVerify && !debugInfo.paymentVerificationResult) {
+                    try {
+                      const sessionInfo = debugInfo.paymentSessionInfo
+                        ? JSON.parse(debugInfo.paymentSessionInfo)
+                        : null;
+
+                      if (sessionInfo && sessionInfo.userId) {
+                        console.log("Manually attempting verification with:", {
+                          userId: sessionInfo.userId,
+                          dataToVerify,
+                        });
+
+                        const verifyPayment = httpsCallable(
+                          functions,
+                          "verifyPaymentResult"
+                        );
+                        verifyPayment({
+                          userId: sessionInfo.userId,
+                          paymentParams: dataToVerify,
+                          timestamp: Date.now(),
+                        })
+                          .then((result) => {
+                            console.log(
+                              "Manual verification result:",
+                              result.data
+                            );
+                            sessionStorage.setItem(
+                              "paymentVerificationResult",
+                              JSON.stringify(result.data)
+                            );
+                            setDebugInfo({
+                              ...debugInfo,
+                              paymentVerificationResult: JSON.stringify(
+                                result.data
+                              ),
+                            });
+                          })
+                          .catch((error) => {
+                            console.error("Manual verification error:", error);
+                            sessionStorage.setItem(
+                              "paymentVerificationError",
+                              JSON.stringify({
+                                message: error.message,
+                                code: error.code,
+                                details: error.details,
+                                timestamp: new Date().toISOString(),
+                              })
+                            );
+                            setDebugInfo({
+                              ...debugInfo,
+                              paymentVerificationError: JSON.stringify({
+                                message: error.message,
+                                code: error.code,
+                                details: error.details,
+                              }),
+                            });
+                          });
+                      } else {
+                        console.error(
+                          "No valid session info for manual verification"
+                        );
+                      }
+                    } catch (e) {
+                      console.error(
+                        "Error parsing data for manual verification:",
+                        e
+                      );
+                    }
+                  } else {
+                    console.log(
+                      "No data to verify or verification already exists"
+                    );
+                  }
+                }}
                 style={{
-                  background: "#f5f5f5",
-                  padding: "10px",
-                  fontSize: "10px",
-                  overflow: "auto",
-                  maxHeight: "300px",
+                  background: "#2c1810",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "8px 12px",
                   marginTop: "10px",
+                  cursor: "pointer",
                 }}
               >
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            )}
-          </div>
-        )}
+                Try Manual Verification
+              </button>
+            </div>
+          )}
+        </div>
       </Card>
     </Wrapper>
   );

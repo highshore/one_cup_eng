@@ -1,6 +1,6 @@
-import HomePageClient from "../../lib/features/home/components/HomePageClient";
-import { fetchUpcomingMeetupEventsServer } from "../../lib/features/meetup/services/meetup_service_server";
-import { MeetupEvent } from "../../lib/features/meetup/types/meetup_types";
+import HomePageClient from "../lib/features/home/components/HomePageClient";
+import { fetchUpcomingMeetupEventsServer } from "../lib/features/meetup/services/meetup_service_server";
+import { MeetupEvent } from "../lib/features/meetup/types/meetup_types";
 
 // This page will be statically generated at build time
 export default async function HomePage() {

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../lib/firebase/firebase";
+import { db } from "../lib/firebase/firebase";
 
 // Import extracted components and utilities
 import {
@@ -15,7 +15,7 @@ import {
   SentenceCreationWord,
   Step,
   WordDefinitionModalState,
-} from "../../lib/features/shadow/types/shadow";
+} from "../lib/features/shadow/types/shadow";
 import {
   colors,
   ShadowContainer,
@@ -26,11 +26,11 @@ import {
   LoadingContainer,
   VideoContainer,
   StatusIndicator,
-} from "../../lib/features/shadow/styles/shadow_styles";
-import WordDefinitionModal from "../../lib/features/shadow/components/word_definition_modal";
-import SentenceAssessment from "../../lib/features/shadow/components/sentence_assessment";
-import AnalysisReport from "../../lib/features/shadow/components/analysis_report";
-import { convertToEmbedUrl } from "../../lib/features/shadow/utils/shadow_utils";
+} from "../lib/features/shadow/styles/shadow_styles";
+import WordDefinitionModal from "../lib/features/shadow/components/word_definition_modal";
+import SentenceAssessment from "../lib/features/shadow/components/sentence_assessment";
+import AnalysisReport from "../lib/features/shadow/components/analysis_report";
+import { convertToEmbedUrl } from "../lib/features/shadow/utils/shadow_utils";
 
 // Remaining styled components that are specific to this page
 const TranscriptContainer = styled.div`
