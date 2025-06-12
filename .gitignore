@@ -20,6 +20,13 @@ out/
 # Firebase Functions build output
 functions/.next/
 functions/out/
+functions/lib/
+
+# Cache directories
+.cache/
+*.cache
+.webpack/
+.turbo/
 
 # Editor directories and files
 .vscode/*
