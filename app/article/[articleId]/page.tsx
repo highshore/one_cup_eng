@@ -1,4 +1,4 @@
-import { ArticleClient } from "./ArticleClient";
+import ArticleClient from "./ArticleClient";
 
 interface ArticlePageProps {
   params: Promise<{

@@ -51,16 +51,8 @@ const GlobalStyles = createGlobalStyle`
   
   /* Additional mobile optimizations */
   @media (max-width: 768px) {
-    html, body {
-      position: fixed;
-      overflow: hidden;
-      width: 100vw;
-      height: 100%;
-    }
-    
-    #root {
-      overflow-y: auto;
-      height: 100%;
+    body {
+      /* Remove fixed positioning that prevents scrolling */
       -webkit-overflow-scrolling: touch;
     }
   }

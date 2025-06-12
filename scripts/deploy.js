@@ -51,11 +51,11 @@ async function deploy() {
       description: "Installing dependencies and building Firebase Functions",
     },
     {
-      command: "firebase deploy --only functions",
+      command: "firebase deploy --only functions --force",
       description: "Deploying Firebase Functions",
     },
     {
-      command: "firebase deploy --only firestore,storage",
+      command: "firebase deploy --only firestore,storage --force",
       description: "Deploying Firebase Firestore rules and Storage rules",
     },
     {
