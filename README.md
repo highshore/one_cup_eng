@@ -52,3 +52,4 @@ export default tseslint.config({
   },
 })
 ```
+# Clean repository - large files removed
