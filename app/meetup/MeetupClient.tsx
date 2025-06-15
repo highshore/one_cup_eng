@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styled, { keyframes, css } from "styled-components";
+import dynamic from "next/dynamic";
 import { MeetupEvent } from "../lib/features/meetup/types/meetup_types";
 import { fetchMeetupEvents } from "../lib/features/meetup/services/meetup_service";
 import {
@@ -18,6 +19,7 @@ import {
 } from "../lib/features/meetup/components/meetup_icons";
 import { BlogPost } from "../lib/features/blog/types/blog_types";
 import { fetchBlogPosts } from "../lib/features/blog/services/blog_service";
+import GlobalLoadingScreen from "../lib/components/GlobalLoadingScreen";
 
 // Add subtle glow animation keyframes
 const subtleGlow = keyframes`
@@ -356,10 +358,27 @@ const LoadingContainer = styled.div`
   text-align: center;
   padding: 2rem 1rem;
   color: #666;
+  min-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 
   @media (max-width: 768px) {
     padding: 1.5rem 0.75rem;
     font-size: 14px;
+    min-height: 40vh;
+  }
+`;
+
+const LoadingAnimation = styled.div`
+  width: 150px;
+  height: 150px;
+  margin-bottom: 1rem;
+
+  @media (max-width: 768px) {
+    width: 120px;
+    height: 120px;
   }
 `;
 
@@ -638,7 +657,7 @@ const MeetupClient: React.FC = () => {
           </EventImageContainer>
           <EventDetails>
             <EventTitle $isPast={isPast}>
-              {countdownPrefix && (
+              {!isPast && countdownPrefix && (
                 <CountdownPrefix $isUrgent={isUrgent}>
                   {countdownPrefix}
                 </CountdownPrefix>
@@ -689,7 +708,7 @@ const MeetupClient: React.FC = () => {
       {/* Blog Banner */}
       {renderBlogBanner()}
 
-      {loading && <LoadingContainer>Loading events...</LoadingContainer>}
+      {loading && <GlobalLoadingScreen size="large" />}
 
       {error && <EmptyState>Error loading events: {error}</EmptyState>}
 

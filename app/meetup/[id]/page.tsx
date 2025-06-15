@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { EventDetailClient } from "./EventDetailClient";
+import GlobalLoadingScreen from "../../lib/components/GlobalLoadingScreen";
 
 interface MeetupDetailPageProps {
   params: Promise<{
@@ -16,7 +17,7 @@ export async function generateStaticParams() {
 
 export default function EventDetailPage({ params }: MeetupDetailPageProps) {
   return (
-    <Suspense fallback={<div>Loading event details...</div>}>
+    <Suspense fallback={<GlobalLoadingScreen />}>
       <EventDetailClient />
     </Suspense>
   );

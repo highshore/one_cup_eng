@@ -16,7 +16,7 @@ import {
   httpsCallable,
   HttpsCallableResult,
 } from "firebase/functions";
-import LoadingScreen from "../lib/components/LoadingScreen";
+import GlobalLoadingScreen from "../lib/components/GlobalLoadingScreen";
 
 const KAKAO_CLIENT_ID = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
 const KAKAO_CLIENT_SECRET = process.env.NEXT_PUBLIC_KAKAO_CLIENT_SECRET;
@@ -264,12 +264,12 @@ const KakaoCallbackContent = () => {
     processLogin(code);
   }, [router, searchParams, processKakaoUser]); // Updated dependency array
 
-  return <LoadingScreen />;
+  return <GlobalLoadingScreen />;
 };
 
 const KakaoCallback = () => {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<GlobalLoadingScreen />}>
       <KakaoCallbackContent />
     </Suspense>
   );

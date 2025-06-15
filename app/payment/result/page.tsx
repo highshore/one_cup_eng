@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
 import PaymentResultClient from "./PaymentResultClient";
+import GlobalLoadingScreen from "../../lib/components/GlobalLoadingScreen";
 
 export const metadata: Metadata = {
   title: "결제 결과 | OneCup English",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PaymentResultPage() {
   return (
-    <Suspense fallback={<div>Loading payment result...</div>}>
+    <Suspense fallback={<GlobalLoadingScreen />}>
       <PaymentResultClient />
     </Suspense>
   );

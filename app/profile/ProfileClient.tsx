@@ -15,6 +15,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale/ko";
 import { httpsCallable } from "firebase/functions";
+import GlobalLoadingScreen from "../lib/components/GlobalLoadingScreen";
 
 // Updated Wrapper to use full width and follow layout guidelines
 const Wrapper = styled.div`
@@ -798,265 +799,269 @@ export default function ProfileClient() {
   };
 
   if (loading) {
-    return <Wrapper>Loading user data...</Wrapper>;
+    return <GlobalLoadingScreen />;
   }
 
   return (
-    <Wrapper>
-      {error && (
-        <AlertCard type="error">
-          <p>{error}</p>
-        </AlertCard>
-      )}
-      {successMessage && (
-        <AlertCard type="success">
-          <p>{successMessage}</p>
-        </AlertCard>
-      )}
-      {isLoading && (
-        <div style={{ textAlign: "center", marginBottom: "15px" }}>
-          Uploading image... Please wait.
-        </div>
-      )}
+    <>
+      {isLoading && <GlobalLoadingScreen size="small" />}
+      <Wrapper>
+        {error && (
+          <AlertCard type="error">
+            <p>{error}</p>
+          </AlertCard>
+        )}
+        {successMessage && (
+          <AlertCard type="success">
+            <p>{successMessage}</p>
+          </AlertCard>
+        )}
 
-      {/* User Information Section */}
-      <UserInfoSection>
-        <SectionTitle>기본 정보</SectionTitle>
-        <SectionContent>
-          <UserInfoContent>
-            <UserDetails>
-              <InfoRow>
-                <InfoLabel>유저명</InfoLabel>
-                {isEditingName ? (
-                  <NameEditContainer>
-                    <NameInput
-                      type="text"
-                      value={displayName}
-                      onChange={handleNameChange}
-                      placeholder="이름 입력"
-                      autoFocus
-                      onKeyPress={handleKeyPress}
-                    />
-                    <CheckmarkIcon onClick={saveDisplayName}>✓</CheckmarkIcon>
-                  </NameEditContainer>
-                ) : (
-                  <InfoValue onClick={() => setIsEditingName(true)}>
-                    {user?.displayName
-                      ? user.displayName
-                      : "유저명을 정해주세요"}
-                  </InfoValue>
-                )}
-              </InfoRow>
-
-              <InfoRow>
-                <InfoLabel>휴대폰</InfoLabel>
-                <InfoValue>{user?.phoneNumber || "번호 없음"}</InfoValue>
-              </InfoRow>
-
-              <InfoRow>
-                <InfoLabel>가입일</InfoLabel>
-                <InfoValue>
-                  {userData?.createdAt ? formatDate(userData.createdAt) : "-"}
-                </InfoValue>
-              </InfoRow>
-            </UserDetails>
-
-            <UserAvatarSection>
-              <AvatarUpload htmlFor="avatar">
-                {avatar ? (
-                  <AvatarImg
-                    src={avatar}
-                    alt="Profile"
-                    onError={(e) => {
-                      // If image fails to load, fall back to default
-                      const target = e.target as HTMLImageElement;
-                      target.onerror = null; // Prevent infinite error loop
-                      target.src = defaultUserImage;
-                      console.log(
-                        "Profile - Image failed to load, using default"
-                      );
-                      // Don't update avatar state - keep the URL even if it doesn't load
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={defaultUserImage}
-                    alt="Default Profile"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                )}
-              </AvatarUpload>
-              <AvatarActions>
-                <AvatarActionButton
-                  onClick={() => document.getElementById("avatar")?.click()}
-                >
-                  변경
-                </AvatarActionButton>
-                {avatar && (
-                  <AvatarActionButton onClick={deleteAvatar}>
-                    삭제
-                  </AvatarActionButton>
-                )}
-              </AvatarActions>
-              <AvatarInput
-                onChange={onAvatarChange}
-                id="avatar"
-                type="file"
-                accept="image/*"
-              />
-            </UserAvatarSection>
-          </UserInfoContent>
-        </SectionContent>
-      </UserInfoSection>
-
-      {/* Subscription Information Section */}
-      <SubscriptionInfo>
-        <SectionTitle>
-          구독 정보
-          <StatusBadge active={subscriptionData.status === "active"}>
-            {subscriptionData.status === "active"
-              ? "상태: 이용 중"
-              : "상태: 비활성화"}
-          </StatusBadge>
-        </SectionTitle>
-
-        <SectionContent>
-          <InfoRow>
-            <InfoLabel>카테고리</InfoLabel>
-            <InfoValue>
-              {!userData?.cat_business && !userData?.cat_tech
-                ? "선택 없음"
-                : `${userData?.cat_business ? "Business" : ""}${
-                    userData?.cat_business && userData?.cat_tech ? ", " : ""
-                  }${userData?.cat_tech ? "Tech" : ""}`}
-            </InfoValue>
-          </InfoRow>
-
-          <InfoRow>
-            <InfoLabel>최근 결제일</InfoLabel>
-            <InfoValue>{formatDate(subscriptionData.startDate)}</InfoValue>
-          </InfoRow>
-
-          <InfoRow>
-            <InfoLabel>다음 결제일</InfoLabel>
-            <InfoValue>
-              {subscriptionData.status === "active"
-                ? formatDate(subscriptionData.nextBillingDate)
-                : "-"}
-            </InfoValue>
-          </InfoRow>
-
-          <div
-            style={{
-              marginTop: "1.5rem",
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            {subscriptionData.status === "active" && (
-              <CancelLinkButton onClick={() => setShowCancelDialog(true)}>
-                멤버십 해지하기
-              </CancelLinkButton>
-            )}
-
-            {subscriptionData.status === "canceled" && (
-              <SubscribeAgainButton onClick={() => router.push("/payment")}>
-                멤버십 시작하기
-              </SubscribeAgainButton>
-            )}
-          </div>
-        </SectionContent>
-      </SubscriptionInfo>
-
-      {/* Articles History Section */}
-      <TransparentCard>
-        <SectionTitle>영어 한잔 기록</SectionTitle>
-        <SectionContent>
-          <ArticlesList>
-            {receivedArticles.length > 0 ? (
-              [...receivedArticles].reverse().map((article) => (
-                <ArticleItem
-                  key={article.id}
-                  onClick={() => navigateToArticle(article.id)}
-                >
-                  <ArticleTitle>
-                    {article.title || `Article ${article.id}`}
-                  </ArticleTitle>
-                  <ArticleDate>
-                    {article.date ? formatDate(article.date) : "날짜 정보 없음"}
-                  </ArticleDate>
-                </ArticleItem>
-              ))
-            ) : (
-              <div
-                style={{ padding: "1rem", textAlign: "center", color: "#888" }}
-              >
-                아직 받은 아티클이 없습니다
-              </div>
-            )}
-          </ArticlesList>
-        </SectionContent>
-      </TransparentCard>
-
-      {/* Vocabulary Section */}
-      {userData?.saved_words && userData.saved_words.length > 0 && (
-        <TransparentCard>
-          <SectionTitle>저장한 단어</SectionTitle>
+        {/* User Information Section */}
+        <UserInfoSection>
+          <SectionTitle>기본 정보</SectionTitle>
           <SectionContent>
-            <WordsList>
-              {userData.saved_words.map((word, index) => (
-                <WordItem key={index}>
-                  <span>{word}</span>
-                </WordItem>
-              ))}
-            </WordsList>
+            <UserInfoContent>
+              <UserDetails>
+                <InfoRow>
+                  <InfoLabel>유저명</InfoLabel>
+                  {isEditingName ? (
+                    <NameEditContainer>
+                      <NameInput
+                        type="text"
+                        value={displayName}
+                        onChange={handleNameChange}
+                        placeholder="이름 입력"
+                        autoFocus
+                        onKeyPress={handleKeyPress}
+                      />
+                      <CheckmarkIcon onClick={saveDisplayName}>✓</CheckmarkIcon>
+                    </NameEditContainer>
+                  ) : (
+                    <InfoValue onClick={() => setIsEditingName(true)}>
+                      {user?.displayName
+                        ? user.displayName
+                        : "유저명을 정해주세요"}
+                    </InfoValue>
+                  )}
+                </InfoRow>
+
+                <InfoRow>
+                  <InfoLabel>휴대폰</InfoLabel>
+                  <InfoValue>{user?.phoneNumber || "번호 없음"}</InfoValue>
+                </InfoRow>
+
+                <InfoRow>
+                  <InfoLabel>가입일</InfoLabel>
+                  <InfoValue>
+                    {userData?.createdAt ? formatDate(userData.createdAt) : "-"}
+                  </InfoValue>
+                </InfoRow>
+              </UserDetails>
+
+              <UserAvatarSection>
+                <AvatarUpload htmlFor="avatar">
+                  {avatar ? (
+                    <AvatarImg
+                      src={avatar}
+                      alt="Profile"
+                      onError={(e) => {
+                        // If image fails to load, fall back to default
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null; // Prevent infinite error loop
+                        target.src = defaultUserImage;
+                        console.log(
+                          "Profile - Image failed to load, using default"
+                        );
+                        // Don't update avatar state - keep the URL even if it doesn't load
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={defaultUserImage}
+                      alt="Default Profile"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  )}
+                </AvatarUpload>
+                <AvatarActions>
+                  <AvatarActionButton
+                    onClick={() => document.getElementById("avatar")?.click()}
+                  >
+                    변경
+                  </AvatarActionButton>
+                  {avatar && (
+                    <AvatarActionButton onClick={deleteAvatar}>
+                      삭제
+                    </AvatarActionButton>
+                  )}
+                </AvatarActions>
+                <AvatarInput
+                  onChange={onAvatarChange}
+                  id="avatar"
+                  type="file"
+                  accept="image/*"
+                />
+              </UserAvatarSection>
+            </UserInfoContent>
+          </SectionContent>
+        </UserInfoSection>
+
+        {/* Subscription Information Section */}
+        <SubscriptionInfo>
+          <SectionTitle>
+            구독 정보
+            <StatusBadge active={subscriptionData.status === "active"}>
+              {subscriptionData.status === "active"
+                ? "상태: 이용 중"
+                : "상태: 비활성화"}
+            </StatusBadge>
+          </SectionTitle>
+
+          <SectionContent>
+            <InfoRow>
+              <InfoLabel>카테고리</InfoLabel>
+              <InfoValue>
+                {!userData?.cat_business && !userData?.cat_tech
+                  ? "선택 없음"
+                  : `${userData?.cat_business ? "Business" : ""}${
+                      userData?.cat_business && userData?.cat_tech ? ", " : ""
+                    }${userData?.cat_tech ? "Tech" : ""}`}
+              </InfoValue>
+            </InfoRow>
+
+            <InfoRow>
+              <InfoLabel>최근 결제일</InfoLabel>
+              <InfoValue>{formatDate(subscriptionData.startDate)}</InfoValue>
+            </InfoRow>
+
+            <InfoRow>
+              <InfoLabel>다음 결제일</InfoLabel>
+              <InfoValue>
+                {subscriptionData.status === "active"
+                  ? formatDate(subscriptionData.nextBillingDate)
+                  : "-"}
+              </InfoValue>
+            </InfoRow>
+
+            <div
+              style={{
+                marginTop: "1.5rem",
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              {subscriptionData.status === "active" && (
+                <CancelLinkButton onClick={() => setShowCancelDialog(true)}>
+                  멤버십 해지하기
+                </CancelLinkButton>
+              )}
+
+              {subscriptionData.status === "canceled" && (
+                <SubscribeAgainButton onClick={() => router.push("/payment")}>
+                  멤버십 시작하기
+                </SubscribeAgainButton>
+              )}
+            </div>
+          </SectionContent>
+        </SubscriptionInfo>
+
+        {/* Articles History Section */}
+        <TransparentCard>
+          <SectionTitle>영어 한잔 기록</SectionTitle>
+          <SectionContent>
+            <ArticlesList>
+              {receivedArticles.length > 0 ? (
+                [...receivedArticles].reverse().map((article) => (
+                  <ArticleItem
+                    key={article.id}
+                    onClick={() => navigateToArticle(article.id)}
+                  >
+                    <ArticleTitle>
+                      {article.title || `Article ${article.id}`}
+                    </ArticleTitle>
+                    <ArticleDate>
+                      {article.date
+                        ? formatDate(article.date)
+                        : "날짜 정보 없음"}
+                    </ArticleDate>
+                  </ArticleItem>
+                ))
+              ) : (
+                <div
+                  style={{
+                    padding: "1rem",
+                    textAlign: "center",
+                    color: "#888",
+                  }}
+                >
+                  아직 받은 아티클이 없습니다
+                </div>
+              )}
+            </ArticlesList>
           </SectionContent>
         </TransparentCard>
-      )}
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          width: "100%",
-        }}
-      >
-        <LogoutButton onClick={handleLogout}>로그아웃</LogoutButton>
-      </div>
+        {/* Vocabulary Section */}
+        {userData?.saved_words && userData.saved_words.length > 0 && (
+          <TransparentCard>
+            <SectionTitle>저장한 단어</SectionTitle>
+            <SectionContent>
+              <WordsList>
+                {userData.saved_words.map((word, index) => (
+                  <WordItem key={index}>
+                    <span>{word}</span>
+                  </WordItem>
+                ))}
+              </WordsList>
+            </SectionContent>
+          </TransparentCard>
+        )}
 
-      {/* Subscription Cancellation Confirmation Dialog */}
-      {showCancelDialog && (
-        <ConfirmationOverlay>
-          <ConfirmationDialog>
-            <SectionTitle>구독 해지</SectionTitle>
-            <p style={{ marginBottom: "1rem" }}>
-              정말로 구독을 해지하시겠습니까?
-            </p>
-            <p style={{ marginBottom: "1rem" }}>
-              해지 시 즉시 서비스 이용이 중단되며, 이미 결제된 금액은 환불되지
-              않습니다.
-            </p>
-            <ButtonGroup>
-              <CancelButton
-                onClick={() => setShowCancelDialog(false)}
-                disabled={cancelInProgress}
-              >
-                취소
-              </CancelButton>
-              <DangerButton
-                onClick={handleCancelSubscription}
-                disabled={cancelInProgress}
-              >
-                {cancelInProgress ? "처리 중..." : "해지하기"}
-              </DangerButton>
-            </ButtonGroup>
-          </ConfirmationDialog>
-        </ConfirmationOverlay>
-      )}
-    </Wrapper>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            width: "100%",
+          }}
+        >
+          <LogoutButton onClick={handleLogout}>로그아웃</LogoutButton>
+        </div>
+
+        {/* Subscription Cancellation Confirmation Dialog */}
+        {showCancelDialog && (
+          <ConfirmationOverlay>
+            <ConfirmationDialog>
+              <SectionTitle>구독 해지</SectionTitle>
+              <p style={{ marginBottom: "1rem" }}>
+                정말로 구독을 해지하시겠습니까?
+              </p>
+              <p style={{ marginBottom: "1rem" }}>
+                해지 시 즉시 서비스 이용이 중단되며, 이미 결제된 금액은 환불되지
+                않습니다.
+              </p>
+              <ButtonGroup>
+                <CancelButton
+                  onClick={() => setShowCancelDialog(false)}
+                  disabled={cancelInProgress}
+                >
+                  취소
+                </CancelButton>
+                <DangerButton
+                  onClick={handleCancelSubscription}
+                  disabled={cancelInProgress}
+                >
+                  {cancelInProgress ? "처리 중..." : "해지하기"}
+                </DangerButton>
+              </ButtonGroup>
+            </ConfirmationDialog>
+          </ConfirmationOverlay>
+        )}
+      </Wrapper>
+    </>
   );
 }

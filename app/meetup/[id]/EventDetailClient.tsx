@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter, usePathname } from "next/navigation";
 import styled, { keyframes, css } from "styled-components";
+import dynamic from "next/dynamic";
 import {
   MeetupEvent,
   Article,
@@ -32,6 +33,7 @@ import {
 } from "../../lib/features/meetup/components/meetup_icons";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../lib/firebase/firebase";
+import GlobalLoadingScreen from "../../lib/components/GlobalLoadingScreen";
 
 // TypeScript declarations for Naver Maps
 declare global {
@@ -84,6 +86,30 @@ const Container = styled.div`
 
   @media (max-width: 768px) {
     overflow-x: hidden;
+  }
+`;
+
+const LoadingContainer = styled.div`
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  padding: 2rem;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+`;
+
+const LoadingAnimation = styled.div`
+  width: 200px;
+  height: 200px;
+
+  @media (max-width: 768px) {
+    width: 150px;
+    height: 150px;
   }
 `;
 
@@ -665,6 +691,135 @@ const DialogButton = styled.button<{ $primary?: boolean }>`
   }
 `;
 
+// Participation Success Dialog styled components
+const SuccessDialogBox = styled.div`
+  background-color: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 90%;
+  max-width: 500px;
+  text-align: left;
+  max-height: 80vh;
+  overflow-y: auto;
+
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+    gap: 1.25rem;
+    max-width: 95%;
+    border-radius: 12px;
+  }
+`;
+
+const SuccessTitle = styled.h3`
+  margin: 0;
+  font-size: 1.5rem;
+  color: #2e7d32;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    font-size: 1.25rem;
+  }
+`;
+
+const SuccessContent = styled.div`
+  color: #333;
+  font-size: 1rem;
+  line-height: 1.6;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+`;
+
+const NoticeSection = styled.div`
+  background-color: #fff3e0;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #ff9800;
+  margin: 0.5rem 0;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+`;
+
+const NoticeTitle = styled.div`
+  font-weight: 600;
+  color: #e65100;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
+`;
+
+const NoticeList = styled.ul`
+  margin: 0;
+  padding-left: 1rem;
+  color: #333;
+  font-size: 0.9rem;
+  line-height: 1.5;
+
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+    padding-left: 0.75rem;
+  }
+`;
+
+const KakaoLink = styled.a`
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 600;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+const ClosingMessage = styled.div`
+  text-align: center;
+  font-size: 1.1rem;
+  color: #2e7d32;
+  font-weight: 600;
+  margin-top: 0.5rem;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+  }
+`;
+
+const SuccessDialogButton = styled.button`
+  padding: 0.875rem 1.5rem;
+  background-color: #2e7d32;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+
+  &:hover {
+    background-color: #1b5e20;
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+  }
+`;
+
 // Seating arrangement styled components
 const SeatingSection = styled.div`
   margin: 2rem 0;
@@ -1087,6 +1242,8 @@ export function EventDetailClient() {
   );
   const [showRoleChoiceDialog, setShowRoleChoiceDialog] = useState(false);
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+  const [showParticipationSuccessDialog, setShowParticipationSuccessDialog] =
+    useState(false);
   const [articleTopics, setArticleTopics] = useState<Article[]>([]);
   const [userHasSubscription, setUserHasSubscription] = useState<
     boolean | null
@@ -1557,7 +1714,7 @@ export function EventDetailClient() {
       } else {
         try {
           await joinEventAsRole(event.id, currentUser.uid, "participant");
-          alert("밋업에 참가자로 등록되셨습니다!");
+          setShowParticipationSuccessDialog(true);
         } catch (err) {
           const message =
             err instanceof Error
@@ -1591,9 +1748,7 @@ export function EventDetailClient() {
 
     try {
       await joinEventAsRole(event.id, currentUser.uid, role);
-      alert(
-        `밋업에 ${role === "leader" ? "리더" : "참가자"}로 등록되셨습니다!`
-      );
+      setShowParticipationSuccessDialog(true);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
@@ -1690,19 +1845,7 @@ export function EventDetailClient() {
 
   // Loading state
   if (loading || (currentUser && subscriptionLoading)) {
-    return (
-      <Container>
-        <div
-          style={{ paddingTop: "80px", textAlign: "center", padding: "2rem" }}
-        >
-          <div
-            style={{ color: "#666", fontSize: "16px", marginBottom: "1rem" }}
-          >
-            Loading event details...
-          </div>
-        </div>
-      </Container>
-    );
+    return <GlobalLoadingScreen />;
   }
 
   // Error state
@@ -1747,6 +1890,11 @@ export function EventDetailClient() {
   const { countdownPrefix, eventTitle, isUrgent } =
     formatEventTitleWithCountdown(event);
   const totalParticipants = event.participants.length + event.leaders.length;
+
+  // Check if event is past (has started or is completed)
+  const isEventPast =
+    lockStatus.reason === "started" ||
+    new Date(`${event.date}T${event.time}`) < new Date();
 
   const getButtonText = () => {
     if (!isLocked) {
@@ -1795,7 +1943,7 @@ export function EventDetailClient() {
         </CategoryTag>
 
         <Title>
-          {countdownPrefix && (
+          {!isEventPast && countdownPrefix && (
             <CountdownPrefix $isUrgent={isUrgent}>
               {countdownPrefix}
             </CountdownPrefix>
@@ -2107,6 +2255,52 @@ export function EventDetailClient() {
               취소
             </DialogButton>
           </DialogBox>
+        </DialogOverlay>
+      )}
+
+      {showParticipationSuccessDialog && (
+        <DialogOverlay onClick={() => setShowParticipationSuccessDialog(false)}>
+          <SuccessDialogBox onClick={(e) => e.stopPropagation()}>
+            <SuccessTitle>
+              <span>✔️</span> 모임 신청이 완료되었습니다!
+            </SuccessTitle>
+            <SuccessContent>
+              <NoticeSection>
+                <NoticeTitle>
+                  ※ 참석 전 안내 사항을 꼭 확인해주세요:
+                </NoticeTitle>
+                <NoticeList>
+                  <li>
+                    당일 취소, 무단 불참(노쇼), 15분 이상 지각 시<br />
+                    무관용 원칙 적용으로 이후 모임에 참여하실 수 없습니다.
+                  </li>
+                  <li>
+                    참석이 어려우실 경우, 참석 24시간 전까지 웹사이트에서 직접
+                    취소 부탁드립니다. 그 이후에는 락다운 기간으로 취소가
+                    불가능합니다.
+                  </li>
+                  <li>
+                    모임 관련 궁금한 점은 아래 오픈챗방으로 문의해 주세요!
+                    <br />
+                    👉{" "}
+                    <KakaoLink
+                      href="https://open.kakao.com/o/gtuiIuvh"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      https://open.kakao.com/o/gtuiIuvh
+                    </KakaoLink>
+                  </li>
+                </NoticeList>
+              </NoticeSection>
+              <ClosingMessage>그럼 모임에서 뵙겠습니다.☕️😊</ClosingMessage>
+            </SuccessContent>
+            <SuccessDialogButton
+              onClick={() => setShowParticipationSuccessDialog(false)}
+            >
+              확인
+            </SuccessDialogButton>
+          </SuccessDialogBox>
         </DialogOverlay>
       )}
     </Container>

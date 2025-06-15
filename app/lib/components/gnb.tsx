@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import styled from "styled-components";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/auth_context";
@@ -311,6 +312,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { currentUser, hasActiveSubscription, logout } = useAuth();
   const { isTransparent: contextIsTransparent } = useGnb();
+  const pathname = usePathname();
   const [userProfileImage, setUserProfileImage] = useState<string>(
     "/images/default_user.jpg"
   );
@@ -318,6 +320,14 @@ export default function GNB({ variant = "default" }: GNBProps) {
 
   // Use context transparency for home page, fallback to prop-based logic for other pages
   const isTransparent = variant === "home" ? contextIsTransparent : false;
+
+  // Create auth URL with redirect parameter
+  const createAuthUrl = () => {
+    if (pathname === "/" || pathname === "/auth") {
+      return "/auth";
+    }
+    return `/auth?redirect=${encodeURIComponent(pathname)}`;
+  };
 
   useEffect(() => {
     if (currentUser?.photoURL) {
@@ -466,7 +476,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
                 )}
               </ProfileWrapper>
             ) : (
-              <AuthButton href="/auth">로그인 · 가입</AuthButton>
+              <AuthButton href={createAuthUrl()}>로그인 · 가입</AuthButton>
             )}
           </div>
         </NavbarContent>
@@ -497,7 +507,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
         </MobileMenuItem>
         {!currentUser && (
           <MobileAuthButton
-            href="/auth"
+            href={createAuthUrl()}
             onClick={closeMobileMenu}
             $isOpen={isMobileMenuOpen}
           >

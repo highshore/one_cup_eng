@@ -31,7 +31,7 @@ export async function generateMetadata() {
       description:
         "매주 영어 모임으로 실전 회화 연습하고, 매일 영어 아티클로 어휘력을 늘려보세요.",
       type: "website",
-      url: "https://one-cup-eng.web.app",
+      url: "https://1cupenglish.com",
       images: [
         {
           url: "/images/logos/1cup_logo.jpg",

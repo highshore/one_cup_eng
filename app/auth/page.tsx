@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, ReactNode, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { auth, db } from "../lib/firebase/firebase";
 import styled from "styled-components";
@@ -13,12 +13,12 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import Footer from "../lib/components/footer";
-
 import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
   ConfirmationResult,
 } from "firebase/auth";
+import GlobalLoadingScreen from "../lib/components/GlobalLoadingScreen";
 
 const KAKAO_CLIENT_ID = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
 const KAKAO_REDIRECT_URI = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
@@ -29,8 +29,6 @@ declare global {
     recaptchaVerifier: RecaptchaVerifier;
   }
 }
-
-// ... All styled components from the original auth.tsx file go here ...
 
 const colors = {
   primary: "#2C1810",
@@ -296,8 +294,10 @@ const KakaoButton = styled(ChoiceButton)`
   }
 `;
 
-export default function Auth() {
+// Create a separate component that uses useSearchParams
+function AuthContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPhoneAuth, setShowPhoneAuth] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
@@ -310,6 +310,14 @@ export default function Auth() {
 
   // Handle Kakao Login Click
   const handleKakaoLoginClick = () => {
+    // Get redirect URL from URL params
+    const redirectUrl = searchParams.get("redirect");
+
+    // Store the redirect URL in localStorage for after authentication
+    if (redirectUrl) {
+      localStorage.setItem("returnUrl", redirectUrl);
+    }
+
     window.location.href = KAKAO_AUTH_URL;
   };
 
@@ -401,12 +409,14 @@ export default function Auth() {
           });
         }
 
-        // Get return URL from localStorage, fallback to /profile
-        const returnUrl = localStorage.getItem("returnUrl");
-        const finalUrl = returnUrl || "/profile";
+        // Get return URL from URL params or localStorage, fallback to /profile
+        const redirectFromParams = searchParams.get("redirect");
+        const returnUrlFromStorage = localStorage.getItem("returnUrl");
+        const finalUrl =
+          redirectFromParams || returnUrlFromStorage || "/profile";
 
         // Clear the stored return URL
-        if (returnUrl) {
+        if (returnUrlFromStorage) {
           localStorage.removeItem("returnUrl");
         }
 
@@ -421,7 +431,7 @@ export default function Auth() {
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [router]);
+  }, [router, searchParams]);
 
   const setupInvisibleRecaptcha = () => {
     if (window.recaptchaVerifier) {
@@ -598,89 +608,109 @@ export default function Auth() {
   }, [showPhoneAuth]); // Depend on showPhoneAuth
 
   return (
-    <AuthLayout>
-      <AuthPageHeading>
-        {showPhoneAuth ? "휴대폰으로 로그인" : "Welcome! 🥳"}
-      </AuthPageHeading>
-      <Description>
-        {showPhoneAuth
-          ? "인증코드를 받으실 휴대폰 번호를 입력해주세요. 인증은 Google의 보안 서비스를 통해 진행합니다."
-          : ""}
-      </Description>
+    <>
+      {loading && <GlobalLoadingScreen />}
 
-      {!showPhoneAuth ? (
-        <ChoiceButtonContainer>
-          <PhoneButton onClick={handlePhoneAuthClick}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
-              />
-            </svg>
-            전화번호로 시작하기
-          </PhoneButton>
-          <KakaoButton onClick={handleKakaoLoginClick}>
-            <img src="/images/kakao_btn.png" alt="Kakao Login" />
-            카카오로 시작하기
-          </KakaoButton>
-        </ChoiceButtonContainer>
-      ) : (
-        <FormContainer>
-          {!verificationId ? (
-            <>
-              <Input
-                type="tel"
-                placeholder="휴대폰 번호 (예: 01012345678)"
-                value={phoneNumber}
-                onChange={handlePhoneNumberChange}
-                disabled={loading}
-              />
-              {phoneNumber && !isValidPhoneNumber ? (
-                <ValidationMessage>
-                  올바른 휴대폰 번호를 입력해주세요 (예: 01012345678)
-                </ValidationMessage>
-              ) : (
-                <HelpText>공백이나 대시(-) 없이 번호만 입력해주세요.</HelpText>
-              )}
-              <Button
-                id="send-code-button"
-                onClick={onSignInSubmit}
-                disabled={!isValidPhoneNumber || loading}
-              >
-                {loading ? "전송 중..." : "인증번호 전송"}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Input
-                type="text"
-                placeholder="인증번호 입력"
-                value={verificationCode}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setVerificationCode(e.target.value)
-                }
-                disabled={loading}
-              />
-              <Button
-                onClick={verifyCode}
-                disabled={!verificationCode || loading}
-              >
-                {loading ? "확인 중..." : "인증번호 확인"}
-              </Button>
-            </>
-          )}
+      <AuthLayout>
+        <AuthPageHeading>
+          {showPhoneAuth ? "휴대폰으로 로그인" : "Welcome! 🥳"}
+        </AuthPageHeading>
+        <Description>
+          {showPhoneAuth
+            ? "인증코드를 받으실 휴대폰 번호를 입력해주세요. 인증은 Google의 보안 서비스를 통해 진행합니다."
+            : ""}
+        </Description>
 
-          {errorState && <ErrorMessage>{errorState}</ErrorMessage>}
-          {message && <SuccessMessage>{message}</SuccessMessage>}
-        </FormContainer>
-      )}
-    </AuthLayout>
+        {!showPhoneAuth ? (
+          <ChoiceButtonContainer>
+            <PhoneButton onClick={handlePhoneAuthClick}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
+                />
+              </svg>
+              전화번호로 시작하기
+            </PhoneButton>
+            <KakaoButton onClick={handleKakaoLoginClick}>
+              <img src="/images/kakao_btn.png" alt="Kakao Login" />
+              카카오로 시작하기
+            </KakaoButton>
+          </ChoiceButtonContainer>
+        ) : (
+          <FormContainer>
+            {!verificationId ? (
+              <>
+                <Input
+                  type="tel"
+                  placeholder="휴대폰 번호 (예: 01012345678)"
+                  value={phoneNumber}
+                  onChange={handlePhoneNumberChange}
+                  disabled={loading}
+                />
+                {phoneNumber && !isValidPhoneNumber ? (
+                  <ValidationMessage>
+                    올바른 휴대폰 번호를 입력해주세요 (예: 01012345678)
+                  </ValidationMessage>
+                ) : (
+                  <HelpText>
+                    공백이나 대시(-) 없이 번호만 입력해주세요.
+                  </HelpText>
+                )}
+                <Button
+                  id="send-code-button"
+                  onClick={onSignInSubmit}
+                  disabled={!isValidPhoneNumber || loading}
+                >
+                  {loading ? "전송 중..." : "인증번호 전송"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Input
+                  type="text"
+                  placeholder="인증번호 입력"
+                  value={verificationCode}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setVerificationCode(e.target.value)
+                  }
+                  disabled={loading}
+                />
+                <Button
+                  onClick={verifyCode}
+                  disabled={!verificationCode || loading}
+                >
+                  {loading ? "확인 중..." : "인증번호 확인"}
+                </Button>
+              </>
+            )}
+
+            {errorState && <ErrorMessage>{errorState}</ErrorMessage>}
+            {message && <SuccessMessage>{message}</SuccessMessage>}
+          </FormContainer>
+        )}
+      </AuthLayout>
+    </>
+  );
+}
+
+// Fallback component for Suspense
+function AuthLoadingFallback() {
+  return <GlobalLoadingScreen />;
+}
+
+// Main export with Suspense boundary
+export default function Auth() {
+  return (
+    <Suspense fallback={<AuthLoadingFallback />}>
+      <AuthContent />
+    </Suspense>
   );
 }

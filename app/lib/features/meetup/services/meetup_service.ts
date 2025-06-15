@@ -573,15 +573,30 @@ export const updateMeetupEvent = async (
 
 // Fetch recent articles for topic selection
 export const fetchRecentArticles = async (
-  limitCount: number = 10
-): Promise<Article[]> => {
+  limitCount: number = 10,
+  lastDoc?: QueryDocumentSnapshot<DocumentData>
+): Promise<{
+  articles: Article[];
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+}> => {
   try {
     const articlesCollection = collection(db, ARTICLES_COLLECTION);
-    const articlesQuery = query(
+    let articlesQuery = query(
       articlesCollection,
       orderBy("timestamp", "desc"),
       limit(limitCount)
     );
+
+    // If lastDoc is provided, start after it for pagination
+    if (lastDoc) {
+      articlesQuery = query(
+        articlesCollection,
+        orderBy("timestamp", "desc"),
+        startAfter(lastDoc),
+        limit(limitCount)
+      );
+    }
 
     const querySnapshot = await getDocs(articlesQuery);
     const articles: Article[] = [];
@@ -595,10 +610,27 @@ export const fetchRecentArticles = async (
       });
     });
 
-    return articles;
+    // Get the last document for pagination
+    const newLastDoc =
+      querySnapshot.docs.length > 0
+        ? querySnapshot.docs[querySnapshot.docs.length - 1]
+        : null;
+
+    // Check if there are more documents by trying to fetch one more
+    const hasMore = querySnapshot.docs.length === limitCount;
+
+    return {
+      articles,
+      lastDoc: newLastDoc,
+      hasMore,
+    };
   } catch (error) {
     console.error("Error fetching articles:", error);
-    return [];
+    return {
+      articles: [],
+      lastDoc: null,
+      hasMore: false,
+    };
   }
 };
 
