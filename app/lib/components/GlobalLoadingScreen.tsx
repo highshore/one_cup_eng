@@ -69,6 +69,7 @@ const LoadingContainer = styled.div<{ $size?: "small" | "medium" | "large" }>`
   display: flex;
   justify-content: center;
   align-items: center;
+  transform: translateY(-60px); /* Pull up by GNB height */
 
   @media (max-width: 768px) {
     width: ${(props) => {
@@ -91,6 +92,7 @@ const LoadingContainer = styled.div<{ $size?: "small" | "medium" | "large" }>`
           return "200px";
       }
     }};
+    transform: translateY(-50px); /* Pull up by mobile GNB height */
   }
 `;
 

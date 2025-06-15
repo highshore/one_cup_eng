@@ -696,15 +696,13 @@ const SuccessDialogBox = styled.div`
   background-color: white;
   padding: 2rem;
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
   width: 90%;
-  max-width: 500px;
-  text-align: left;
-  max-height: 80vh;
-  overflow-y: auto;
+  max-width: 450px;
+  text-align: center;
 
   @media (max-width: 768px) {
     padding: 1.5rem;
@@ -721,6 +719,7 @@ const SuccessTitle = styled.h3`
   font-weight: 700;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
 
   @media (max-width: 768px) {
@@ -729,49 +728,13 @@ const SuccessTitle = styled.h3`
 `;
 
 const SuccessContent = styled.div`
-  color: #333;
+  color: #555;
   font-size: 1rem;
   line-height: 1.6;
 
   @media (max-width: 768px) {
     font-size: 0.9rem;
     line-height: 1.5;
-  }
-`;
-
-const NoticeSection = styled.div`
-  background-color: #fff3e0;
-  padding: 1rem;
-  border-radius: 8px;
-  border-left: 4px solid #ff9800;
-  margin: 0.5rem 0;
-
-  @media (max-width: 768px) {
-    padding: 0.75rem;
-  }
-`;
-
-const NoticeTitle = styled.div`
-  font-weight: 600;
-  color: #e65100;
-  margin-bottom: 0.5rem;
-  font-size: 0.95rem;
-
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-  }
-`;
-
-const NoticeList = styled.ul`
-  margin: 0;
-  padding-left: 1rem;
-  color: #333;
-  font-size: 0.9rem;
-  line-height: 1.5;
-
-  @media (max-width: 768px) {
-    font-size: 0.85rem;
-    padding-left: 0.75rem;
   }
 `;
 
@@ -785,18 +748,6 @@ const KakaoLink = styled.a`
   }
 `;
 
-const ClosingMessage = styled.div`
-  text-align: center;
-  font-size: 1.1rem;
-  color: #2e7d32;
-  font-weight: 600;
-  margin-top: 0.5rem;
-
-  @media (max-width: 768px) {
-    font-size: 1rem;
-  }
-`;
-
 const SuccessDialogButton = styled.button`
   padding: 0.875rem 1.5rem;
   background-color: #2e7d32;
@@ -807,7 +758,6 @@ const SuccessDialogButton = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-top: 0.5rem;
 
   &:hover {
     background-color: #1b5e20;
@@ -2265,35 +2215,27 @@ export function EventDetailClient() {
               <span>✔️</span> 모임 신청이 완료되었습니다!
             </SuccessTitle>
             <SuccessContent>
-              <NoticeSection>
-                <NoticeTitle>
-                  ※ 참석 전 안내 사항을 꼭 확인해주세요:
-                </NoticeTitle>
-                <NoticeList>
-                  <li>
-                    당일 취소, 무단 불참(노쇼), 15분 이상 지각 시<br />
-                    무관용 원칙 적용으로 이후 모임에 참여하실 수 없습니다.
-                  </li>
-                  <li>
-                    참석이 어려우실 경우, 참석 24시간 전까지 웹사이트에서 직접
-                    취소 부탁드립니다. 그 이후에는 락다운 기간으로 취소가
-                    불가능합니다.
-                  </li>
-                  <li>
-                    모임 관련 궁금한 점은 아래 오픈챗방으로 문의해 주세요!
-                    <br />
-                    👉{" "}
-                    <KakaoLink
-                      href="https://open.kakao.com/o/gtuiIuvh"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      https://open.kakao.com/o/gtuiIuvh
-                    </KakaoLink>
-                  </li>
-                </NoticeList>
-              </NoticeSection>
-              <ClosingMessage>그럼 모임에서 뵙겠습니다.☕️😊</ClosingMessage>
+              <p>밋업 참가 신청이 성공적으로 완료되었습니다.</p>
+              <p>
+                궁금한 점이 있으시면 언제든지{" "}
+                <KakaoLink
+                  href="https://open.kakao.com/o/gtuiIuvh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  오픈챗
+                </KakaoLink>
+                으로 문의해 주세요!
+              </p>
+              <p
+                style={{
+                  color: "#2e7d32",
+                  fontWeight: "600",
+                  fontSize: "1.1em",
+                }}
+              >
+                그럼 모임에서 뵙겠습니다! ☕️😊
+              </p>
             </SuccessContent>
             <SuccessDialogButton
               onClick={() => setShowParticipationSuccessDialog(false)}
