@@ -1954,9 +1954,9 @@ export function EventDetailClient() {
           참가 예정 ({totalParticipants}/{event.max_participants})
         </SectionTitle>
         <ParticipantsGrid>
-          {event.participants.slice(0, 12).map((participantUid) => (
+          {Array.from(new Set(event.participants.filter(uid => uid && uid.trim() !== ''))).slice(0, 12).map((participantUid, index) => (
             <UserAvatar
-              key={participantUid}
+              key={`participant-${participantUid}-${index}`}
               uid={participantUid}
               size={40}
               isLeader={false}
@@ -1965,6 +1965,7 @@ export function EventDetailClient() {
           ))}
           {event.participants.length > 12 && (
             <div
+              key="more-participants"
               style={{
                 width: "40px",
                 height: "40px",
@@ -1985,9 +1986,9 @@ export function EventDetailClient() {
 
         <SectionTitle>운영진 및 리더</SectionTitle>
         <ParticipantsGrid>
-          {event.leaders.map((leaderUid) => (
+          {Array.from(new Set(event.leaders.filter(uid => uid && uid.trim() !== ''))).map((leaderUid, index) => (
             <UserAvatar
-              key={leaderUid}
+              key={`leader-${leaderUid}-${index}`}
               uid={leaderUid}
               size={40}
               isLeader={true}

@@ -40,7 +40,7 @@ export const fetchUpcomingMeetupEventsServer = async (): Promise<
 > => {
   try {
     // Check if Firebase Admin SDK is properly initialized
-    if (!db.collection) {
+    if (!db || !db.collection) {
       console.warn(
         "Firebase Admin SDK not initialized, returning empty meetup events"
       );
@@ -49,6 +49,14 @@ export const fetchUpcomingMeetupEventsServer = async (): Promise<
 
     const now = new Date();
     const meetupRef = db.collection(MEETUP_COLLECTION);
+
+    // Check if the collection reference has the get method
+    if (!meetupRef || typeof meetupRef.get !== 'function') {
+      console.warn(
+        "Firebase collection reference not properly initialized, returning empty meetup events"
+      );
+      return [];
+    }
 
     // Get all documents and filter/sort in memory to avoid index issues
     const querySnapshot = await meetupRef.get();

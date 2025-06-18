@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import styled from "styled-components";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/auth_context";
@@ -259,7 +259,7 @@ const MobileMenuContainer = styled.div<{
   }
 `;
 
-const MobileMenuItem = styled(Link)<{ $isTransparent?: boolean }>`
+const MobileMenuItem = styled.button<{ $isTransparent?: boolean }>`
   color: ${({ $isTransparent }) =>
     $isTransparent ? colors.primaryPale : colors.primary};
   text-decoration: none;
@@ -270,6 +270,9 @@ const MobileMenuItem = styled(Link)<{ $isTransparent?: boolean }>`
   text-align: center;
   border-radius: 8px;
   transition: background-color 0.2s, color 0.2s;
+  background: none;
+  border: none;
+  cursor: pointer;
 
   &:hover {
     background-color: ${colors.primaryPale};
@@ -292,7 +295,8 @@ const MobileAuthButton = styled(Link)`
   }
 
   @media (max-width: 768px) {
-    display: none;
+    display: block;
+    width: 100%;
   }
 `;
 
@@ -306,22 +310,59 @@ export default function GNB({ variant = "default" }: GNBProps) {
   const { isTransparent, setIsTransparent } = useGnb();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const navbarRef = useRef<HTMLDivElement>(null);
 
   const isHomePage = variant === "home";
 
-  const createAuthUrl = () => {
-    if (typeof window === "undefined") {
-      return "/auth";
+  // Scroll handler for homepage transparency
+  useEffect(() => {
+    if (!isHomePage) {
+      setIsTransparent(false);
+      return;
     }
-    const currentPath = window.location.pathname + window.location.search;
-    return `/auth?redirect=${encodeURIComponent(currentPath)}`;
+
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      console.log('Homepage scroll:', scrollTop, 'isHomePage:', isHomePage); // Debug log
+      if (scrollTop > 50) {
+        setIsTransparent(false);
+      } else {
+        setIsTransparent(true);
+      }
+    };
+
+    // Set initial state
+    setIsTransparent(true);
+    
+    window.addEventListener("scroll", handleScroll);
+    handleScroll(); // Call once to set initial state
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [isHomePage, setIsTransparent]);
+
+  const handleAuthClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (typeof window !== "undefined") {
+      // Get the full URL path including hash for client-side routing
+      const currentPath = window.location.pathname + window.location.search + window.location.hash;
+      const authUrl = `/auth?redirect=${encodeURIComponent(currentPath)}`;
+      console.log('Redirect - Current path:', currentPath, 'Auth URL:', authUrl); // Debug log
+      window.location.href = authUrl;
+    }
   };
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!isMobileMenuOpen);
   };
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  const handleMobileNavigation = (href: string) => {
+    closeMobileMenu();
+    router.push(href);
+  };
 
   const handleLogout = async () => {
     try {
@@ -353,14 +394,22 @@ export default function GNB({ variant = "default" }: GNBProps) {
     };
   }, [isMobileMenuOpen]);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    closeMobileMenu();
+  }, [pathname]);
+
+  // Use the context's transparency state instead of just checking homepage
+  const shouldBeTransparent = isHomePage && isTransparent;
+
   return (
     <>
-      <NavbarContainer $isTransparent={isHomePage} ref={navbarRef}>
+      <NavbarContainer $isTransparent={shouldBeTransparent} ref={navbarRef}>
         <NavbarContent>
           <HamburgerButton
             className="hamburger-btn"
             onClick={toggleMobileMenu}
-            $isTransparent={isHomePage}
+            $isTransparent={shouldBeTransparent}
           >
             {isMobileMenuOpen ? (
               <IconSvg
@@ -397,7 +446,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
             <LogoLink href="/">
               <Logo
                 src={
-                  isHomePage
+                  shouldBeTransparent
                     ? "/images/logos/1cup_logo_new_white.svg"
                     : "/images/logos/1cup_logo_new.svg"
                 }
@@ -407,13 +456,13 @@ export default function GNB({ variant = "default" }: GNBProps) {
           </LogoContainer>
 
           <MenuContainer>
-            <MenuItem href="/shadow" $isTransparent={isHomePage}>
+            <MenuItem href="/shadow" $isTransparent={shouldBeTransparent}>
               쉐도잉
             </MenuItem>
-            <MenuItem href="/meetup" $isTransparent={isHomePage}>
+            <MenuItem href="/meetup" $isTransparent={shouldBeTransparent}>
               밋업
             </MenuItem>
-            <MenuItem href="/blog" $isTransparent={isHomePage}>
+            <MenuItem href="/blog" $isTransparent={shouldBeTransparent}>
               블로그
             </MenuItem>
           </MenuContainer>
@@ -438,45 +487,45 @@ export default function GNB({ variant = "default" }: GNBProps) {
                 )}
               </ProfileWrapper>
             ) : (
-              <AuthButton href={createAuthUrl()}>로그인 · 가입</AuthButton>
+              <AuthButton href="/auth" onClick={handleAuthClick}>로그인 · 가입</AuthButton>
             )}
           </div>
         </NavbarContent>
       </NavbarContainer>
       <MobileMenuContainer className="mobile-menu" $isOpen={isMobileMenuOpen}>
         <MobileMenuItem
-          href="/shadow"
-          onClick={closeMobileMenu}
-          $isTransparent={isHomePage}
+          onClick={() => handleMobileNavigation("/shadow")}
+          $isTransparent={shouldBeTransparent}
         >
           쉐도잉
         </MobileMenuItem>
         <MobileMenuItem
-          href="/meetup"
-          onClick={closeMobileMenu}
-          $isTransparent={isHomePage}
+          onClick={() => handleMobileNavigation("/meetup")}
+          $isTransparent={shouldBeTransparent}
         >
           밋업
         </MobileMenuItem>
         <MobileMenuItem
-          href="/blog"
-          onClick={closeMobileMenu}
-          $isTransparent={isHomePage}
+          onClick={() => handleMobileNavigation("/blog")}
+          $isTransparent={shouldBeTransparent}
         >
           블로그
         </MobileMenuItem>
         <div style={{ marginTop: "1rem" }}>
           {currentUser ? (
             <>
-              <MobileMenuItem href="/profile" onClick={closeMobileMenu}>
+              <MobileMenuItem
+                onClick={() => handleMobileNavigation("/profile")}
+                $isTransparent={shouldBeTransparent}
+              >
                 마이페이지
               </MobileMenuItem>
-              <MobileMenuItem href="#" onClick={handleLogout}>
+              <MobileMenuItem onClick={handleLogout} $isTransparent={shouldBeTransparent}>
                 로그아웃
               </MobileMenuItem>
             </>
           ) : (
-            <MobileAuthButton href={createAuthUrl()} onClick={closeMobileMenu}>
+            <MobileAuthButton href="/auth" onClick={(e) => { handleAuthClick(e); closeMobileMenu(); }}>
               시작하기
             </MobileAuthButton>
           )}

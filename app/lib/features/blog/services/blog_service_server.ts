@@ -28,7 +28,7 @@ const docToBlogPost = (doc: any): BlogPost => {
 export const fetchPublishedBlogPostsServer = async (): Promise<BlogPost[]> => {
   try {
     // Check if Firebase Admin SDK is properly initialized
-    if (!db.collection) {
+    if (!db || !db.collection) {
       console.warn(
         "Firebase Admin SDK not initialized, returning empty blog posts"
       );
@@ -36,6 +36,15 @@ export const fetchPublishedBlogPostsServer = async (): Promise<BlogPost[]> => {
     }
 
     const blogRef = db.collection(COLLECTION_NAME);
+    
+    // Check if the collection reference has the get method
+    if (!blogRef || typeof blogRef.get !== 'function') {
+      console.warn(
+        "Firebase collection reference not properly initialized, returning empty blog posts"
+      );
+      return [];
+    }
+
     const querySnapshot = await blogRef.get();
 
     const posts = querySnapshot.docs
@@ -60,7 +69,7 @@ export const fetchPublishedBlogPostByIdServer = async (
 ): Promise<BlogPost | null> => {
   try {
     // Check if Firebase Admin SDK is properly initialized
-    if (!db.collection) {
+    if (!db || !db.collection) {
       console.warn(
         "Firebase Admin SDK not initialized, returning null for blog post"
       );
@@ -68,6 +77,15 @@ export const fetchPublishedBlogPostByIdServer = async (
     }
 
     const docRef = db.collection(COLLECTION_NAME).doc(id);
+    
+    // Check if the document reference has the get method
+    if (!docRef || typeof docRef.get !== 'function') {
+      console.warn(
+        "Firebase document reference not properly initialized, returning null for blog post"
+      );
+      return null;
+    }
+
     const docSnap = await docRef.get();
 
     if (docSnap.exists) {
@@ -88,7 +106,7 @@ export const fetchPublishedBlogPostByIdServer = async (
 export const getPublishedBlogPostIdsServer = async (): Promise<string[]> => {
   try {
     // Check if Firebase Admin SDK is properly initialized
-    if (!db.collection) {
+    if (!db || !db.collection) {
       console.warn(
         "Firebase Admin SDK not initialized, returning empty blog post IDs"
       );
@@ -96,6 +114,15 @@ export const getPublishedBlogPostIdsServer = async (): Promise<string[]> => {
     }
 
     const blogRef = db.collection(COLLECTION_NAME);
+    
+    // Check if the collection reference has the get method
+    if (!blogRef || typeof blogRef.get !== 'function') {
+      console.warn(
+        "Firebase collection reference not properly initialized, returning empty blog post IDs"
+      );
+      return [];
+    }
+
     const querySnapshot = await blogRef.get();
 
     const postIds = querySnapshot.docs

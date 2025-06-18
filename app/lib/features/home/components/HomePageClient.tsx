@@ -639,38 +639,10 @@ export default function HomePageClient({
 
   const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Effect to handle GNB transparency on scroll
+  // Set initial transparency for homepage
   useEffect(() => {
-    const rootElement = document.getElementById("root");
-    const isMobile = window.innerWidth <= 768;
-    // Determine the target for scroll events.
-    // On mobile, if #root exists, use it; otherwise, default to window.
-    const scrollTarget = isMobile && rootElement ? rootElement : window;
-
-    const handleScroll = () => {
-      let scrollTop = 0;
-      // Read scrollTop from the correct target.
-      if (isMobile && rootElement) {
-        scrollTop = rootElement.scrollTop;
-      } else {
-        // Default to window.scrollY for desktop or if rootElement is not found.
-        scrollTop = window.scrollY;
-      }
-
-      if (scrollTop > 0) {
-        setIsTransparent(false);
-      } else {
-        setIsTransparent(true);
-      }
-    };
-
-    scrollTarget.addEventListener("scroll", handleScroll);
-    handleScroll(); // Call once to set initial state based on current scroll position
-
-    return () => {
-      scrollTarget.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
+    setIsTransparent(true);
+  }, [setIsTransparent]);
 
   // Effect to set video playback speed
   useEffect(() => {

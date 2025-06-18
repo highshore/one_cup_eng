@@ -194,9 +194,11 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
   isPast = false,
   onAvatarClick,
 }) => {
-  const displayedUids = uids.slice(0, maxAvatars);
-  const hasMore = uids.length > maxAvatars;
-  const moreCount = uids.length - maxAvatars;
+  // Filter out duplicates and invalid UIDs to prevent React key errors
+  const uniqueUids = Array.from(new Set(uids.filter(uid => uid && uid.trim() !== '')));
+  const displayedUids = uniqueUids.slice(0, maxAvatars);
+  const hasMore = uniqueUids.length > maxAvatars;
+  const moreCount = uniqueUids.length - maxAvatars;
 
   return (
     <div
@@ -212,7 +214,7 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
     >
       {displayedUids.map((uid, index) => (
         <UserAvatar
-          key={uid}
+          key={`${uid}-${index}`} // Use compound key to ensure uniqueness
           uid={uid}
           size={size}
           isLeader={isLeader}

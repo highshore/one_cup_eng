@@ -82,6 +82,10 @@ try {
           doc: () => ({
             get: () => Promise.resolve({ exists: false, data: () => null }),
           }),
+          get: () => Promise.resolve({ 
+            docs: [],
+            forEach: () => {} 
+          }),
         }),
       } as any;
       auth = {} as admin.auth.Auth;
@@ -96,6 +100,10 @@ try {
           }),
           doc: () => ({
             get: () => Promise.resolve({ exists: false, data: () => null }),
+          }),
+          get: () => Promise.resolve({ 
+            docs: [],
+            forEach: () => {} 
           }),
         }),
       } as any;
@@ -115,6 +123,10 @@ try {
       }),
       doc: () => ({
         get: () => Promise.resolve({ exists: false, data: () => null }),
+      }),
+      get: () => Promise.resolve({ 
+        docs: [],
+        forEach: () => {} 
       }),
     }),
   } as any;

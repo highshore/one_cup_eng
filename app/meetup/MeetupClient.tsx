@@ -97,14 +97,14 @@ const BlogBanner = styled.div<{ $imageUrl?: string }>`
     props.$imageUrl
       ? `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(${props.$imageUrl}) center/cover`
       : "#212121"};
-  border-radius: 20px;
+  border-radius: 30px;
   margin: 20px 0;
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
   height: 180px;
-  aspect-ratio: 5 / 3;
+  aspect-ratio: 4 / 3;
   position: relative;
 
   &:hover {
@@ -143,7 +143,7 @@ const BlogBannerText = styled.div`
 const BlogBannerLabel = styled.div`
   font-size: 1rem;
   font-weight: 600;
-  color: #c8a27a;
+  color: #f8d27a;
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -155,7 +155,7 @@ const BlogBannerLabel = styled.div`
 `;
 
 const BlogBannerTitle = styled.h3`
-  font-size: 24px;
+  font-size: 1.2rem;
   font-weight: 700;
   color: white;
   margin: 0;

@@ -16,7 +16,7 @@ const PageContainer = styled.div<{
   $isHomePage: boolean;
   $isArticlePage: boolean;
 }>`
-  padding-top: ${(props) => (props.$isHomePage ? "0" : "80px")};
+  padding-top: ${(props) => (props.$isHomePage ? "0" : "60px")};
   flex: 1;
   min-height: 100vh;
   max-width: ${(props) =>
@@ -26,6 +26,7 @@ const PageContainer = styled.div<{
     props.$isHomePage || props.$isArticlePage ? "0" : "1.5rem"};
   padding-right: ${(props) =>
     props.$isHomePage || props.$isArticlePage ? "0" : "1.5rem"};
+  padding-bottom: 2rem;
   font-family: "Noto Sans KR", sans-serif;
   width: 100%;
 
