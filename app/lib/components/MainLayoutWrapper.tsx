@@ -31,7 +31,6 @@ const PageContainer = styled.div<{
   width: 100%;
 
   @media (max-width: 768px) {
-    padding-top: ${(props) => (props.$isHomePage ? "0" : "70px")};
     padding-left: ${(props) =>
       props.$isHomePage || props.$isArticlePage ? "0" : "1rem"};
     padding-right: ${(props) =>

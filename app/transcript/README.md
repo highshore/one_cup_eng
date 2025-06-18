@@ -6,11 +6,13 @@ This transcript page provides real-time speech-to-text transcription using the S
 
 - Real-time audio transcription using Speechmatics
 - **Speaker Diarization** - Automatically identifies and separates different speakers
-- Live microphone input processing
+- **Confidence Scoring** - Words with confidence < 70% are highlighted in red
+- Live microphone input processing with proper word spacing
 - Partial and final transcript display with speaker identification
 - Target sentence input (optional) for practice
 - Connection status indicators
 - Color-coded speaker visualization
+- Visual confidence indicators for transcription accuracy
 - Error handling and user feedback
 
 ## Setup

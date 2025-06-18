@@ -111,11 +111,6 @@ const BlogBanner = styled.div<{ $imageUrl?: string }>`
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
-
-  @media (max-width: 768px) {
-    margin: 12px 0;
-    border-radius: 16px;
-  }
 `;
 
 const BlogBannerContent = styled.div`
@@ -177,7 +172,6 @@ const SectionTitle = styled.h2`
 
   @media (max-width: 768px) {
     font-size: 1.3rem;
-    margin: 1.25rem 0 0.75rem 0;
   }
 `;
 

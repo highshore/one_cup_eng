@@ -231,7 +231,7 @@ const MobileMenuContainer = styled.div<{
   z-index: 999;
   max-height: calc(100vh - 50px);
   overflow-y: auto;
-  transition: background-color 0.3s ease; // Smooth transition for transparency
+  transition: all 0.3s ease; // Smooth transition for transparency and transform
 
   @media (max-width: 768px) {
     display: flex;
@@ -240,8 +240,9 @@ const MobileMenuContainer = styled.div<{
     padding: 1rem;
     gap: 1rem;
 
-    // Always positioned at translateY(0), but transparency controlled by $isOpen
-    transform: translateY(0);
+    // Transform based on $isOpen for smooth slide animation
+    transform: ${({ $isOpen }) => 
+      $isOpen ? "translateY(0)" : "translateY(-100%)"};
 
     // Background transparency based on $isOpen
     background-color: ${({ $isOpen }) => ($isOpen ? "white" : "transparent")};
@@ -251,17 +252,20 @@ const MobileMenuContainer = styled.div<{
     // Disable pointer events when closed to prevent interference with content behind
     pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
 
-    /* Hide menu items when not open */
+    /* Control visibility of menu items */
+    visibility: ${({ $isOpen }) => ($isOpen ? "visible" : "hidden")};
+    
     & > * {
       opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
       transition: opacity 0.2s ease-in-out;
+      pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
     }
   }
 `;
 
-const MobileMenuItem = styled.button<{ $isTransparent?: boolean }>`
-  color: ${({ $isTransparent }) =>
-    $isTransparent ? colors.primaryPale : colors.primary};
+const MobileMenuItem = styled.button<{ $isMenuOpen?: boolean }>`
+  color: ${({ $isMenuOpen }) =>
+    $isMenuOpen ? colors.primary : colors.primaryPale};
   text-decoration: none;
   font-size: 1.1rem;
   font-weight: 500;
@@ -273,9 +277,15 @@ const MobileMenuItem = styled.button<{ $isTransparent?: boolean }>`
   background: none;
   border: none;
   cursor: pointer;
+  pointer-events: auto;
 
   &:hover {
     background-color: ${colors.primaryPale};
+    color: ${colors.primary};
+  }
+
+  &:active {
+    background-color: ${colors.accent};
     color: ${colors.primary};
   }
 `;
@@ -283,7 +293,7 @@ const MobileMenuItem = styled.button<{ $isTransparent?: boolean }>`
 const MobileAuthButton = styled(Link)`
   background-color: ${colors.primary};
   color: white;
-  padding: 0.8rem 0;
+  padding: 0.75rem 3rem;
   border-radius: 20px;
   font-weight: 600;
   text-decoration: none;
@@ -312,6 +322,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
   const pathname = usePathname();
   const router = useRouter();
   const navbarRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   const isHomePage = variant === "home";
 
@@ -377,7 +388,9 @@ export default function GNB({ variant = "default" }: GNBProps) {
     const handleOutsideClick = (event: MouseEvent) => {
       if (
         navbarRef.current &&
-        !navbarRef.current.contains(event.target as Node)
+        !navbarRef.current.contains(event.target as Node) &&
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target as Node)
       ) {
         closeMobileMenu();
       }
@@ -492,22 +505,26 @@ export default function GNB({ variant = "default" }: GNBProps) {
           </div>
         </NavbarContent>
       </NavbarContainer>
-      <MobileMenuContainer className="mobile-menu" $isOpen={isMobileMenuOpen}>
+      <MobileMenuContainer
+        className="mobile-menu"
+        $isOpen={isMobileMenuOpen}
+        ref={mobileMenuRef}
+      >
         <MobileMenuItem
           onClick={() => handleMobileNavigation("/shadow")}
-          $isTransparent={shouldBeTransparent}
+          $isMenuOpen={isMobileMenuOpen}
         >
           쉐도잉
         </MobileMenuItem>
         <MobileMenuItem
           onClick={() => handleMobileNavigation("/meetup")}
-          $isTransparent={shouldBeTransparent}
+          $isMenuOpen={isMobileMenuOpen}
         >
           밋업
         </MobileMenuItem>
         <MobileMenuItem
           onClick={() => handleMobileNavigation("/blog")}
-          $isTransparent={shouldBeTransparent}
+          $isMenuOpen={isMobileMenuOpen}
         >
           블로그
         </MobileMenuItem>
@@ -516,17 +533,17 @@ export default function GNB({ variant = "default" }: GNBProps) {
             <>
               <MobileMenuItem
                 onClick={() => handleMobileNavigation("/profile")}
-                $isTransparent={shouldBeTransparent}
+                $isMenuOpen={isMobileMenuOpen}
               >
                 마이페이지
               </MobileMenuItem>
-              <MobileMenuItem onClick={handleLogout} $isTransparent={shouldBeTransparent}>
+              <MobileMenuItem onClick={handleLogout} $isMenuOpen={isMobileMenuOpen}>
                 로그아웃
               </MobileMenuItem>
             </>
           ) : (
             <MobileAuthButton href="/auth" onClick={(e) => { handleAuthClick(e); closeMobileMenu(); }}>
-              시작하기
+              로그인 · 가입
             </MobileAuthButton>
           )}
         </div>

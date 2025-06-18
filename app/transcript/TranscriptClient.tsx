@@ -153,6 +153,23 @@ const FinalTranscript = styled.span`
   font-weight: 500;
 `;
 
+const WordSpan = styled.span<{ $lowConfidence?: boolean; $isPartial?: boolean }>`
+  color: ${props => {
+    if (props.$lowConfidence) return '#e74c3c';
+    if (props.$isPartial) return '#6c757d';
+    return '#212529';
+  }};
+  font-weight: ${props => props.$lowConfidence ? '600' : '500'};
+  font-style: ${props => props.$isPartial ? 'italic' : 'normal'};
+  text-decoration: ${props => props.$lowConfidence ? 'underline' : 'none'};
+  text-decoration-color: ${props => props.$lowConfidence ? '#e74c3c' : 'transparent'};
+  margin-right: 0.25rem;
+  
+  &:last-child {
+    margin-right: 0;
+  }
+`;
+
 const SpeakerSegment = styled.div<{ $speakerColor: string }>`
   margin-bottom: 0.5rem;
   padding: 0.5rem;
@@ -337,24 +354,33 @@ export default function TranscriptClient() {
     return colors[speaker as keyof typeof colors] || '#34495e';
   }, []);
 
-  // Group transcript results by speaker
+  // Group transcript results by speaker with individual word data
   const groupBySpeaker = useCallback((results: any[]) => {
     const validResults = results.filter(result => result.alternatives && result.alternatives.length > 0);
-    const groups: Array<{ speaker: string; content: string; isPartial: boolean }> = [];
+    const groups: Array<{ 
+      speaker: string; 
+      words: Array<{ content: string; confidence?: number; }>; 
+      isPartial: boolean 
+    }> = [];
     
-    let currentGroup: { speaker: string; content: string; isPartial: boolean } | null = null;
+    let currentGroup: { 
+      speaker: string; 
+      words: Array<{ content: string; confidence?: number; }>; 
+      isPartial: boolean 
+    } | null = null;
     
     validResults.forEach(result => {
       const content = result.alternatives[0].content;
+      const confidence = result.alternatives[0].confidence;
       const speaker = result.alternatives[0].speaker || 'UU';
       
       if (!currentGroup || currentGroup.speaker !== speaker) {
         if (currentGroup) {
           groups.push(currentGroup);
         }
-        currentGroup = { speaker, content, isPartial: false };
+        currentGroup = { speaker, words: [{ content, confidence }], isPartial: false };
       } else {
-        currentGroup.content += content;
+        currentGroup.words.push({ content, confidence });
       }
     });
     
@@ -431,31 +457,36 @@ export default function TranscriptClient() {
         <TranscriptTitle>Live Transcript with Speaker Diarization</TranscriptTitle>
         
         <SpeakerLegend>
-          <LegendTitle>Speaker Legend</LegendTitle>
-          <LegendItem>
-            <LegendColor $color="#3498db" />
-            <LegendText>Speaker 1</LegendText>
-          </LegendItem>
-          <LegendItem>
-            <LegendColor $color="#e74c3c" />
-            <LegendText>Speaker 2</LegendText>
-          </LegendItem>
-          <LegendItem>
-            <LegendColor $color="#2ecc71" />
-            <LegendText>Speaker 3</LegendText>
-          </LegendItem>
-          <LegendItem>
-            <LegendColor $color="#f39c12" />
-            <LegendText>Speaker 4</LegendText>
-          </LegendItem>
-          <LegendItem>
-            <LegendColor $color="#9b59b6" />
-            <LegendText>Speaker 5</LegendText>
-          </LegendItem>
-          <LegendItem>
-            <LegendColor $color="#95a5a6" />
-            <LegendText>Unknown</LegendText>
-          </LegendItem>
+          <LegendTitle>Legend</LegendTitle>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <LegendItem>
+              <LegendColor $color="#3498db" />
+              <LegendText>Speaker 1</LegendText>
+            </LegendItem>
+            <LegendItem>
+              <LegendColor $color="#e74c3c" />
+              <LegendText>Speaker 2</LegendText>
+            </LegendItem>
+            <LegendItem>
+              <LegendColor $color="#2ecc71" />
+              <LegendText>Speaker 3</LegendText>
+            </LegendItem>
+            <LegendItem>
+              <LegendColor $color="#f39c12" />
+              <LegendText>Speaker 4</LegendText>
+            </LegendItem>
+            <LegendItem>
+              <LegendColor $color="#9b59b6" />
+              <LegendText>Speaker 5</LegendText>
+            </LegendItem>
+            <LegendItem>
+              <LegendColor $color="#95a5a6" />
+              <LegendText>Unknown</LegendText>
+            </LegendItem>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#6c757d', marginTop: '0.5rem' }}>
+            <strong style={{ color: '#e74c3c' }}>Red underlined words</strong>: Confidence &lt; 70%
+          </div>
         </SpeakerLegend>
         
         <TranscriptContent>
@@ -466,7 +497,17 @@ export default function TranscriptClient() {
                 {group.speaker === 'UU' ? 'Unknown Speaker' : `Speaker ${group.speaker.slice(1)}`}:
               </SpeakerLabel>
               <br />
-              <FinalTranscript>{group.content}</FinalTranscript>
+              <div>
+                {group.words.map((word, wordIndex) => (
+                  <WordSpan
+                    key={`final-word-${index}-${wordIndex}`}
+                    $lowConfidence={word.confidence !== undefined && word.confidence < 0.7}
+                    $isPartial={false}
+                  >
+                    {word.content}
+                  </WordSpan>
+                ))}
+              </div>
             </SpeakerSegment>
           ))}
           
@@ -477,7 +518,17 @@ export default function TranscriptClient() {
                 {group.speaker === 'UU' ? 'Unknown Speaker' : `Speaker ${group.speaker.slice(1)}`}:
               </SpeakerLabel>
               <br />
-              <PartialTranscript>{group.content}</PartialTranscript>
+              <div>
+                {group.words.map((word, wordIndex) => (
+                  <WordSpan
+                    key={`partial-word-${index}-${wordIndex}`}
+                    $lowConfidence={word.confidence !== undefined && word.confidence < 0.7}
+                    $isPartial={true}
+                  >
+                    {word.content}
+                  </WordSpan>
+                ))}
+              </div>
             </SpeakerSegment>
           ))}
           
