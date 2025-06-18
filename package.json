@@ -18,6 +18,7 @@
     "proxy": "node proxy-server.js"
   },
   "dependencies": {
+    "@elevenlabs/react": "^0.1.7",
     "@speechmatics/real-time-client": "^6.0.0",
     "@types/react-lottie": "^1.2.10",
     "@vercel/analytics": "^1.5.0",
@@ -41,7 +42,7 @@
     "react-lottie": "^1.2.10",
     "reset": "^0.1.0",
     "styled": "^1.0.0",
-    "styled-components": "^6.1.16",
+    "styled-components": "^6.0.7",
     "styled-reset": "^4.5.2"
   },
   "devDependencies": {

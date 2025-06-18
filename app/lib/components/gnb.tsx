@@ -250,37 +250,36 @@ const MobileMenuContainer = styled.div<{
 
     // Disable pointer events when closed to prevent interference with content behind
     pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
+
+    /* Hide menu items when not open */
+    & > * {
+      opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
+      transition: opacity 0.2s ease-in-out;
+    }
   }
 `;
 
-const MobileMenuItem = styled(Link)<{ $isOpen?: boolean }>`
-  padding: 1.5rem 2rem;
+const MobileMenuItem = styled(Link)<{ $isTransparent?: boolean }>`
+  color: ${({ $isTransparent }) =>
+    $isTransparent ? colors.primaryPale : colors.primary};
   text-decoration: none;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 500;
-  text-align: center;
+  padding: 0.5rem 1rem;
   width: 100%;
-  transition: color 0.3s ease, background-color 0.3s ease,
-    border-color 0.3s ease;
-
-  // Text and border transparency based on $isOpen
-  color: ${({ $isOpen }) => ($isOpen ? colors.text.medium : "transparent")};
-  border-bottom: 1px solid
-    ${({ $isOpen }) => ($isOpen ? colors.primaryPale : "transparent")};
+  text-align: center;
+  border-radius: 8px;
+  transition: background-color 0.2s, color 0.2s;
 
   &:hover {
-    background-color: ${({ $isOpen }) =>
-      $isOpen ? colors.primaryPale : "transparent"};
+    background-color: ${colors.primaryPale};
+    color: ${colors.primary};
   }
-
-  // Disable pointer events when menu is closed
-  pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
 `;
 
-const MobileAuthButton = styled(Link)<{ $isOpen?: boolean }>`
-  margin: 2rem auto;
-  width: 80%;
-  max-width: 300px;
+const MobileAuthButton = styled(Link)`
+  background-color: ${colors.primary};
+  color: white;
   padding: 0.8rem 0;
   border-radius: 20px;
   font-weight: 600;
@@ -288,59 +287,36 @@ const MobileAuthButton = styled(Link)<{ $isOpen?: boolean }>`
   text-align: center;
   transition: background-color 0.3s ease, color 0.3s ease;
 
-  // Button transparency based on $isOpen
-  background-color: ${({ $isOpen }) =>
-    $isOpen ? colors.primary : "transparent"};
-  color: ${({ $isOpen }) => ($isOpen ? "white" : "transparent")};
-
   &:hover {
-    background-color: ${({ $isOpen }) =>
-      $isOpen ? colors.primaryDark : "transparent"};
+    background-color: ${colors.primaryDark};
   }
 
-  // Disable pointer events when menu is closed
-  pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 interface GNBProps {
   // Add any props you might need in the future
   variant?: "home" | "default";
-  isAtTop?: boolean;
 }
 
 export default function GNB({ variant = "default" }: GNBProps) {
+  const { currentUser, isLoading, logout, hasActiveSubscription } = useAuth();
+  const { isTransparent, setIsTransparent } = useGnb();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { currentUser, hasActiveSubscription, logout } = useAuth();
-  const { isTransparent: contextIsTransparent } = useGnb();
   const pathname = usePathname();
-  const [userProfileImage, setUserProfileImage] = useState<string>(
-    "/images/default_user.jpg"
-  );
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const navbarRef = useRef<HTMLDivElement>(null);
 
-  // Use context transparency for home page, fallback to prop-based logic for other pages
-  const isTransparent = variant === "home" ? contextIsTransparent : false;
+  const isHomePage = variant === "home";
 
-  // Create auth URL with redirect parameter
   const createAuthUrl = () => {
-    if (pathname === "/" || pathname === "/auth") {
+    if (typeof window === "undefined") {
       return "/auth";
     }
-    return `/auth?redirect=${encodeURIComponent(pathname)}`;
+    const currentPath = window.location.pathname + window.location.search;
+    return `/auth?redirect=${encodeURIComponent(currentPath)}`;
   };
-
-  useEffect(() => {
-    if (currentUser?.photoURL) {
-      setUserProfileImage(currentUser.photoURL);
-    } else {
-      const storedPhotoURL = localStorage.getItem("photoURL");
-      if (storedPhotoURL) {
-        setUserProfileImage(storedPhotoURL);
-      } else {
-        setUserProfileImage("/images/default_user.jpg");
-      }
-    }
-  }, [currentUser]);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!isMobileMenuOpen);
@@ -352,15 +328,15 @@ export default function GNB({ variant = "default" }: GNBProps) {
       await logout();
       closeMobileMenu();
     } catch (error) {
-      console.error("Failed to log out:", error);
+      console.error("Logout failed:", error);
     }
   };
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (
-        mobileMenuRef.current &&
-        !mobileMenuRef.current.contains(event.target as Node)
+        navbarRef.current &&
+        !navbarRef.current.contains(event.target as Node)
       ) {
         closeMobileMenu();
       }
@@ -377,32 +353,27 @@ export default function GNB({ variant = "default" }: GNBProps) {
     };
   }, [isMobileMenuOpen]);
 
-  // Display loading indicator or default state while auth is loading
-  // if (authLoading) {
-  //   return <NavbarContainer>Loading...</NavbarContainer>; // Or a skeleton loader
-  // }
-
   return (
     <>
-      <NavbarContainer $isTransparent={isTransparent}>
+      <NavbarContainer $isTransparent={isHomePage} ref={navbarRef}>
         <NavbarContent>
           <HamburgerButton
             className="hamburger-btn"
-            $isTransparent={isTransparent}
             onClick={toggleMobileMenu}
+            $isTransparent={isHomePage}
           >
             {isMobileMenuOpen ? (
               <IconSvg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
-                strokeWidth="1.5"
+                strokeWidth={1.5}
                 stroke="currentColor"
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M15.75 19.5 8.25 12l7.5-7.5"
+                  d="M6 18L18 6M6 6l12 12"
                 />
               </IconSvg>
             ) : (
@@ -410,7 +381,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
-                strokeWidth="1.5"
+                strokeWidth={1.5}
                 stroke="currentColor"
               >
                 <path
@@ -426,7 +397,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
             <LogoLink href="/">
               <Logo
                 src={
-                  isTransparent
+                  isHomePage
                     ? "/images/logos/1cup_logo_new_white.svg"
                     : "/images/logos/1cup_logo_new.svg"
                 }
@@ -436,38 +407,29 @@ export default function GNB({ variant = "default" }: GNBProps) {
           </LogoContainer>
 
           <MenuContainer>
-            <MenuItem href="/shadow" $isTransparent={isTransparent}>
+            <MenuItem href="/shadow" $isTransparent={isHomePage}>
               쉐도잉
             </MenuItem>
-            <MenuItem href="/meetup" $isTransparent={isTransparent}>
+            <MenuItem href="/meetup" $isTransparent={isHomePage}>
               밋업
             </MenuItem>
-            <MenuItem href="/blog" $isTransparent={isTransparent}>
+            <MenuItem href="/blog" $isTransparent={isHomePage}>
               블로그
             </MenuItem>
           </MenuContainer>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "1.2rem",
-              justifyContent: "flex-end",
-            }}
-          >
-            {currentUser ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            {isLoading ? null : currentUser ? (
               <ProfileWrapper>
                 <ProfileButton
                   href="/profile"
                   $isActiveSubscription={hasActiveSubscription}
                 >
                   <ProfileImage
-                    src={userProfileImage}
+                    src={currentUser.photoURL || "/images/default_user.jpg"}
                     alt="사용자 프로필"
                     onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.onerror = null;
-                      target.src = "/images/default_user.jpg";
+                      e.currentTarget.src = "/images/default_user.jpg";
                     }}
                   />
                 </ProfileButton>
@@ -481,57 +443,44 @@ export default function GNB({ variant = "default" }: GNBProps) {
           </div>
         </NavbarContent>
       </NavbarContainer>
-
-      {/* MobileMenuContainer is now always rendered. Its visibility is controlled by its own styles. */}
       <MobileMenuContainer className="mobile-menu" $isOpen={isMobileMenuOpen}>
         <MobileMenuItem
           href="/shadow"
           onClick={closeMobileMenu}
-          $isOpen={isMobileMenuOpen}
+          $isTransparent={isHomePage}
         >
           쉐도잉
         </MobileMenuItem>
         <MobileMenuItem
           href="/meetup"
           onClick={closeMobileMenu}
-          $isOpen={isMobileMenuOpen}
+          $isTransparent={isHomePage}
         >
           밋업
         </MobileMenuItem>
         <MobileMenuItem
           href="/blog"
           onClick={closeMobileMenu}
-          $isOpen={isMobileMenuOpen}
+          $isTransparent={isHomePage}
         >
           블로그
         </MobileMenuItem>
-        {!currentUser && (
-          <MobileAuthButton
-            href={createAuthUrl()}
-            onClick={closeMobileMenu}
-            $isOpen={isMobileMenuOpen}
-          >
-            시작하기
-          </MobileAuthButton>
-        )}
-        {currentUser && (
-          <MobileMenuItem
-            href="/profile"
-            onClick={closeMobileMenu}
-            $isOpen={isMobileMenuOpen}
-          >
-            내 프로필
-          </MobileMenuItem>
-        )}
-        {currentUser && (
-          <MobileMenuItem
-            href="/logout"
-            onClick={handleLogout}
-            $isOpen={isMobileMenuOpen}
-          >
-            로그아웃
-          </MobileMenuItem>
-        )}
+        <div style={{ marginTop: "1rem" }}>
+          {currentUser ? (
+            <>
+              <MobileMenuItem href="/profile" onClick={closeMobileMenu}>
+                마이페이지
+              </MobileMenuItem>
+              <MobileMenuItem href="#" onClick={handleLogout}>
+                로그아웃
+              </MobileMenuItem>
+            </>
+          ) : (
+            <MobileAuthButton href={createAuthUrl()} onClick={closeMobileMenu}>
+              시작하기
+            </MobileAuthButton>
+          )}
+        </div>
       </MobileMenuContainer>
     </>
   );
