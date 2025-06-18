@@ -57,8 +57,6 @@ async function fetchJWT(): Promise<string> {
 /**
  * Custom React Hook for managing Speechmatics real-time transcription.
  *
- * @param {string} targetSentence The sentence the user is attempting to speak.
- *                                This is used for accuracy calculation.
  * @returns An object containing:
  *  - `speechmaticsResults`: { activePartialSegment, finalTranscript }
  *  - `speechmaticsError`: Any error message from the Speechmatics service (null if no error).
@@ -67,7 +65,7 @@ async function fetchJWT(): Promise<string> {
  *  - `stopSpeechmatics`: Async function to stop the Speechmatics client.
  *  - `sendSpeechmaticsAudio`: Function to send an audio chunk (ArrayBuffer) to Speechmatics.
  */
-export const useSpeechmatics = (targetSentence: string) => {
+export const useSpeechmatics = () => {
   // --- State ---
   const [activePartialSegment, setActivePartialSegment] = useState<
     SpeechmaticsResult[]
@@ -86,8 +84,6 @@ export const useSpeechmatics = (targetSentence: string) => {
   const clientRef = useRef<RealtimeClient | null>(null);
   // Ref to track the latest socket state for use in callbacks without causing re-renders/re-callbacks
   const isSocketOpenRef = useRef(isSpeechmaticsSocketOpen);
-  // Ref to track the latest targetSentence for use in callbacks
-  const targetSentenceRef = useRef(targetSentence);
   // Ref to track the latest activePartialSegment for use in EndOfTranscript handling
   const activePartialSegmentRef = useRef(activePartialSegment);
 
@@ -95,10 +91,6 @@ export const useSpeechmatics = (targetSentence: string) => {
   useEffect(() => {
     isSocketOpenRef.current = isSpeechmaticsSocketOpen;
   }, [isSpeechmaticsSocketOpen]);
-
-  useEffect(() => {
-    targetSentenceRef.current = targetSentence;
-  }, [targetSentence]);
 
   useEffect(() => {
     activePartialSegmentRef.current = activePartialSegment;
