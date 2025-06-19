@@ -36,6 +36,9 @@ const SectionHeader = styled.h2`
   margin: 0 0 1rem 0;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 `;
 
 const KeywordsContainer = styled.div`
@@ -219,16 +222,16 @@ const RecordButton = styled.button<{ $isRecording: boolean }>`
   transition: all 0.2s ease;
   
   ${props => props.$isRecording ? `
-    background: #ef4444;
+    background: #990033;
     color: white;
     &:hover {
-      background: #dc2626;
+      background: #c00044;
     }
   ` : `
-    background: #000080;
+    background: #000000;
     color: white;
     &:hover {
-      background: #2563eb;
+      background: #424242;
     }
   `}
   
@@ -710,6 +713,33 @@ const ModalButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   }
 `;
 
+const ToggleButton = styled.button<{ $active: boolean }>`
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #d1d5db;
+  
+  ${props => props.$active ? `
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  ` : `
+    background: white;
+    color: #374151;
+    &:hover {
+      background: #f9fafb;
+    }
+  `}
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+`;
+
 const AssignedSpeakerInfo = styled.div`
   display: flex;
   align-items: center;
@@ -751,6 +781,8 @@ interface TranscriptData {
   createdBy: string;
   speakerMappings?: Record<string, string>; // speaker ID -> participant UID
   customKeywords?: string[]; // Custom keywords for this transcript
+  transcriptContent?: any[]; // Speechmatics results
+  hideUnidentifiedSpeakers?: boolean; // UI preference
 }
 
 interface ArticleData {
@@ -826,6 +858,7 @@ export default function SingleTranscriptClient() {
   const [showSpeakerModal, setShowSpeakerModal] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
   const [recentlyAssigned, setRecentlyAssigned] = useState<Set<string>>(new Set());
+  const [hideUnidentifiedSpeakers, setHideUnidentifiedSpeakers] = useState(false);
 
   // Group transcript results into snippets for rendering (copied from original TranscriptClient)
   const createTranscriptSnippets = useCallback((results: any[]) => {
@@ -916,6 +949,41 @@ export default function SingleTranscriptClient() {
 
     return combined;
   }, [finalSnippets, partialSnippets]);
+
+  // Speaker display info function
+  const getSpeakerDisplayInfo = (speakerId: string) => {
+    const participantUid = speakerMappings[speakerId];
+    if (participantUid) {
+      const participant = participants.find(p => p.uid === participantUid);
+      if (participant) {
+        return {
+          name: participant.displayName || `User ${participant.uid.substring(0, 6)}`,
+          avatar: participant.uid,
+          isAssigned: true,
+          isLeader: participant.isLeader
+        };
+      }
+    }
+    
+    return {
+      name: speakerId === 'UU' ? 'Unknown Speaker' : `Speaker ${speakerId.slice(1)}`,
+      avatar: null,
+      isAssigned: false,
+      isLeader: false
+    };
+  };
+
+  // Filter snippets based on hideUnidentifiedSpeakers setting
+  const filteredDisplaySnippets = useMemo(() => {
+    if (!hideUnidentifiedSpeakers) {
+      return displaySnippets;
+    }
+    
+    return displaySnippets.filter(snippet => {
+      const speakerInfo = getSpeakerDisplayInfo(snippet.speaker);
+      return speakerInfo.isAssigned;
+    });
+  }, [displaySnippets, hideUnidentifiedSpeakers, speakerMappings, participants]);
 
   // Speaker color mapping
   const getSpeakerColor = (speaker: string) => {
@@ -1154,27 +1222,40 @@ export default function SingleTranscriptClient() {
     }
   };
 
-  const getSpeakerDisplayInfo = (speakerId: string) => {
-    const participantUid = speakerMappings[speakerId];
-    if (participantUid) {
-      const participant = participants.find(p => p.uid === participantUid);
-      if (participant) {
-        return {
-          name: participant.displayName || `User ${participant.uid.substring(0, 6)}`,
-          avatar: participant.uid,
-          isAssigned: true,
-          isLeader: participant.isLeader
-        };
+
+
+  // Auto-save transcript to Firestore
+  const saveTranscriptToFirestore = useCallback(async () => {
+    if (!transcriptId || !speechmaticsResults.finalTranscript) return;
+    
+    try {
+      const transcriptRef = doc(db, 'transcripts', transcriptId);
+      await updateDoc(transcriptRef, {
+        transcriptContent: speechmaticsResults.finalTranscript,
+        lastUpdated: new Date()
+      });
+      console.log("[Auto-save] Transcript saved to Firestore");
+    } catch (error) {
+      console.error("[Auto-save] Error saving transcript:", error);
+    }
+  }, [transcriptId, speechmaticsResults.finalTranscript]);
+
+  // Toggle hide unidentified speakers and save preference
+  const toggleHideUnidentifiedSpeakers = useCallback(async () => {
+    const newValue = !hideUnidentifiedSpeakers;
+    setHideUnidentifiedSpeakers(newValue);
+    
+    if (transcriptId) {
+      try {
+        const transcriptRef = doc(db, 'transcripts', transcriptId);
+        await updateDoc(transcriptRef, {
+          hideUnidentifiedSpeakers: newValue
+        });
+      } catch (error) {
+        console.error("Error saving hide preference:", error);
       }
     }
-    
-    return {
-      name: speakerId === 'UU' ? 'Unknown Speaker' : `Speaker ${speakerId.slice(1)}`,
-      avatar: null,
-      isAssigned: false,
-      isLeader: false
-    };
-  };
+  }, [hideUnidentifiedSpeakers, transcriptId]);
 
   // Load transcript data
   useEffect(() => {
@@ -1201,10 +1282,13 @@ export default function SingleTranscriptClient() {
             createdAt: data.createdAt?.toDate() || new Date(),
             createdBy: data.createdBy,
             speakerMappings: data.speakerMappings || {},
+            transcriptContent: data.transcriptContent || [],
+            hideUnidentifiedSpeakers: data.hideUnidentifiedSpeakers || false,
           };
           
           setTranscriptData(transcriptInfo);
           setSpeakerMappings(data.speakerMappings || {});
+          setHideUnidentifiedSpeakers(data.hideUnidentifiedSpeakers || false);
           
           // Initialize keywords from transcript data and article
           const initializeKeywords = async () => {
@@ -1298,6 +1382,18 @@ export default function SingleTranscriptClient() {
     return () => unsubscribe();
   }, [transcriptId]);
 
+  // Auto-save transcript when it changes
+  useEffect(() => {
+    if (speechmaticsResults.finalTranscript && speechmaticsResults.finalTranscript.length > 0) {
+      // Debounce the save operation
+      const saveTimer = setTimeout(() => {
+        saveTranscriptToFirestore();
+      }, 5000); // Save 5 seconds after last change
+
+      return () => clearTimeout(saveTimer);
+    }
+  }, [speechmaticsResults.finalTranscript, saveTranscriptToFirestore]);
+
   const formatTime = (time: number): string => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
@@ -1369,16 +1465,27 @@ export default function SingleTranscriptClient() {
     setAudioProgress((currentTime / duration) * 100);
     
     // Find which snippet should be highlighted based on current time
+    // Use original displaySnippets for accurate timestamp mapping
     const currentSnippetIndex = displaySnippets.findIndex((snippet, index) => {
       const nextSnippet = displaySnippets[index + 1];
       return currentTime >= snippet.startTime && 
              (!nextSnippet || currentTime < nextSnippet.startTime);
     });
     
-    if (currentSnippetIndex !== -1 && currentSnippetIndex !== currentlyHighlightedSnippet) {
-      setCurrentlyHighlightedSnippet(currentSnippetIndex);
+    // Map to filtered index if needed
+    let mappedSnippetIndex = -1;
+    if (currentSnippetIndex !== -1) {
+      const currentSnippet = displaySnippets[currentSnippetIndex];
+      mappedSnippetIndex = filteredDisplaySnippets.findIndex(snippet => 
+        snippet.speaker === currentSnippet.speaker && 
+        snippet.startTime === currentSnippet.startTime
+      );
     }
-  }, [displaySnippets, currentlyHighlightedSnippet]);
+    
+    if (mappedSnippetIndex !== -1 && mappedSnippetIndex !== currentlyHighlightedSnippet) {
+      setCurrentlyHighlightedSnippet(mappedSnippetIndex);
+    }
+  }, [displaySnippets, filteredDisplaySnippets, currentlyHighlightedSnippet]);
 
   // Set up audio player event listeners
   useEffect(() => {
@@ -1656,7 +1763,16 @@ export default function SingleTranscriptClient() {
             </AppSpeechDetails>
             
             <AppSpeechDetails>
-              <SectionHeader>Speakers</SectionHeader>
+              <SectionHeader>
+                <span>Speakers</span>
+                <ToggleButton 
+                  $active={hideUnidentifiedSpeakers}
+                  onClick={toggleHideUnidentifiedSpeakers}
+                  title={hideUnidentifiedSpeakers ? "Show unidentified speakers" : "Hide unidentified speakers"}
+                >
+                  {hideUnidentifiedSpeakers ? "Show All" : "Hide Unknown"}
+                </ToggleButton>
+              </SectionHeader>
               <LegendContent>
                 <LegendSpeakers>
                   <LegendItem>
@@ -1686,12 +1802,13 @@ export default function SingleTranscriptClient() {
                 </LegendSpeakers>
                 <ConfidenceNote>
                   Low confidence words appear underlined • Click timestamps to jump to audio position • Keywords are used as custom dictionary for better recognition
+                  {hideUnidentifiedSpeakers && " • Unidentified speakers are hidden"}
                 </ConfidenceNote>
               </LegendContent>
             </AppSpeechDetails>
 
                          {/* Render transcript snippets */}
-             {displaySnippets.map((snippet, index) => {
+             {filteredDisplaySnippets.map((snippet, index) => {
                const speakerColor = getSpeakerColor(snippet.speaker);
                const speakerInfo = getSpeakerDisplayInfo(snippet.speaker);
                const hasAudio = !!recordedAudioUrl;
@@ -1756,9 +1873,12 @@ export default function SingleTranscriptClient() {
                );
              })}
 
-            {displaySnippets.length === 0 && (
+            {filteredDisplaySnippets.length === 0 && (
               <EmptyState>
-                {isRecording ? 'Listening...' : 'Click "Start Recording" to begin.'}
+                {displaySnippets.length === 0 
+                  ? (isRecording ? 'Listening...' : 'Click "Start Recording" to begin.')
+                  : 'All speakers are hidden. Toggle "Show All" to see unidentified speakers.'
+                }
               </EmptyState>
             )}
 
