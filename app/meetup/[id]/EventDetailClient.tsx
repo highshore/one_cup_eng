@@ -843,18 +843,7 @@ const SeatingTable = styled.div`
   }
 `;
 
-const SessionCard = styled.div`
-  background-color: #f8fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 
-  @media (max-width: 768px) {
-    padding: 1rem;
-    border-radius: 16px;
-  }
-`;
 
 const SessionTitle = styled.h3`
   margin: 0 0 1rem 0;
@@ -893,30 +882,10 @@ const GroupCard = styled.div`
     transform: translateY(0);
   }
 
-  &:before {
-    content: "💬";
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    font-size: 1.2rem;
-    opacity: 0.7;
-    transition: opacity 0.3s ease;
-  }
-
-  &:hover:before {
-    opacity: 1;
-  }
-
   @media (max-width: 768px) {
     padding: 1rem;
     margin-bottom: 0.75rem;
     border-radius: 20px;
-
-    &:before {
-      top: 0.75rem;
-      right: 0.75rem;
-      font-size: 1rem;
-    }
   }
 `;
 
@@ -2241,7 +2210,7 @@ export function EventDetailClient() {
             {seatingAssignments.length > 0 ? (
               <SeatingTable>
                 {[1, 2].map((sessionNumber) => (
-                  <SessionCard key={sessionNumber}>
+                  <div key={sessionNumber}>
                     <SessionTitle>세션 {sessionNumber}</SessionTitle>
                     {seatingAssignments
                       .filter(
@@ -2280,7 +2249,7 @@ export function EventDetailClient() {
                           </ParticipantsList>
                         </GroupCard>
                       ))}
-                  </SessionCard>
+                  </div>
                 ))}
               </SeatingTable>
             ) : (
