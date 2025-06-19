@@ -179,7 +179,7 @@ export const useSpeechmatics = () => {
   }, []); // Depends only on stable state setters.
 
   // --- Exposed Control Functions ---
-  const startSpeechmatics = useCallback(async () => {
+  const startSpeechmatics = useCallback(async (customDictionary?: Array<{ content: string; sounds_like?: string[] }>) => {
     // Reset state for a new session
     setSpeechmaticsError(null);
     setFinalTranscript([]);
@@ -200,23 +200,35 @@ export const useSpeechmatics = () => {
         handleSocketStateChange
       );
 
-      await clientRef.current.start(jwt, {
-        transcription_config: {
-          language: "en",
-          diarization: "speaker",
-          operating_point: "enhanced",
-          max_delay_mode: "flexible",
-          max_delay: 0.7,
-          enable_partials: true,
-          enable_entities: true, // Can be useful for context
-          output_locale: "en-US",
-          transcript_filtering_config: {
-            remove_disfluencies: true, // Removes fillers like "um", "uh"
-          },
-          speaker_diarization_config: {
-            max_speakers: 5,
-          },
+      const transcriptionConfig: any = {
+        language: "en",
+        diarization: "speaker",
+        operating_point: "enhanced",
+        max_delay_mode: "flexible",
+        max_delay: 0.7,
+        enable_partials: true,
+        enable_entities: true, // Can be useful for context
+        output_locale: "en-US",
+        transcript_filtering_config: {
+          remove_disfluencies: true, // Removes fillers like "um", "uh"
         },
+        speaker_diarization_config: {
+          max_speakers: 5,
+        },
+      };
+
+      // Add custom dictionary if provided
+      if (customDictionary && customDictionary.length > 0) {
+        transcriptionConfig.additional_vocab = customDictionary;
+        console.log("[Speechmatics] Custom dictionary being sent:", JSON.stringify(customDictionary, null, 2));
+      } else {
+        console.log("[Speechmatics] No custom dictionary provided");
+      }
+
+      console.log("[Speechmatics] Full transcription config:", JSON.stringify(transcriptionConfig, null, 2));
+
+      await clientRef.current.start(jwt, {
+        transcription_config: transcriptionConfig,
         audio_format: {
           type: "raw",
           encoding: "pcm_f32le",
