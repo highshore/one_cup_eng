@@ -19,6 +19,7 @@ import {
   getPaymentWindow,
   verifyPaymentResult,
   cancelSubscription,
+  stopNextBilling,
   processRecurringPayments,
   logCredentials, // <<< Make sure this export line exists
   paymentCallback,
@@ -138,6 +139,7 @@ export {
   getPaymentWindow,
   verifyPaymentResult,
   cancelSubscription,
+  stopNextBilling,
   processRecurringPayments,
   logCredentials, // <<< Make sure this export line exists
   paymentCallback,
@@ -1430,6 +1432,169 @@ export async function sendKakaoMessages(
     throw error;
   }
 }
+
+// New function to send meetup reminders to all participants
+export const sendMeetupReminder = onCall(
+  { region: "asia-northeast3" },
+  async (request) => {
+    try {
+      const { eventId } = request.data;
+
+      if (!eventId || typeof eventId !== "string") {
+        throw new Error("Invalid or missing eventId parameter");
+      }
+
+      logger.info(`Sending meetup reminder for event: ${eventId}`);
+
+      // Fetch the event data from Firestore
+      const eventDoc = await admin
+        .firestore()
+        .collection("meetup")
+        .doc(eventId)
+        .get();
+
+      if (!eventDoc.exists) {
+        throw new Error(`Event with ID ${eventId} not found`);
+      }
+
+      const eventData = eventDoc.data();
+      if (!eventData) {
+        throw new Error(`Event data is empty for ID ${eventId}`);
+      }
+
+      // Extract leaders and participants arrays
+      const leaders = eventData.leaders || [];
+      const participants = eventData.participants || [];
+      const allParticipants = [...leaders, ...participants];
+
+      // Remove duplicates in case someone is both a leader and participant
+      const uniqueParticipants = Array.from(new Set(allParticipants));
+
+      if (uniqueParticipants.length === 0) {
+        logger.info(`No participants found for event ${eventId}`);
+        return {
+          success: true,
+          messagesSent: 0,
+          message: "No participants to notify",
+        };
+      }
+
+      logger.info(
+        `Found ${uniqueParticipants.length} total participants (${leaders.length} leaders + ${participants.length} participants) for event ${eventId}`
+      );
+
+      // Format event date and time for Korean display
+      let eventDate: Date;
+
+      // Handle Firestore Timestamp
+      if (
+        eventData.date_time &&
+        typeof eventData.date_time.toDate === "function"
+      ) {
+        // Firestore Timestamp
+        eventDate = eventData.date_time.toDate();
+      } else if (eventData.date_time && eventData.date_time.seconds) {
+        // Firestore Timestamp object
+        eventDate = new Date(eventData.date_time.seconds * 1000);
+      } else if (typeof eventData.date_time === "string") {
+        // ISO string
+        eventDate = new Date(eventData.date_time);
+      } else {
+        // Fallback to current date
+        eventDate = new Date();
+      }
+
+      const koreanTime = eventDate.toLocaleDateString("ko-KR", {
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Seoul",
+      });
+
+      // Prepare template parameters
+      const templateParams = {
+        "meetup-time": koreanTime,
+        "meetup-location": `${eventData.location_name} (${eventData.location_address})`,
+        "meetup-link": `https://1cupenglish.com/meetup/${eventId}`,
+      };
+
+      // Prepare recipient list with phone numbers
+      const recipientList = [];
+
+      for (const participantUid of uniqueParticipants) {
+        try {
+          // Get user's phone number from Firebase Auth
+          const userRecord = await admin.auth().getUser(participantUid);
+          const phoneNumber = userRecord.phoneNumber;
+
+          if (phoneNumber) {
+            // Convert phone number format (remove +82 and replace with 0)
+            const recipientNo = phoneNumber
+              .replace(/^\+82/, "0")
+              .replace(/\D/g, "");
+
+            // Validate phone number format
+            if (recipientNo.startsWith("010") && recipientNo.length >= 10) {
+              recipientList.push({
+                recipientNo: recipientNo,
+                templateParameter: templateParams,
+              });
+              logger.info(
+                `Added participant ${participantUid} with phone ${recipientNo} to recipient list`
+              );
+            } else {
+              logger.warn(
+                `Invalid phone number format for participant ${participantUid}: ${recipientNo}`
+              );
+            }
+          } else {
+            logger.warn(
+              `No phone number found for participant ${participantUid}`
+            );
+          }
+        } catch (authError) {
+          logger.error(
+            `Error fetching user ${participantUid} from Auth:`,
+            authError
+          );
+        }
+      }
+
+      if (recipientList.length === 0) {
+        logger.warn(
+          `No valid phone numbers found for any participants in event ${eventId}`
+        );
+        return {
+          success: true,
+          messagesSent: 0,
+          message: "No participants with valid phone numbers found",
+        };
+      }
+
+      // Send Kakao messages
+      logger.info(
+        `Sending meetup reminder to ${recipientList.length} participants`
+      );
+      const result = await sendKakaoMessages(recipientList, "meetup-reminder");
+
+      logger.info(
+        `Successfully sent meetup reminder for event ${eventId}. Messages sent: ${recipientList.length}`
+      );
+
+      return {
+        success: true,
+        messagesSent: recipientList.length,
+        kakaoResult: result,
+        message: `Successfully sent reminder to ${recipientList.length} participants`,
+      };
+    } catch (error) {
+      logger.error(`Error in sendMeetupReminder: ${error}`);
+      throw new Error(`Failed to send meetup reminder: ${error}`);
+    }
+  }
+);
 
 // New function to retrieve display names from Firebase Auth
 export const getUserDisplayNames = onCall(

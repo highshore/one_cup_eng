@@ -13,6 +13,8 @@ import {
   joinEventAsRole,
   cancelParticipation,
   fetchArticlesByIds,
+  removeParticipant,
+  changeUserRole,
 } from "../../lib/features/meetup/services/meetup_service";
 import { db } from "../../lib/firebase/firebase";
 import { doc, setDoc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
@@ -843,8 +845,6 @@ const SeatingTable = styled.div`
   }
 `;
 
-
-
 const SessionTitle = styled.h3`
   margin: 0 0 1rem 0;
   color: #333;
@@ -1209,13 +1209,22 @@ export function EventDetailClient() {
   >(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
+  // Admin action dialogs state
+  const [showAdminActionDialog, setShowAdminActionDialog] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserIsLeader, setSelectedUserIsLeader] = useState(false);
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+
   // Seating arrangement state
   const [seatingAssignments, setSeatingAssignments] = useState<
     SeatingAssignment[]
   >([]);
   const [showSeatingTable, setShowSeatingTable] = useState(() => {
     // In localhost mode, default to true so seating shows when data loads
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname === "localhost"
+    ) {
       return true;
     }
     return false;
@@ -1234,8 +1243,9 @@ export function EventDetailClient() {
 
   // Function to save seating arrangement to Firestore
   const saveSeatingArrangement = async (assignments: SeatingAssignment[]) => {
-    const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-    
+    const isLocalhost =
+      typeof window !== "undefined" && window.location.hostname === "localhost";
+
     if (!event || (!currentUser && !isLocalhost)) {
       alert("Cannot save seating: missing event or user data");
       return;
@@ -1249,7 +1259,7 @@ export function EventDetailClient() {
       const seatingData: SavedSeatingArrangement = {
         assignments,
         generatedAt: new Date(),
-        generatedBy: currentUser?.uid || 'localhost-user',
+        generatedBy: currentUser?.uid || "localhost-user",
       };
 
       await updateDoc(eventRef, {
@@ -1279,7 +1289,11 @@ export function EventDetailClient() {
 
         if (eventDoc.exists()) {
           const data = eventDoc.data();
-          if (data.seatingArrangement && data.seatingArrangement.assignments && Array.isArray(data.seatingArrangement.assignments)) {
+          if (
+            data.seatingArrangement &&
+            data.seatingArrangement.assignments &&
+            Array.isArray(data.seatingArrangement.assignments)
+          ) {
             const allUserUids = [...event.leaders, ...event.participants];
             const userDetails = await fetchUserDetails(allUserUids);
 
@@ -1524,7 +1538,9 @@ export function EventDetailClient() {
 
   useEffect(() => {
     const loadExistingSeating = async () => {
-      const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+      const isLocalhost =
+        typeof window !== "undefined" &&
+        window.location.hostname === "localhost";
       if (event && (isAdmin || isLocalhost)) {
         try {
           const savedSeating = await loadSeatingArrangement();
@@ -1550,7 +1566,9 @@ export function EventDetailClient() {
 
   useEffect(() => {
     const loadSeatingOnAdminConfirmed = async () => {
-      const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+      const isLocalhost =
+        typeof window !== "undefined" &&
+        window.location.hostname === "localhost";
       if (
         (isAdmin || isLocalhost) &&
         event &&
@@ -1758,8 +1776,71 @@ export function EventDetailClient() {
     }
   };
 
-  const handleAvatarClick = (_uid: string) => {
-    // Handle avatar click - could show user profile modal, etc.
+  const handleAvatarClick = (uid: string) => {
+    // Only allow admin actions if user is admin
+    if (!isAdmin) return;
+
+    if (!event) return;
+
+    // Check if the clicked user is a leader or participant
+    const isLeader = event.leaders.includes(uid);
+    const isParticipant = event.participants.includes(uid);
+
+    if (!isLeader && !isParticipant) return;
+
+    // Don't allow admin to kick themselves out
+    if (currentUser && uid === currentUser.uid) {
+      alert("관리자는 자신을 제거할 수 없습니다.");
+      return;
+    }
+
+    setSelectedUserId(uid);
+    setSelectedUserIsLeader(isLeader);
+    setShowAdminActionDialog(true);
+  };
+
+  const handleRemoveParticipant = async () => {
+    if (!event || !selectedUserId || !currentUser) return;
+
+    setAdminActionLoading(true);
+    try {
+      await removeParticipant(event.id, selectedUserId);
+      alert("참가자가 성공적으로 제거되었습니다.");
+      setShowAdminActionDialog(false);
+    } catch (error) {
+      console.error("Error removing participant:", error);
+      alert(
+        "참가자 제거 중 오류가 발생했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleChangeRole = async () => {
+    if (!event || !selectedUserId || !currentUser) return;
+
+    const newRole = selectedUserIsLeader ? "participant" : "leader";
+
+    setAdminActionLoading(true);
+    try {
+      await changeUserRole(event.id, selectedUserId, newRole);
+      alert(
+        `사용자 역할이 성공적으로 ${
+          newRole === "leader" ? "리더" : "참가자"
+        }로 변경되었습니다.`
+      );
+      setShowAdminActionDialog(false);
+    } catch (error) {
+      console.error("Error changing user role:", error);
+      alert(
+        "사용자 역할 변경 중 오류가 발생했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    } finally {
+      setAdminActionLoading(false);
+    }
   };
 
   const handleCreateNew = () => {
@@ -1806,17 +1887,21 @@ export function EventDetailClient() {
 
   const handleSeatingGroupClick = async (assignment: SeatingAssignment) => {
     // Allow localhost access even without login for testing
-    const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    const isLocalhost =
+      typeof window !== "undefined" && window.location.hostname === "localhost";
     if (!isLocalhost && (!currentUser?.uid || !isAdmin)) return;
 
     try {
       // Generate a random transcript ID using Firestore's auto-generated ID format
-      const transcriptId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+      const transcriptId = `${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
       // Determine the article ID based on session number
-      const articleId = assignment.sessionNumber === 1 
-        ? articleTopics[0]?.id || ''
-        : articleTopics[1]?.id || '';
+      const articleId =
+        assignment.sessionNumber === 1
+          ? articleTopics[0]?.id || ""
+          : articleTopics[1]?.id || "";
 
       // Create transcript document in Firestore
       const transcriptData = {
@@ -1825,33 +1910,41 @@ export function EventDetailClient() {
         sessionNumber: assignment.sessionNumber,
         articleId: articleId,
         leaderUids: [assignment.leaderUid],
-        participantUids: assignment.participants.map(p => p.uid),
+        participantUids: assignment.participants.map((p) => p.uid),
         createdAt: new Date(),
-        createdBy: currentUser?.uid || 'localhost-user',
+        createdBy: currentUser?.uid || "localhost-user",
       };
 
-      await setDoc(doc(db, 'transcripts', transcriptId), transcriptData);
+      await setDoc(doc(db, "transcripts", transcriptId), transcriptData);
 
       // Update the seating arrangement in the meetup collection to include transcript ID
-      const eventDoc = doc(db, 'meetup', eventId);
+      const eventDoc = doc(db, "meetup", eventId);
       const eventSnapshot = await getDoc(eventDoc);
-      
+
       if (eventSnapshot.exists()) {
         const eventData = eventSnapshot.data();
         const currentSeatingArrangement = eventData.seatingArrangement;
-        
-        if (currentSeatingArrangement && currentSeatingArrangement.assignments) {
+
+        if (
+          currentSeatingArrangement &&
+          currentSeatingArrangement.assignments
+        ) {
           // Find and update the specific assignment
-          const updatedAssignments = currentSeatingArrangement.assignments.map((assign: any) => {
-            if (assign.sessionNumber === assignment.sessionNumber && assign.leaderUid === assignment.leaderUid) {
-              return { ...assign, transcriptId: transcriptId };
+          const updatedAssignments = currentSeatingArrangement.assignments.map(
+            (assign: any) => {
+              if (
+                assign.sessionNumber === assignment.sessionNumber &&
+                assign.leaderUid === assignment.leaderUid
+              ) {
+                return { ...assign, transcriptId: transcriptId };
+              }
+              return assign;
             }
-            return assign;
-          });
-          
+          );
+
           // Update the entire seating arrangement with the modified assignments
           await updateDoc(eventDoc, {
-            'seatingArrangement.assignments': updatedAssignments
+            "seatingArrangement.assignments": updatedAssignments,
           });
         }
       }
@@ -1859,8 +1952,54 @@ export function EventDetailClient() {
       // Navigate to the transcript page
       router.push(`/transcript/${transcriptId}`);
     } catch (error) {
-      console.error('Error creating transcript:', error);
-      alert('Failed to create transcript. Please try again.');
+      console.error("Error creating transcript:", error);
+      alert("Failed to create transcript. Please try again.");
+    }
+  };
+
+  const handleSendReminderToParticipants = async () => {
+    if (!event) {
+      alert("이벤트 정보가 없습니다.");
+      return;
+    }
+
+    const totalParticipants = event.leaders.length + event.participants.length;
+    if (totalParticipants === 0) {
+      alert("이 이벤트에는 참가자가 없습니다.");
+      return;
+    }
+
+    const confirmSend = window.confirm(
+      `${totalParticipants}명의 모든 참가자(리더 ${event.leaders.length}명 + 참가자 ${event.participants.length}명)에게 밋업 리마인더를 보내시겠습니까?`
+    );
+
+    if (!confirmSend) {
+      return;
+    }
+
+    try {
+      const sendMeetupReminder = httpsCallable(functions, "sendMeetupReminder");
+
+      const result = await sendMeetupReminder({ eventId: event.id });
+      const data = result.data as {
+        success: boolean;
+        messagesSent: number;
+        message: string;
+      };
+
+      if (data.success) {
+        alert(
+          `성공적으로 ${data.messagesSent}명의 참가자에게 리마인더를 보냈습니다.`
+        );
+      } else {
+        alert("리마인더 전송에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("Error sending reminder to participants:", error);
+      alert(
+        "리마인더 전송 중 오류가 발생했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
     }
   };
 
@@ -2040,15 +2179,21 @@ export function EventDetailClient() {
           참가 예정 ({totalParticipants}/{event.max_participants})
         </SectionTitle>
         <ParticipantsGrid>
-          {Array.from(new Set(event.participants.filter(uid => uid && uid.trim() !== ''))).slice(0, 12).map((participantUid, index) => (
-            <UserAvatar
-              key={`participant-${participantUid}-${index}`}
-              uid={participantUid}
-              size={40}
-              isLeader={false}
-              onClick={() => handleAvatarClick(participantUid)}
-            />
-          ))}
+          {Array.from(
+            new Set(
+              event.participants.filter((uid) => uid && uid.trim() !== "")
+            )
+          )
+            .slice(0, 12)
+            .map((participantUid, index) => (
+              <UserAvatar
+                key={`participant-${participantUid}-${index}`}
+                uid={participantUid}
+                size={40}
+                isLeader={false}
+                onClick={() => handleAvatarClick(participantUid)}
+              />
+            ))}
           {event.participants.length > 12 && (
             <div
               key="more-participants"
@@ -2072,7 +2217,9 @@ export function EventDetailClient() {
 
         <SectionTitle>운영진 및 리더</SectionTitle>
         <ParticipantsGrid>
-          {Array.from(new Set(event.leaders.filter(uid => uid && uid.trim() !== ''))).map((leaderUid, index) => (
+          {Array.from(
+            new Set(event.leaders.filter((uid) => uid && uid.trim() !== ""))
+          ).map((leaderUid, index) => (
             <UserAvatar
               key={`leader-${leaderUid}-${index}`}
               uid={leaderUid}
@@ -2157,7 +2304,9 @@ export function EventDetailClient() {
           </ActionButton>
         </ActionButtons>
 
-        {(isAdmin || (typeof window !== 'undefined' && window.location.hostname === 'localhost')) && (
+        {(isAdmin ||
+          (typeof window !== "undefined" &&
+            window.location.hostname === "localhost")) && (
           <ActionButtons ref={null} $isFloating={false}>
             <AdminButtons>
               <AdminButton onClick={handleEdit}>✏️ Edit Event</AdminButton>
@@ -2173,100 +2322,123 @@ export function EventDetailClient() {
               >
                 {seatingLoading ? "⏳ Generating..." : "🪑 Generate Seating"}
               </AdminButton>
+              <AdminButton onClick={handleSendReminderToParticipants}>
+                📱 Send Reminder to All
+              </AdminButton>
             </AdminButtons>
           </ActionButtons>
         )}
 
         {/* Seating Arrangement Section */}
-        {(isAdmin || (typeof window !== 'undefined' && window.location.hostname === 'localhost')) && showSeatingTable && (
-          <SeatingSection>
-            <SectionTitle>좌석 배치</SectionTitle>
-            {typeof window !== 'undefined' && window.location.hostname === 'localhost' && !isAdmin && (
-              <div style={{
-                background: '#fff3cd',
-                border: '1px solid #ffc107',
-                borderRadius: '8px',
-                padding: '0.75rem',
-                marginBottom: '1rem',
-                color: '#856404',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}>
-                🚧 Testing Mode: Seating arrangement visible for localhost development
-              </div>
-            )}
-            <SeatingControls>
-              <SeatingButton
-                onClick={refreshSeatingArrangement}
-                disabled={seatingLoading}
-              >
-                {seatingLoading ? "⏳" : "🔄"} 다시 배치하기
-              </SeatingButton>
-              <SeatingButton onClick={() => setShowSeatingTable(false)}>
-                ❌ 닫기
-              </SeatingButton>
-            </SeatingControls>
-
-            {seatingAssignments.length > 0 ? (
-              <SeatingTable>
-                {[1, 2].map((sessionNumber) => (
-                  <div key={sessionNumber}>
-                    <SessionTitle>세션 {sessionNumber}</SessionTitle>
-                    {seatingAssignments
-                      .filter(
-                        (assignment) => assignment.sessionNumber === sessionNumber
-                      )
-                      .map((assignment) => (
-                        <GroupCard
-                          key={`${sessionNumber}-${assignment.leaderUid}`}
-                          onClick={() => handleSeatingGroupClick(assignment)}
-                        >
-                          <LeaderInfo>
-                            <UserAvatar
-                              uid={assignment.leaderDetails.uid}
-                              size={32}
-                              isLeader={true}
-                            />
-                            <UserName>
-                              {formatLeaderDisplay(assignment.leaderDetails)}
-                            </UserName>
-                            <LeaderBadge>리더</LeaderBadge>
-                          </LeaderInfo>
-
-                          <ParticipantsList>
-                            {assignment.participants.map((participant) => (
-                              <ParticipantItem key={participant.uid}>
-                                <UserAvatar
-                                  uid={participant.uid}
-                                  size={24}
-                                  isLeader={false}
-                                />
-                                <UserName>
-                                  {formatParticipantDisplay(participant)}
-                                </UserName>
-                              </ParticipantItem>
-                            ))}
-                          </ParticipantsList>
-                        </GroupCard>
-                      ))}
+        {(isAdmin ||
+          (typeof window !== "undefined" &&
+            window.location.hostname === "localhost")) &&
+          showSeatingTable && (
+            <SeatingSection>
+              <SectionTitle>좌석 배치</SectionTitle>
+              {typeof window !== "undefined" &&
+                window.location.hostname === "localhost" &&
+                !isAdmin && (
+                  <div
+                    style={{
+                      background: "#fff3cd",
+                      border: "1px solid #ffc107",
+                      borderRadius: "8px",
+                      padding: "0.75rem",
+                      marginBottom: "1rem",
+                      color: "#856404",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    🚧 Testing Mode: Seating arrangement visible for localhost
+                    development
                   </div>
-                ))}
-              </SeatingTable>
-            ) : (
-              <div style={{
-                padding: '2rem',
-                textAlign: 'center',
-                color: '#64748b',
-                background: '#f8fafc',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0'
-              }}>
-                좌석 배치가 아직 생성되지 않았습니다.<br/>
-                "🪑 Generate Seating" 버튼을 클릭하여 좌석을 배치하세요.
-              </div>
-            )}
-          </SeatingSection>
-        )}
+                )}
+              <SeatingControls>
+                <SeatingButton
+                  onClick={refreshSeatingArrangement}
+                  disabled={seatingLoading}
+                >
+                  {seatingLoading ? "⏳" : "🔄"} 다시 배치하기
+                </SeatingButton>
+                <SeatingButton onClick={() => setShowSeatingTable(false)}>
+                  ❌ 닫기
+                </SeatingButton>
+              </SeatingControls>
+
+              {seatingAssignments.length > 0 ? (
+                <SeatingTable>
+                  {[1, 2].map((sessionNumber) => (
+                    <div key={sessionNumber}>
+                      <SessionTitle>세션 {sessionNumber}</SessionTitle>
+                      {seatingAssignments
+                        .filter(
+                          (assignment) =>
+                            assignment.sessionNumber === sessionNumber
+                        )
+                        .map((assignment) => (
+                          <GroupCard
+                            key={`${sessionNumber}-${assignment.leaderUid}`}
+                            onClick={() => handleSeatingGroupClick(assignment)}
+                          >
+                            <LeaderInfo>
+                              <UserAvatar
+                                uid={assignment.leaderDetails.uid}
+                                size={32}
+                                isLeader={true}
+                                onClick={() =>
+                                  handleAvatarClick(
+                                    assignment.leaderDetails.uid
+                                  )
+                                }
+                              />
+                              <UserName>
+                                {formatLeaderDisplay(assignment.leaderDetails)}
+                              </UserName>
+                              <LeaderBadge>리더</LeaderBadge>
+                            </LeaderInfo>
+
+                            <ParticipantsList>
+                              {assignment.participants.map((participant) => (
+                                <ParticipantItem key={participant.uid}>
+                                  <UserAvatar
+                                    uid={participant.uid}
+                                    size={24}
+                                    isLeader={false}
+                                    onClick={() =>
+                                      handleAvatarClick(participant.uid)
+                                    }
+                                  />
+                                  <UserName>
+                                    {formatParticipantDisplay(participant)}
+                                  </UserName>
+                                </ParticipantItem>
+                              ))}
+                            </ParticipantsList>
+                          </GroupCard>
+                        ))}
+                    </div>
+                  ))}
+                </SeatingTable>
+              ) : (
+                <div
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#64748b",
+                    background: "#f8fafc",
+                    borderRadius: "8px",
+                    border: "1px solid #e2e8f0",
+                  }}
+                >
+                  좌석 배치가 아직 생성되지 않았습니다.
+                  <br />
+                  "🪑 Generate Seating" 버튼을 클릭하여 좌석을 배치하세요.
+                </div>
+              )}
+            </SeatingSection>
+          )}
       </Content>
 
       <AdminEventDialog
@@ -2359,6 +2531,48 @@ export function EventDetailClient() {
               확인
             </SuccessDialogButton>
           </SuccessDialogBox>
+        </DialogOverlay>
+      )}
+
+      {showAdminActionDialog && (
+        <DialogOverlay onClick={() => setShowAdminActionDialog(false)}>
+          <DialogBox onClick={(e) => e.stopPropagation()}>
+            <h3>사용자 관리</h3>
+            <p>
+              이 사용자에 대해 어떤 작업을 하시겠습니까?
+              <br />
+              현재 역할: {selectedUserIsLeader ? "리더" : "참가자"}
+            </p>
+
+            <DialogButton
+              $primary
+              onClick={handleChangeRole}
+              disabled={adminActionLoading}
+            >
+              {adminActionLoading
+                ? "처리 중..."
+                : `${selectedUserIsLeader ? "참가자" : "리더"}로 변경`}
+            </DialogButton>
+
+            <DialogButton
+              onClick={handleRemoveParticipant}
+              disabled={adminActionLoading}
+              style={{
+                backgroundColor: "#d32f2f",
+                color: "white",
+                marginTop: "0.5rem",
+              }}
+            >
+              {adminActionLoading ? "처리 중..." : "밋업에서 제거"}
+            </DialogButton>
+
+            <DialogButton
+              onClick={() => setShowAdminActionDialog(false)}
+              style={{ marginTop: "0.5rem" }}
+            >
+              취소
+            </DialogButton>
+          </DialogBox>
         </DialogOverlay>
       )}
     </Container>

@@ -664,3 +664,91 @@ export const fetchArticlesByIds = async (
     return [];
   }
 };
+
+// Admin function to remove a participant from an event
+export const removeParticipant = async (
+  eventId: string,
+  userId: string
+): Promise<void> => {
+  const eventRef = doc(db, MEETUP_COLLECTION, eventId);
+  try {
+    await runTransaction(db, async (transaction) => {
+      const eventDoc = await transaction.get(eventRef);
+      if (!eventDoc.exists()) {
+        throw new Error("Event does not exist!");
+      }
+
+      const eventData = eventDoc.data() as FirestoreMeetupEvent;
+      const isParticipant = eventData.participants?.includes(userId);
+      const isLeader = eventData.leaders?.includes(userId);
+
+      if (!isParticipant && !isLeader) {
+        throw new Error(`User ${userId} is not part of event ${eventId}.`);
+      }
+
+      const updateData: Record<string, unknown> = {};
+
+      if (isParticipant) {
+        updateData.participants = arrayRemove(userId);
+      }
+      if (isLeader) {
+        updateData.leaders = arrayRemove(userId);
+      }
+
+      transaction.update(eventRef, updateData);
+    });
+    console.log(`User ${userId} successfully removed from event ${eventId}.`);
+  } catch (error) {
+    console.error("Error removing participant:", error);
+    throw error;
+  }
+};
+
+// Admin function to change a user's role between participant and leader
+export const changeUserRole = async (
+  eventId: string,
+  userId: string,
+  newRole: "participant" | "leader"
+): Promise<void> => {
+  const eventRef = doc(db, MEETUP_COLLECTION, eventId);
+  try {
+    await runTransaction(db, async (transaction) => {
+      const eventDoc = await transaction.get(eventRef);
+      if (!eventDoc.exists()) {
+        throw new Error("Event does not exist!");
+      }
+
+      const eventData = eventDoc.data() as FirestoreMeetupEvent;
+      const isParticipant = eventData.participants?.includes(userId);
+      const isLeader = eventData.leaders?.includes(userId);
+
+      if (!isParticipant && !isLeader) {
+        throw new Error(`User ${userId} is not part of event ${eventId}.`);
+      }
+
+      const updateData: Record<string, unknown> = {};
+
+      if (newRole === "participant") {
+        // Moving to participant: add to participants, remove from leaders
+        updateData.participants = arrayUnion(userId);
+        if (isLeader) {
+          updateData.leaders = arrayRemove(userId);
+        }
+      } else {
+        // Moving to leader: add to leaders, remove from participants
+        updateData.leaders = arrayUnion(userId);
+        if (isParticipant) {
+          updateData.participants = arrayRemove(userId);
+        }
+      }
+
+      transaction.update(eventRef, updateData);
+    });
+    console.log(
+      `User ${userId} successfully changed to ${newRole} for event ${eventId}.`
+    );
+  } catch (error) {
+    console.error("Error changing user role:", error);
+    throw error;
+  }
+};

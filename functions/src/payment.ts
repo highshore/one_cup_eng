@@ -866,7 +866,37 @@ export const processRecurringPayments = onSchedule(
 
         // Skip if no billing key
         if (!userData.billingKey) {
-          logger.warn(`User ${userId} has no billing key, skipping renewal`);
+          logger.warn(
+            `User ${userId} has no billing key, expiring subscription`
+          );
+
+          // Set hasActiveSubscription to false since billing cannot continue
+          await db.doc(`users/${userId}`).update({
+            hasActiveSubscription: false,
+            subscriptionExpiredAt: Timestamp.now(),
+          });
+
+          logger.info(
+            `Set hasActiveSubscription to false for user ${userId} (no billing key)`
+          );
+          continue;
+        }
+
+        // Skip if billing is cancelled by user
+        if (userData.billingCancelled) {
+          logger.warn(
+            `User ${userId} has billing cancelled, expiring subscription but keeping billing key`
+          );
+
+          // Set hasActiveSubscription to false but keep billing key for easy reactivation
+          await db.doc(`users/${userId}`).update({
+            hasActiveSubscription: false,
+            subscriptionExpiredAt: Timestamp.now(),
+          });
+
+          logger.info(
+            `Set hasActiveSubscription to false for user ${userId} (billing cancelled)`
+          );
           continue;
         }
 
@@ -1066,6 +1096,11 @@ export const processRecurringPayments = onSchedule(
 
 // Interface for subscription cancellation data
 interface CancelSubscriptionData {
+  reason?: string;
+}
+
+// Interface for stopping next billing without refund
+interface StopNextBillingData {
   reason?: string;
 }
 
@@ -1551,6 +1586,137 @@ export const paymentCallback = onRequest(
       logger.error("Error processing payment callback:", error);
       res.status(500).send("Error processing payment callback");
       return;
+    }
+  }
+);
+
+// Function to stop next billing without refund
+export const stopNextBilling = onCall<StopNextBillingData>(
+  {
+    ...onCallFunctionConfig,
+    secrets: [
+      "PAYPLE_CST_ID",
+      "PAYPLE_CUST_KEY",
+      "PAYPLE_CLIENT_KEY",
+      "PAYPLE_REFUND_KEY",
+    ],
+  },
+  async (request) => {
+    const db = admin.firestore();
+    try {
+      // Ensure the user is authenticated
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Authentication required");
+      }
+
+      const userId = request.auth.uid;
+      const cancellationReason =
+        request.data?.reason || "User requested stop billing";
+
+      // Get user data
+      const userDocRef = db.doc(`users/${userId}`);
+      const userDoc = await userDocRef.get();
+      if (!userDoc.exists) {
+        throw new HttpsError("not-found", "User not found");
+      }
+
+      const userData = userDoc.data();
+
+      // Check if user has an active subscription
+      if (!userData?.hasActiveSubscription) {
+        throw new HttpsError(
+          "failed-precondition",
+          "No active subscription to stop"
+        );
+      }
+
+      // Calculate the subscription end date (current period end)
+      const nextBillingDate =
+        userData.subscriptionEndDate?.toDate() || new Date();
+
+      // Update user subscription status in Firestore
+      await userDocRef.update({
+        // Keep billingKey intact so user can easily reactivate
+        cancellationTimestamp: Timestamp.now(),
+        cancellationType: "stop_billing",
+        cancellationReason: cancellationReason,
+        billingCancelled: true, // Flag to indicate billing was cancelled but subscription is still active
+        // Keep cat_tech/cat_business active until subscription ends
+        // Keep subscriptionEndDate unchanged - user continues until this date
+      });
+
+      // Log the billing stop action
+      await db.collection("billing_stops").add({
+        userId,
+        requestedAt: Timestamp.now(),
+        originalEndDate: nextBillingDate,
+        reason: cancellationReason,
+        status: "completed",
+      });
+
+      logger.info(
+        `Billing stopped for user ${userId}. Service will continue until ${nextBillingDate.toISOString()}`
+      );
+
+      // Send Kakao message for billing stop
+      try {
+        const authUser = await admin.auth().getUser(userId);
+        let recipientNo = "";
+        if (authUser.phoneNumber) {
+          recipientNo = authUser.phoneNumber
+            .replace(/^\+82/, "0") // Convert +8210... to 010...
+            .replace(/\D/g, ""); // Remove non-digits
+
+          if (recipientNo.startsWith("010") && recipientNo.length >= 10) {
+            const kakaoRecipientList = [
+              {
+                recipientNo: recipientNo,
+                templateParameter: {
+                  endDate: format(nextBillingDate, "yyyy년 MM월 dd일"),
+                },
+              },
+            ];
+            await sendKakaoMessages(kakaoRecipientList, "billing-stopped");
+            logger.info(
+              `Kakao message 'billing-stopped' sent to user ${userId} at ${recipientNo}`
+            );
+          } else {
+            logger.warn(
+              `User ${userId} has an invalid phone number for Kakao: ${recipientNo}. Skipping Kakao message.`
+            );
+          }
+        } else {
+          logger.warn(
+            `User ${userId} does not have a phone number in Auth. Skipping Kakao message.`
+          );
+        }
+      } catch (kakaoError) {
+        logger.error(
+          `Failed to send 'billing-stopped' Kakao message to user ${userId}:`,
+          kakaoError
+        );
+        // Do not let Kakao error fail the entire process
+      }
+
+      return {
+        success: true,
+        message:
+          "다음 결제가 성공적으로 중단되었습니다. 현재 구독 기간까지는 서비스를 계속 이용하실 수 있습니다.",
+        subscriptionEndDate: nextBillingDate.toISOString(),
+      };
+    } catch (error: any) {
+      logger.error(
+        `Error stopping billing for user ${request.auth?.uid}:`,
+        error
+      );
+      // Ensure HttpsError is thrown for frontend handling
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError(
+        "internal",
+        error.message || "결제 중단 중 서버 오류가 발생했습니다."
+      );
     }
   }
 );

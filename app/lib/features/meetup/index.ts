@@ -24,6 +24,8 @@ export {
   updateMeetupEvent,
   joinEventAsRole,
   cancelParticipation,
+  removeParticipant,
+  changeUserRole,
 } from "./services/meetup_service";
 export {
   fetchUserProfile,
