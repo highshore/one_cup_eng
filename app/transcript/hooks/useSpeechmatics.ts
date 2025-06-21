@@ -179,71 +179,93 @@ export const useSpeechmatics = () => {
   }, []); // Depends only on stable state setters.
 
   // --- Exposed Control Functions ---
-  const startSpeechmatics = useCallback(async (customDictionary?: Array<{ content: string; sounds_like?: string[] }>) => {
-    // Reset state for a new session
-    setSpeechmaticsError(null);
-    setFinalTranscript([]);
-    setActivePartialSegment([]);
-    setIsSpeechmaticsSocketOpen(false);
+  const setSavedTranscript = useCallback((savedData: SpeechmaticsResult[]) => {
+    console.log(
+      "[SpeechmaticsService] Loading saved transcript data:",
+      savedData.length,
+      "items"
+    );
+    setFinalTranscript(savedData);
+    setActivePartialSegment([]); // Clear any partial segments when loading saved data
+  }, []);
 
-    try {
-      const jwt = await fetchJWT();
-      clientRef.current = new RealtimeClient();
+  const startSpeechmatics = useCallback(
+    async (
+      customDictionary?: Array<{ content: string; sounds_like?: string[] }>
+    ) => {
+      // Don't reset finalTranscript if we have saved data - we want to continue from where we left off
+      setSpeechmaticsError(null);
+      // Only reset finalTranscript if it's empty (no saved data)
+      setFinalTranscript((prev) => (prev.length > 0 ? prev : []));
+      setActivePartialSegment([]);
+      setIsSpeechmaticsSocketOpen(false);
 
-      clientRef.current.addEventListener(
-        "receiveMessage",
-        ({ data }: { data: unknown }) =>
-          handleReceivedMessage(data as SpeechmaticsMessage)
-      );
-      clientRef.current.addEventListener(
-        "socketStateChange",
-        handleSocketStateChange
-      );
+      try {
+        const jwt = await fetchJWT();
+        clientRef.current = new RealtimeClient();
 
-      const transcriptionConfig: any = {
-        language: "en",
-        diarization: "speaker",
-        operating_point: "enhanced",
-        max_delay_mode: "flexible",
-        max_delay: 0.7,
-        enable_partials: true,
-        enable_entities: true, // Can be useful for context
-        output_locale: "en-US",
-        transcript_filtering_config: {
-          remove_disfluencies: true, // Removes fillers like "um", "uh"
-        },
-        speaker_diarization_config: {
-          max_speakers: 5,
-        },
-      };
+        clientRef.current.addEventListener(
+          "receiveMessage",
+          ({ data }: { data: unknown }) =>
+            handleReceivedMessage(data as SpeechmaticsMessage)
+        );
+        clientRef.current.addEventListener(
+          "socketStateChange",
+          handleSocketStateChange
+        );
 
-      // Add custom dictionary if provided
-      if (customDictionary && customDictionary.length > 0) {
-        transcriptionConfig.additional_vocab = customDictionary;
-        console.log("[Speechmatics] Custom dictionary being sent:", JSON.stringify(customDictionary, null, 2));
-      } else {
-        console.log("[Speechmatics] No custom dictionary provided");
+        const transcriptionConfig: any = {
+          language: "en",
+          diarization: "speaker",
+          operating_point: "enhanced",
+          max_delay_mode: "flexible",
+          max_delay: 0.7,
+          enable_partials: true,
+          enable_entities: true, // Can be useful for context
+          output_locale: "en-US",
+          transcript_filtering_config: {
+            remove_disfluencies: true, // Removes fillers like "um", "uh"
+          },
+          speaker_diarization_config: {
+            max_speakers: 5,
+          },
+        };
+
+        // Add custom dictionary if provided
+        if (customDictionary && customDictionary.length > 0) {
+          transcriptionConfig.additional_vocab = customDictionary;
+          console.log(
+            "[Speechmatics] Custom dictionary being sent:",
+            JSON.stringify(customDictionary, null, 2)
+          );
+        } else {
+          console.log("[Speechmatics] No custom dictionary provided");
+        }
+
+        console.log(
+          "[Speechmatics] Full transcription config:",
+          JSON.stringify(transcriptionConfig, null, 2)
+        );
+
+        await clientRef.current.start(jwt, {
+          transcription_config: transcriptionConfig,
+          audio_format: {
+            type: "raw",
+            encoding: "pcm_f32le",
+            sample_rate: 16000,
+          },
+        });
+        // isSpeechmaticsSocketOpen will be set to true by handleReceivedMessage (RecognitionStarted)
+        // or handleSocketStateChange (open event).
+        return true; // Indicate success
+      } catch (err: any) {
+        console.error("Error starting Speechmatics:", err);
+        setSpeechmaticsError(err.message || "Failed to start Speechmatics.");
+        return false; // Indicate failure
       }
-
-      console.log("[Speechmatics] Full transcription config:", JSON.stringify(transcriptionConfig, null, 2));
-
-      await clientRef.current.start(jwt, {
-        transcription_config: transcriptionConfig,
-        audio_format: {
-          type: "raw",
-          encoding: "pcm_f32le",
-          sample_rate: 16000,
-        },
-      });
-      // isSpeechmaticsSocketOpen will be set to true by handleReceivedMessage (RecognitionStarted)
-      // or handleSocketStateChange (open event).
-      return true; // Indicate success
-    } catch (err: any) {
-      console.error("Error starting Speechmatics:", err);
-      setSpeechmaticsError(err.message || "Failed to start Speechmatics.");
-      return false; // Indicate failure
-    }
-  }, [handleReceivedMessage, handleSocketStateChange]); // Depends on stable callbacks.
+    },
+    [handleReceivedMessage, handleSocketStateChange]
+  ); // Depends on stable callbacks.
 
   const sendSpeechmaticsAudio = useCallback((audioData: ArrayBuffer) => {
     if (
@@ -329,5 +351,6 @@ export const useSpeechmatics = () => {
     startSpeechmatics,
     stopSpeechmatics,
     sendSpeechmaticsAudio,
+    setSavedTranscript,
   };
-}; 
+};

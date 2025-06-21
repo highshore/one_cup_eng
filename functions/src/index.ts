@@ -4,6 +4,7 @@ import { onRequest, HttpsOptions } from "firebase-functions/v2/https"; // For v2
 import * as logger from "firebase-functions/logger"; // v2 logger
 import { YoutubeTranscript } from "youtube-transcript"; // Added for youtube-transcript
 import cors from "cors";
+import OpenAI from "openai";
 
 // Initialize Firebase Admin SDK only once
 if (admin.apps.length === 0) {
@@ -1643,3 +1644,390 @@ export const getUserDisplayNames = onCall(
     }
   }
 );
+
+// OpenAI client will be initialized inside functions when needed
+
+interface SpeakingAnalysisRequest {
+  transcriptId: string;
+  speakerMappings: Record<string, string>; // speaker ID -> participant UID
+  transcriptContent: any[];
+}
+
+interface UserSpeakingReport {
+  userId: string;
+  transcriptId: string;
+  speakerId: string;
+  userScript: string;
+  analysis: {
+    overallScore: number;
+    fluency: {
+      score: number;
+      feedback: string;
+    };
+    vocabulary: {
+      score: number;
+      feedback: string;
+    };
+    grammar: {
+      score: number;
+      feedback: string;
+    };
+    pronunciation: {
+      score: number;
+      feedback: string;
+    };
+    engagement: {
+      score: number;
+      feedback: string;
+    };
+    strengths: string[];
+    areasForImprovement: string[];
+    specificSuggestions: string[];
+  };
+  metadata: {
+    wordCount: number;
+    speakingDuration: number;
+    averageWordsPerMinute: number;
+    createdAt: admin.firestore.Timestamp;
+    articleId?: string;
+    sessionNumber?: number;
+  };
+}
+
+export const generateSpeakingReports = onCall(
+  {
+    region: "asia-northeast3",
+    timeoutSeconds: 300, // 5 minutes timeout for AI processing
+    memory: "1GiB",
+  },
+  async (request) => {
+    const {
+      transcriptId,
+      speakerMappings,
+      transcriptContent,
+    }: SpeakingAnalysisRequest = request.data;
+
+    if (!transcriptId || !speakerMappings || !transcriptContent) {
+      throw new Error(
+        "Missing required parameters: transcriptId, speakerMappings, or transcriptContent"
+      );
+    }
+
+    // Initialize OpenAI client inside the function
+    const apiKey =
+      process.env.NEXT_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OpenAI API key not configured");
+    }
+
+    const openai = new OpenAI({
+      apiKey: apiKey,
+    });
+
+    try {
+      logger.info(`Starting report generation for transcript ${transcriptId}`);
+
+      // Get transcript document for metadata
+      const transcriptDoc = await admin
+        .firestore()
+        .doc(`transcripts/${transcriptId}`)
+        .get();
+      const transcriptData = transcriptDoc.data();
+
+      if (!transcriptData) {
+        throw new Error("Transcript not found");
+      }
+
+      const reports: UserSpeakingReport[] = [];
+
+      // Process each mapped speaker
+      for (const [speakerId, userId] of Object.entries(speakerMappings)) {
+        logger.info(`Processing speaker ${speakerId} -> user ${userId}`);
+
+        // Extract user's script from transcript
+        const userScript = extractUserScript(transcriptContent, speakerId);
+
+        if (!userScript || userScript.trim().length === 0) {
+          logger.warn(`No script found for speaker ${speakerId}, skipping`);
+          continue;
+        }
+
+        // Calculate speaking metrics
+        const wordCount = userScript.split(/\s+/).length;
+        const speakingDuration = calculateSpeakingDuration(
+          transcriptContent,
+          speakerId
+        );
+        const averageWordsPerMinute =
+          speakingDuration > 0 ? wordCount / (speakingDuration / 60) : 0;
+
+        // Generate AI analysis
+        const analysis = await generateAIAnalysis(
+          userScript,
+          wordCount,
+          speakingDuration,
+          openai
+        );
+
+        // Create report object
+        const report: UserSpeakingReport = {
+          userId,
+          transcriptId,
+          speakerId,
+          userScript,
+          analysis,
+          metadata: {
+            wordCount,
+            speakingDuration,
+            averageWordsPerMinute,
+            createdAt: admin.firestore.Timestamp.now(),
+            articleId: transcriptData.articleId,
+            sessionNumber: transcriptData.sessionNumber,
+          },
+        };
+
+        reports.push(report);
+
+        // Save individual report to Firestore
+        const reportId = `${transcriptId}_${userId}_${Date.now()}`;
+        await admin.firestore().doc(`reports/${reportId}`).set(report);
+
+        logger.info(
+          `Report generated and saved for user ${userId}: ${wordCount} words, ${speakingDuration.toFixed(
+            1
+          )}s`
+        );
+      }
+
+      // Update transcript document with report generation info
+      await admin.firestore().doc(`transcripts/${transcriptId}`).update({
+        reportsGenerated: true,
+        reportsGeneratedAt: admin.firestore.Timestamp.now(),
+        reportCount: reports.length,
+      });
+
+      logger.info(
+        `Successfully generated ${reports.length} reports for transcript ${transcriptId}`
+      );
+
+      return {
+        success: true,
+        reportCount: reports.length,
+        reports: reports.map((r) => ({
+          userId: r.userId,
+          overallScore: r.analysis.overallScore,
+          wordCount: r.metadata.wordCount,
+        })),
+      };
+    } catch (error) {
+      logger.error("Error generating speaking reports:", error);
+      throw new Error(
+        `Failed to generate reports: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+);
+
+function extractUserScript(
+  transcriptContent: any[],
+  speakerId: string
+): string {
+  const userWords: string[] = [];
+
+  transcriptContent.forEach((item) => {
+    if (item.alternatives && item.alternatives[0]) {
+      const word = item.alternatives[0];
+      if (word.speaker === speakerId && word.content) {
+        userWords.push(word.content);
+      }
+    }
+  });
+
+  return userWords.join(" ");
+}
+
+function calculateSpeakingDuration(
+  transcriptContent: any[],
+  speakerId: string
+): number {
+  let totalDuration = 0;
+  let speakerSegments: { start: number; end: number }[] = [];
+
+  transcriptContent.forEach((item) => {
+    if (item.alternatives && item.alternatives[0]) {
+      const word = item.alternatives[0];
+      if (
+        word.speaker === speakerId &&
+        item.start_time !== undefined &&
+        item.end_time !== undefined
+      ) {
+        speakerSegments.push({
+          start: item.start_time,
+          end: item.end_time,
+        });
+      }
+    }
+  });
+
+  // Merge overlapping segments and calculate total duration
+  if (speakerSegments.length > 0) {
+    speakerSegments.sort((a, b) => a.start - b.start);
+
+    let currentStart = speakerSegments[0].start;
+    let currentEnd = speakerSegments[0].end;
+
+    for (let i = 1; i < speakerSegments.length; i++) {
+      const segment = speakerSegments[i];
+      if (segment.start <= currentEnd) {
+        // Overlapping or adjacent segments, merge them
+        currentEnd = Math.max(currentEnd, segment.end);
+      } else {
+        // Non-overlapping segment, add duration and start new segment
+        totalDuration += currentEnd - currentStart;
+        currentStart = segment.start;
+        currentEnd = segment.end;
+      }
+    }
+
+    // Add the last segment
+    totalDuration += currentEnd - currentStart;
+  }
+
+  return totalDuration;
+}
+
+async function generateAIAnalysis(
+  userScript: string,
+  wordCount: number,
+  speakingDuration: number,
+  openai: OpenAI
+): Promise<UserSpeakingReport["analysis"]> {
+  const prompt = `
+You are an expert English speaking coach analyzing a transcript from an English conversation practice session. Please provide a comprehensive analysis of this speaker's performance.
+
+TRANSCRIPT:
+"${userScript}"
+
+CONTEXT:
+- Word count: ${wordCount}
+- Speaking duration: ${speakingDuration.toFixed(1)} seconds
+- This is from a structured English conversation practice session
+
+Please analyze the following aspects and provide scores (1-10 scale) with detailed feedback:
+
+1. FLUENCY: How smoothly and naturally does the speaker communicate?
+2. VOCABULARY: Range and appropriateness of vocabulary used
+3. GRAMMAR: Accuracy of grammatical structures
+4. PRONUNCIATION: Clarity and accuracy (inferred from transcript patterns)
+5. ENGAGEMENT: How well the speaker participates and contributes to conversation
+
+For each category, provide:
+- A score from 1-10
+- Specific feedback explaining the score
+- Actionable suggestions for improvement
+
+Also provide:
+- Overall score (average of all categories)
+- Top 3 strengths
+- Top 3 areas for improvement
+- 3 specific, actionable suggestions for next practice sessions
+
+Format your response as a JSON object with this exact structure:
+{
+  "overallScore": number,
+  "fluency": {"score": number, "feedback": "string"},
+  "vocabulary": {"score": number, "feedback": "string"},
+  "grammar": {"score": number, "feedback": "string"},
+  "pronunciation": {"score": number, "feedback": "string"},
+  "engagement": {"score": number, "feedback": "string"},
+  "strengths": ["string", "string", "string"],
+  "areasForImprovement": ["string", "string", "string"],
+  "specificSuggestions": ["string", "string", "string"]
+}
+`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert English speaking coach. Analyze the provided transcript and return only valid JSON with no additional text or formatting.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 2000,
+      temperature: 0.7,
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) {
+      throw new Error("No response from OpenAI");
+    }
+
+    // Parse the JSON response
+    const analysis = JSON.parse(response);
+
+    // Validate the structure
+    if (
+      !analysis.overallScore ||
+      !analysis.fluency ||
+      !analysis.vocabulary ||
+      !analysis.grammar ||
+      !analysis.pronunciation ||
+      !analysis.engagement
+    ) {
+      throw new Error("Invalid analysis structure from AI");
+    }
+
+    return analysis;
+  } catch (error) {
+    logger.error("Error generating AI analysis:", error);
+
+    // Fallback analysis if AI fails
+    return {
+      overallScore: 5,
+      fluency: {
+        score: 5,
+        feedback: "Analysis unavailable due to technical issues.",
+      },
+      vocabulary: {
+        score: 5,
+        feedback: "Analysis unavailable due to technical issues.",
+      },
+      grammar: {
+        score: 5,
+        feedback: "Analysis unavailable due to technical issues.",
+      },
+      pronunciation: {
+        score: 5,
+        feedback: "Analysis unavailable due to technical issues.",
+      },
+      engagement: {
+        score: 5,
+        feedback: "Analysis unavailable due to technical issues.",
+      },
+      strengths: [
+        "Participated in the conversation",
+        "Contributed to the discussion",
+        "Engaged with the topic",
+      ],
+      areasForImprovement: [
+        "Continue practicing",
+        "Focus on consistency",
+        "Build confidence",
+      ],
+      specificSuggestions: [
+        "Keep practicing regularly",
+        "Record yourself speaking",
+        "Join more conversation sessions",
+      ],
+    };
+  }
+}

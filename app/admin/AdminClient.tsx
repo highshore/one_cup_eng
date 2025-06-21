@@ -314,7 +314,6 @@ interface UserData {
 interface FeedbackData {
   id: string;
   userId: string;
-  email: string;
   category: "cancellation" | "refund";
   reasons: string[];
   otherReason?: string;
@@ -568,7 +567,7 @@ export default function AdminClient() {
                 <FeedbackDate>{formatDateTime(item.timestamp)}</FeedbackDate>
               </FeedbackHeader>
 
-              <FeedbackUser>{item.email}</FeedbackUser>
+              <FeedbackUser>User ID: {item.userId}</FeedbackUser>
 
               <FeedbackReasons>
                 <strong>Selected Reasons:</strong>

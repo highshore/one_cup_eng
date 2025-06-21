@@ -63,6 +63,7 @@ interface SeatingAssignment {
   leaderUid: string;
   leaderDetails: UserWithDetails;
   participants: UserWithDetails[];
+  transcriptId?: string; // Optional transcript ID if one has been created
 }
 
 // Interface for saved seating data
@@ -860,9 +861,9 @@ const SessionTitle = styled.h3`
   }
 `;
 
-const GroupCard = styled.div`
+const GroupCard = styled.div<{ $hasTranscript?: boolean }>`
   background-color: white;
-  border: 2px solid #e0e0e0;
+  border: 2px solid ${(props) => (props.$hasTranscript ? "#10b981" : "#e0e0e0")};
   border-radius: 25px;
   padding: 1.5rem;
   margin-bottom: 1rem;
@@ -872,10 +873,20 @@ const GroupCard = styled.div`
   position: relative;
   overflow: hidden;
 
+  ${(props) =>
+    props.$hasTranscript &&
+    `
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  `}
+
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    border-color: #333;
+    box-shadow: ${(props) =>
+      props.$hasTranscript
+        ? "0 8px 24px rgba(16, 185, 129, 0.25)"
+        : "0 8px 24px rgba(0, 0, 0, 0.15)"};
+    border-color: ${(props) => (props.$hasTranscript ? "#059669" : "#333")};
   }
 
   &:active {
@@ -1308,9 +1319,11 @@ export function EventDetailClient() {
                 );
 
                 return {
-                  ...assignment,
+                  sessionNumber: assignment.sessionNumber,
+                  leaderUid: assignment.leaderUid,
                   leaderDetails: leaderDetails || assignment.leaderDetails,
                   participants: participantDetails,
+                  transcriptId: assignment.transcriptId, // Preserve transcriptId
                 };
               });
 
@@ -1892,10 +1905,23 @@ export function EventDetailClient() {
     if (!isLocalhost && (!currentUser?.uid || !isAdmin)) return;
 
     try {
-      // Generate a random transcript ID using Firestore's auto-generated ID format
+      // Check if this assignment already has a transcript
+      if (assignment.transcriptId) {
+        console.log(
+          `[Transcript] Using existing transcript: ${assignment.transcriptId}`
+        );
+        router.push(`/transcript/${assignment.transcriptId}`);
+        return;
+      }
+
+      // Generate a new transcript ID if one doesn't exist
       const transcriptId = `${Date.now()}_${Math.random()
         .toString(36)
         .substr(2, 9)}`;
+
+      console.log(
+        `[Transcript] Creating new transcript: ${transcriptId} for session ${assignment.sessionNumber}, leader ${assignment.leaderUid}`
+      );
 
       // Determine the article ID based on session number
       const articleId =
@@ -1946,14 +1972,18 @@ export function EventDetailClient() {
           await updateDoc(eventDoc, {
             "seatingArrangement.assignments": updatedAssignments,
           });
+
+          console.log(
+            `[Transcript] Updated seating arrangement with transcript ID: ${transcriptId}`
+          );
         }
       }
 
       // Navigate to the transcript page
       router.push(`/transcript/${transcriptId}`);
     } catch (error) {
-      console.error("Error creating transcript:", error);
-      alert("Failed to create transcript. Please try again.");
+      console.error("Error handling transcript:", error);
+      alert("Failed to access transcript. Please try again.");
     }
   };
 
@@ -2380,6 +2410,7 @@ export function EventDetailClient() {
                         .map((assignment) => (
                           <GroupCard
                             key={`${sessionNumber}-${assignment.leaderUid}`}
+                            $hasTranscript={!!assignment.transcriptId}
                             onClick={() => handleSeatingGroupClick(assignment)}
                           >
                             <LeaderInfo>

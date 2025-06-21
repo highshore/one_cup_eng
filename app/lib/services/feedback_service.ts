@@ -4,7 +4,6 @@ import { auth } from "../firebase/firebase";
 
 export interface FeedbackData {
   userId: string;
-  email: string;
   category: "cancellation" | "refund";
   reasons: string[];
   otherReason?: string;
@@ -23,7 +22,6 @@ export const saveFeedback = async (
 
   const feedbackData: any = {
     userId: user.uid,
-    email: user.email || "",
     category,
     reasons,
     timestamp: serverTimestamp(),
