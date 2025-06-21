@@ -2,833 +2,644 @@
 
 import { useState, useEffect } from "react";
 import styled from "styled-components";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { auth, db } from "../lib/firebase/firebase";
 import {
   collection,
   getDocs,
-  Timestamp,
+  getDoc,
   doc,
-  updateDoc,
+  query,
+  orderBy,
+  Timestamp,
+  where,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale/ko";
 
 const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   padding: 20px;
-  max-width: 1200px;
-  min-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
+  gap: 30px;
+`;
+
+const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 `;
 
 const Title = styled.h1`
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
 `;
 
-const Button = styled.button.withConfig({
-  shouldForwardProp: (prop) =>
-    !["isActive", "isCompleted", "isOpen"].includes(prop),
-})`
-  background-color: #4caf50;
+const RefreshButton = styled.button`
+  background-color: #2c1810;
   color: white;
-  padding: 10px 15px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  margin-top: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
 
   &:hover {
-    background-color: #45a049;
+    background-color: #4a2d1d;
+    transform: translateY(-1px);
   }
 
   &:disabled {
-    background-color: #cccccc;
+    background-color: #9ca3af;
     cursor: not-allowed;
+    transform: none;
   }
 `;
 
-const ResultContainer = styled.div`
-  margin-top: 20px;
-  padding: 15px;
-  border-radius: 4px;
-  background-color: #f5f5f5;
-  overflow-x: auto;
-`;
-
-const ResultTitle = styled.h3`
-  font-size: 18px;
-  margin-bottom: 10px;
-`;
-
-const StatusBox = styled.div<{ status: "success" | "error" | "idle" }>`
-  padding: 10px;
-  margin-top: 15px;
-  border-radius: 4px;
-  background-color: ${(props) =>
-    props.status === "success"
-      ? "#dff0d8"
-      : props.status === "error"
-      ? "#f2dede"
-      : "#f5f5f5"};
-  color: ${(props) =>
-    props.status === "success"
-      ? "#3c763d"
-      : props.status === "error"
-      ? "#a94442"
-      : "#333"};
-`;
-
-const TabContainer = styled.div`
-  display: flex;
-  margin-bottom: 20px;
-`;
-
-const Tab = styled.button.withConfig({
-  shouldForwardProp: (prop) => !["active"].includes(prop),
-})<{ active: boolean }>`
-  padding: 10px 20px;
-  background-color: ${(props) => (props.active ? "#4caf50" : "#f1f1f1")};
-  color: ${(props) => (props.active ? "white" : "black")};
-  border: none;
-  border-radius: 4px;
-  margin-right: 10px;
-  cursor: pointer;
-  font-size: 16px;
-
-  &:hover {
-    background-color: ${(props) => (props.active ? "#45a049" : "#e1e1e1")};
-  }
-`;
-
-const Section = styled.div`
-  margin-bottom: 30px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 20px;
-`;
-
-const SectionTitle = styled.h2`
-  font-size: 20px;
-  margin-bottom: 15px;
-  color: #333;
-`;
-
-const SelectCategory = styled.select`
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  margin-right: 15px;
-`;
-
-const CardContainer = styled.div`
+const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
-  margin-top: 20px;
+  margin-bottom: 30px;
 `;
 
-const ArticleList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  margin-top: 20px;
-  max-width: 800px;
-`;
-
-const Card = styled.div`
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 15px;
-  transition: all 0.3s ease;
+const StatCard = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
 
   &:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
     transform: translateY(-2px);
   }
 `;
 
-const ArticleCard = styled(Card)`
-  cursor: pointer;
+const StatNumber = styled.div`
+  font-size: 32px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8px;
 `;
 
-const CardTitle = styled.h4`
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 10px;
-  color: #333;
-`;
-
-const CardContent = styled.div`
+const StatLabel = styled.div`
   font-size: 14px;
-  color: #555;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `;
 
-const EditButton = styled.button`
-  background-color: #2196f3;
-  color: white;
-  padding: 6px 12px;
+const StatSubtext = styled.div`
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+`;
+
+const TabContainer = styled.div`
+  display: flex;
+  border-bottom: 2px solid #e5e7eb;
+  margin-bottom: 20px;
+`;
+
+const Tab = styled.button<{ active: boolean }>`
+  padding: 12px 24px;
+  background: none;
   border: none;
-  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 14px;
-  margin-top: 10px;
+  color: ${(props) => (props.active ? "#2c1810" : "#6b7280")};
+  border-bottom: 3px solid
+    ${(props) => (props.active ? "#2c1810" : "transparent")};
+  transition: all 0.2s ease;
 
   &:hover {
-    background-color: #0b7dda;
+    color: #2c1810;
+    background-color: #f9fafb;
   }
 `;
 
-const SaveButton = styled.button`
-  background-color: #4caf50;
-  color: white;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-right: 10px;
+const ContentSection = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 `;
 
-const CancelButton = styled.button`
-  background-color: #f44336;
-  color: white;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
+const SectionTitle = styled.h2`
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 20px;
 `;
 
-const Input = styled.input`
-  padding: 8px;
-  margin: 5px 0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  width: 100%;
-`;
-
-const Checkbox = styled.div`
+const UsersList = styled.div`
   display: flex;
-  align-items: center;
-  margin: 5px 0;
+  flex-direction: column;
+  gap: 12px;
+`;
 
-  input {
+const UserCard = styled.div`
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #f9fafb;
+    border-color: #d1d5db;
+  }
+`;
+
+const UserInfo = styled.div`
+  flex: 1;
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+`;
+
+const UserName = styled.div`
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 14px;
+`;
+
+const UserEmail = styled.div`
+  color: #6b7280;
+  font-size: 13px;
+`;
+
+const UserStatus = styled.div<{ active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: ${(props) => (props.active ? "#dcfce7" : "#fee2e2")};
+  color: ${(props) => (props.active ? "#166534" : "#dc2626")};
+`;
+
+const UserDate = styled.div`
+  color: #6b7280;
+  font-size: 12px;
+`;
+
+const FeedbackList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const FeedbackCard = styled.div`
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+`;
+
+const FeedbackHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+`;
+
+const FeedbackCategory = styled.div<{ category: string }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background-color: ${(props) =>
+    props.category === "cancellation" ? "#fef3c7" : "#dbeafe"};
+  color: ${(props) =>
+    props.category === "cancellation" ? "#92400e" : "#1e40af"};
+`;
+
+const FeedbackDate = styled.div`
+  color: #6b7280;
+  font-size: 12px;
+`;
+
+const FeedbackUser = styled.div`
+  color: #374151;
+  font-weight: 500;
+  font-size: 14px;
+  margin-bottom: 8px;
+`;
+
+const FeedbackReasons = styled.div`
+  margin-bottom: 12px;
+`;
+
+const ReasonsList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+`;
+
+const ReasonItem = styled.li`
+  padding: 4px 0;
+  color: #4b5563;
+  font-size: 14px;
+
+  &:before {
+    content: "•";
+    color: #9ca3af;
     margin-right: 8px;
   }
 `;
 
-const EditForm = styled.div`
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #eee;
+const FeedbackOther = styled.div`
+  background-color: #f9fafb;
+  border-left: 3px solid #e5e7eb;
+  padding: 12px;
+  margin-top: 8px;
+  border-radius: 4px;
+  font-style: italic;
+  color: #4b5563;
 `;
 
-const CardActions = styled.div`
+const LoadingSpinner = styled.div`
   display: flex;
-  gap: 10px;
-  margin-top: 15px;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  color: #6b7280;
 `;
 
-interface ArticleData {
-  id: string;
-  title?: {
-    english: string;
-    korean: string;
-  };
-  content?: {
-    english: string[];
-    korean: string[];
-  };
-  timestamp?: Timestamp;
-  url?: string;
-}
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+`;
 
+// Interfaces
 interface UserData {
   id: string;
-  name?: string;
-  display_name?: string;
   email?: string;
-  cat_tech?: boolean;
-  cat_business?: boolean;
-  phone?: string;
-  last_received?: Timestamp;
-  received_articles?: string[];
+  displayName?: string;
+  createdAt?: Timestamp;
+  hasActiveSubscription?: boolean;
+  billingCancelled?: boolean;
+  subscriptionStartDate?: Timestamp;
+  subscriptionEndDate?: Timestamp;
+  account_status?: string;
 }
 
-interface EditingUser {
+interface FeedbackData {
   id: string;
-  name: string;
-  cat_tech: boolean;
-  cat_business: boolean;
+  userId: string;
+  email: string;
+  category: "cancellation" | "refund";
+  reasons: string[];
+  otherReason?: string;
+  timestamp: Timestamp;
 }
 
-// Define the functions instance with the correct region
-const functions = getFunctions(auth.app, "asia-northeast3");
+interface DashboardStats {
+  totalMembers: number;
+  activeSubscriptions: number;
+  cancelledBilling: number;
+  newMembersThisMonth: number;
+}
 
 export default function AdminClient() {
-  const router = useRouter();
-  const user = auth.currentUser;
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [status, setStatus] = useState<"success" | "error" | "idle">("idle");
-  const [activeTab, setActiveTab] = useState<"links" | "articles" | "users">(
-    "links"
-  );
-  const [articles, setArticles] = useState<ArticleData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "members" | "feedback"
+  >("dashboard");
   const [users, setUsers] = useState<UserData[]>([]);
-  const [fetchingArticles, setFetchingArticles] = useState(false);
-  const [fetchingUsers, setFetchingUsers] = useState(false);
-  const [displayNames, setDisplayNames] = useState<Record<string, string>>({});
-  const [phoneNumbers, setPhoneNumbers] = useState<Record<string, string>>({});
-  const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
-  const [savingUser, setSavingUser] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("tech");
-  const [sendingToCategory, setSendingToCategory] = useState(false);
-  const [testModeEnabled, setTestModeEnabled] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackData[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalMembers: 0,
+    activeSubscriptions: 0,
+    cancelledBilling: 0,
+    newMembersThisMonth: 0,
+  });
+  const router = useRouter();
 
   useEffect(() => {
-    // Admin authorization check
-    if (
-      user?.phoneNumber !== "+821068584123" &&
-      user?.phoneNumber !== "+821045340406"
-    ) {
-      router.push("/profile");
-      return;
-    }
-    setIsAuthorized(true);
-  }, [user?.phoneNumber, router]);
+    const checkAdminAccess = async () => {
+      console.log("Admin access check starting...");
 
-  useEffect(() => {
-    if (activeTab === "articles" && articles.length === 0) {
-      fetchArticles();
-    }
-    if (activeTab === "users" && users.length === 0) {
-      fetchUsers();
-    }
-  }, [activeTab, articles.length, users.length]);
+      // Wait for Firebase Auth to initialize
+      const user = auth.currentUser;
+      if (!user) {
+        console.log("No user found, redirecting to auth");
+        router.push("/auth");
+        return;
+      }
 
-  const fetchArticles = async () => {
-    setFetchingArticles(true);
+      console.log("User found:", user.email, "UID:", user.uid);
+
+      try {
+        // Check user's account_status in Firestore
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+          console.log("User document does not exist in Firestore");
+          router.push("/");
+          return;
+        }
+
+        const userData = userDoc.data();
+        console.log("User data from Firestore:", userData);
+        console.log("Account status:", userData.account_status);
+
+        if (userData.account_status !== "admin") {
+          console.log("User is not admin, redirecting to home");
+          router.push("/");
+          return;
+        }
+
+        console.log("User is admin, loading dashboard data");
+        setAuthChecking(false);
+        // User is admin, load dashboard data
+        loadDashboardData();
+      } catch (error) {
+        console.error("Error checking admin access:", error);
+        router.push("/");
+      }
+    };
+
+    // Add a small delay to ensure Firebase Auth is ready
+    const timer = setTimeout(() => {
+      checkAdminAccess();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [router]);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
     try {
-      const articlesCollection = collection(db, "articles");
-      const articlesSnapshot = await getDocs(articlesCollection);
-      const articlesList = articlesSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as ArticleData[];
-
-      // Sort articles by timestamp (most recent first)
-      const sortedArticles = articlesList.sort((a, b) => {
-        const dateA = a.timestamp?.toDate?.()
-          ? a.timestamp.toDate()
-          : new Date(0);
-        const dateB = b.timestamp?.toDate?.()
-          ? b.timestamp.toDate()
-          : new Date(0);
-        return dateB.getTime() - dateA.getTime();
-      });
-
-      setArticles(sortedArticles);
+      await Promise.all([fetchUsers(), fetchFeedback()]);
     } catch (error) {
-      console.error("Error fetching articles:", error);
+      console.error("Error loading dashboard data:", error);
     } finally {
-      setFetchingArticles(false);
+      setLoading(false);
     }
   };
 
   const fetchUsers = async () => {
-    setFetchingUsers(true);
     try {
-      const usersCollection = collection(db, "users");
-      const usersSnapshot = await getDocs(usersCollection);
-      const usersList = usersSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as UserData[];
+      const usersQuery = query(
+        collection(db, "users"),
+        orderBy("createdAt", "desc")
+      );
+      const snapshot = await getDocs(usersQuery);
 
-      setUsers(usersList);
+      const usersData: UserData[] = [];
+      snapshot.forEach((doc) => {
+        usersData.push({
+          id: doc.id,
+          ...doc.data(),
+        } as UserData);
+      });
 
-      // After fetching users, get their display names from Firebase Auth
-      await fetchDisplayNames(usersList.map((user) => user.id));
+      setUsers(usersData);
+      calculateStats(usersData);
     } catch (error) {
       console.error("Error fetching users:", error);
-    } finally {
-      setFetchingUsers(false);
     }
   };
 
-  const fetchDisplayNames = async (userIds: string[]) => {
+  const fetchFeedback = async () => {
     try {
-      const getUserDisplayNames = httpsCallable(
-        functions,
-        "getUserDisplayNames"
+      const feedbackQuery = query(
+        collection(db, "feedback"),
+        orderBy("timestamp", "desc")
       );
+      const snapshot = await getDocs(feedbackQuery);
 
-      const response = await getUserDisplayNames({ userIds });
-      const result = response.data as {
-        displayNames: Record<string, string>;
-        phoneNumbers: Record<string, string>;
-      };
-
-      setDisplayNames(result.displayNames);
-      setPhoneNumbers(result.phoneNumbers);
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-    }
-  };
-
-  const handleSendLinks = async () => {
-    setIsLoading(true);
-    setStatus("idle");
-
-    try {
-      const testSendLinks = httpsCallable(functions, "testSendLinksToUsers");
-
-      const response = await testSendLinks();
-      setResult(response.data);
-      setStatus("success");
-      console.log("Function result:", response.data);
-    } catch (error) {
-      console.error("Error calling function:", error);
-      setResult(error);
-      setStatus("error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSendLinksToCategory = async () => {
-    setSendingToCategory(true);
-    setStatus("idle");
-
-    try {
-      const sendLinksToCategory = httpsCallable(
-        functions,
-        "sendLinksToCategory"
-      );
-
-      const response = await sendLinksToCategory({
-        category: selectedCategory,
-        testMode: testModeEnabled,
-      });
-      setResult(response.data);
-      setStatus("success");
-      console.log("Function result:", response.data);
-    } catch (error) {
-      console.error("Error calling function:", error);
-      setResult(error);
-      setStatus("error");
-    } finally {
-      setSendingToCategory(false);
-    }
-  };
-
-  const displayResultStats = (result: any) => {
-    if (!result || !result.stats) return null;
-
-    // Handle standard test mode results
-    if ("techCount" in result.stats || "businessCount" in result.stats) {
-      return (
-        <div>
-          <p>Tech recipients: {result.stats.techCount || 0}</p>
-          <p>Business recipients: {result.stats.businessCount || 0}</p>
-          <p>Expiry notifications: {result.stats.expiryCount || 0}</p>
-        </div>
-      );
-    }
-
-    // Handle category-specific results
-    if ("recipientCount" in result.stats) {
-      return (
-        <div>
-          <p>
-            {selectedCategory.charAt(0).toUpperCase() +
-              selectedCategory.slice(1)}{" "}
-            recipients: {result.stats.recipientCount}
-          </p>
-        </div>
-      );
-    }
-
-    // Fallback for unknown format
-    return <pre>{JSON.stringify(result.stats, null, 2)}</pre>;
-  };
-
-  const handleEditUser = (user: UserData) => {
-    setEditingUser({
-      id: user.id,
-      name: user.name || "",
-      cat_tech: user.cat_tech || false,
-      cat_business: user.cat_business || false,
-    });
-    setEditError(null);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingUser(null);
-    setEditError(null);
-  };
-
-  const handleSaveUser = async () => {
-    if (!editingUser) return;
-
-    setSavingUser(true);
-    setEditError(null);
-
-    try {
-      const userRef = doc(db, "users", editingUser.id);
-
-      await updateDoc(userRef, {
-        name: editingUser.name,
-        cat_tech: editingUser.cat_tech,
-        cat_business: editingUser.cat_business,
+      const feedbackData: FeedbackData[] = [];
+      snapshot.forEach((doc) => {
+        feedbackData.push({
+          id: doc.id,
+          ...doc.data(),
+        } as FeedbackData);
       });
 
-      // Update the user in state
-      setUsers(
-        users.map((user) =>
-          user.id === editingUser.id ? { ...user, ...editingUser } : user
-        )
-      );
-
-      setEditingUser(null);
+      setFeedback(feedbackData);
     } catch (error) {
-      console.error("Error updating user:", error);
-      setEditError("Failed to update user. Please try again.");
-    } finally {
-      setSavingUser(false);
+      console.error("Error fetching feedback:", error);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!editingUser) return;
+  const calculateStats = (usersData: UserData[]) => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const { name, value, type, checked } = e.target;
-
-    setEditingUser((prev) => {
-      if (!prev) return prev;
-
-      if (type === "checkbox") {
-        return {
-          ...prev,
-          [name]: checked,
-        };
-      } else {
-        return {
-          ...prev,
-          [name]: value,
-        };
-      }
-    });
-  };
-
-  const renderArticleCard = (article: ArticleData) => {
-    const handleArticleClick = () => {
-      router.push(`/article/${article.id}`);
+    const newStats: DashboardStats = {
+      totalMembers: usersData.length,
+      activeSubscriptions: usersData.filter((u) => u.hasActiveSubscription)
+        .length,
+      cancelledBilling: usersData.filter((u) => u.billingCancelled).length,
+      newMembersThisMonth: usersData.filter(
+        (u) => u.createdAt && u.createdAt.toDate() >= startOfMonth
+      ).length,
     };
 
-    return (
-      <ArticleCard key={article.id} onClick={handleArticleClick}>
-        <CardTitle>{article.title?.english || "Untitled"}</CardTitle>
-        <CardContent>
-          <p>
-            <strong>ID:</strong> {article.id}
-          </p>
-          <p>
-            <strong>Korean Title:</strong>{" "}
-            {article.title?.korean || "No Korean title"}
-          </p>
-          <p>
-            <strong>Date:</strong>{" "}
-            {article.timestamp?.toDate?.()
-              ? article.timestamp.toDate().toLocaleDateString()
-              : "No date"}
-          </p>
-        </CardContent>
-      </ArticleCard>
-    );
+    setStats(newStats);
   };
 
-  const renderUserCard = (user: UserData) => {
-    const authDisplayName = displayNames[user.id] || "";
-    const phoneNumber = phoneNumbers[user.id] || "";
-    const isEditing = editingUser?.id === user.id;
+  const formatDate = (timestamp?: Timestamp) => {
+    if (!timestamp) return "-";
+    return format(timestamp.toDate(), "yyyy.MM.dd", { locale: ko });
+  };
 
-    return (
-      <Card key={user.id}>
-        <CardTitle>
-          {authDisplayName || user.display_name || "Unnamed User"}
-        </CardTitle>
-        <CardContent>
-          <p>
-            <strong>ID:</strong> {user.id}
-          </p>
-          {phoneNumber && (
-            <p>
-              <strong>Phone:</strong> {phoneNumber}
-            </p>
-          )}
-          {user.phone && (
-            <p>
-              <strong>Firestore Phone:</strong> {user.phone}
-            </p>
-          )}
-          {user.email && (
-            <p>
-              <strong>Email:</strong> {user.email}
-            </p>
-          )}
+  const formatDateTime = (timestamp?: Timestamp) => {
+    if (!timestamp) return "-";
+    return format(timestamp.toDate(), "yyyy.MM.dd HH:mm", { locale: ko });
+  };
 
-          {!isEditing ? (
-            <>
-              <p>
-                <strong>Name:</strong> {user.name || "N/A"}
-              </p>
-              {user.cat_tech && (
-                <p>
-                  <strong>Category:</strong> Tech
-                </p>
-              )}
-              {user.cat_business && (
-                <p>
-                  <strong>Category:</strong> Business
-                </p>
-              )}
-              {user.last_received && (
-                <p>
-                  <strong>Last Received:</strong>{" "}
-                  {user.last_received.toDate().toLocaleString()}
-                </p>
-              )}
-              {user.received_articles && user.received_articles.length > 0 && (
-                <p>
-                  <strong>Received Articles:</strong>{" "}
-                  {user.received_articles.length}
-                </p>
-              )}
+  const renderDashboard = () => (
+    <>
+      <StatsGrid>
+        <StatCard>
+          <StatNumber>{stats.totalMembers}</StatNumber>
+          <StatLabel>Total Members</StatLabel>
+          <StatSubtext>All registered users</StatSubtext>
+        </StatCard>
 
-              <EditButton onClick={() => handleEditUser(user)}>
-                Edit User
-              </EditButton>
-            </>
-          ) : (
-            <EditForm>
+        <StatCard>
+          <StatNumber>{stats.activeSubscriptions}</StatNumber>
+          <StatLabel>Active Subscriptions</StatLabel>
+          <StatSubtext>Currently subscribed members</StatSubtext>
+        </StatCard>
+
+        <StatCard>
+          <StatNumber>{stats.cancelledBilling}</StatNumber>
+          <StatLabel>Cancelled Billing</StatLabel>
+          <StatSubtext>Members who stopped billing</StatSubtext>
+        </StatCard>
+
+        <StatCard>
+          <StatNumber>{stats.newMembersThisMonth}</StatNumber>
+          <StatLabel>New This Month</StatLabel>
+          <StatSubtext>New members this month</StatSubtext>
+        </StatCard>
+      </StatsGrid>
+    </>
+  );
+
+  const renderMembers = () => (
+    <ContentSection>
+      <SectionTitle>Member Management ({users.length} members)</SectionTitle>
+      <UsersList>
+        {users.map((user) => (
+          <UserCard key={user.id}>
+            <UserInfo>
               <div>
-                <label>Name:</label>
-                <Input
-                  type="text"
-                  name="name"
-                  value={editingUser.name}
-                  onChange={handleInputChange}
-                />
+                <UserName>{user.displayName || "No Name"}</UserName>
+                <UserEmail>{user.email}</UserEmail>
               </div>
 
-              <Checkbox>
-                <input
-                  type="checkbox"
-                  name="cat_tech"
-                  checked={editingUser.cat_tech}
-                  onChange={handleInputChange}
-                  id="cat_tech"
-                />
-                <label htmlFor="cat_tech">Tech Category</label>
-              </Checkbox>
+              <div>{/* Categories section removed as deprecated */}</div>
 
-              <Checkbox>
-                <input
-                  type="checkbox"
-                  name="cat_business"
-                  checked={editingUser.cat_business}
-                  onChange={handleInputChange}
-                  id="cat_business"
-                />
-                <label htmlFor="cat_business">Business Category</label>
-              </Checkbox>
+              <UserStatus active={!!user.hasActiveSubscription}>
+                {user.hasActiveSubscription ? "Active" : "Inactive"}
+              </UserStatus>
 
-              {editError && <p style={{ color: "red" }}>{editError}</p>}
+              <div>
+                {user.billingCancelled && (
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#dc2626",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Billing Stopped
+                  </div>
+                )}
+              </div>
 
-              <CardActions>
-                <SaveButton onClick={handleSaveUser} disabled={savingUser}>
-                  {savingUser ? "Saving..." : "Save"}
-                </SaveButton>
+              <UserDate>{formatDate(user.createdAt)}</UserDate>
+            </UserInfo>
+          </UserCard>
+        ))}
+      </UsersList>
+    </ContentSection>
+  );
 
-                <CancelButton onClick={handleCancelEdit} disabled={savingUser}>
-                  Cancel
-                </CancelButton>
-              </CardActions>
-            </EditForm>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
+  const renderFeedback = () => (
+    <ContentSection>
+      <SectionTitle>User Feedback ({feedback.length} items)</SectionTitle>
+      <FeedbackList>
+        {feedback.length === 0 ? (
+          <EmptyState>No feedback yet.</EmptyState>
+        ) : (
+          feedback.map((item) => (
+            <FeedbackCard key={item.id}>
+              <FeedbackHeader>
+                <FeedbackCategory category={item.category}>
+                  {item.category === "cancellation"
+                    ? "Subscription Stop"
+                    : "Refund Request"}
+                </FeedbackCategory>
+                <FeedbackDate>{formatDateTime(item.timestamp)}</FeedbackDate>
+              </FeedbackHeader>
 
-  if (!isAuthorized) {
+              <FeedbackUser>{item.email}</FeedbackUser>
+
+              <FeedbackReasons>
+                <strong>Selected Reasons:</strong>
+                <ReasonsList>
+                  {item.reasons.map((reason, index) => (
+                    <ReasonItem key={index}>{reason}</ReasonItem>
+                  ))}
+                </ReasonsList>
+              </FeedbackReasons>
+
+              {item.otherReason && (
+                <FeedbackOther>
+                  <strong>Additional Comments:</strong>
+                  <br />
+                  {item.otherReason}
+                </FeedbackOther>
+              )}
+            </FeedbackCard>
+          ))
+        )}
+      </FeedbackList>
+    </ContentSection>
+  );
+
+  if (authChecking) {
     return (
       <Wrapper>
-        <Title>Loading...</Title>
+        <LoadingSpinner>Checking admin privileges...</LoadingSpinner>
+      </Wrapper>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Wrapper>
+        <LoadingSpinner>Loading data...</LoadingSpinner>
       </Wrapper>
     );
   }
 
   return (
     <Wrapper>
-      <Title>Admin Panel</Title>
+      <Header>
+        <Title>Admin Dashboard</Title>
+        <RefreshButton onClick={loadDashboardData}>Refresh</RefreshButton>
+      </Header>
 
       <TabContainer>
         <Tab
-          active={activeTab === "links"}
-          onClick={() => setActiveTab("links")}
+          active={activeTab === "dashboard"}
+          onClick={() => setActiveTab("dashboard")}
         >
-          Send Links
+          Dashboard
         </Tab>
         <Tab
-          active={activeTab === "articles"}
-          onClick={() => setActiveTab("articles")}
+          active={activeTab === "members"}
+          onClick={() => setActiveTab("members")}
         >
-          Articles
+          Members
         </Tab>
         <Tab
-          active={activeTab === "users"}
-          onClick={() => setActiveTab("users")}
+          active={activeTab === "feedback"}
+          onClick={() => setActiveTab("feedback")}
         >
-          Users
+          Feedback
         </Tab>
       </TabContainer>
 
-      {/* Each tab content should have consistent width */}
-      <div style={{ width: "100%" }}>
-        {/* Links Tab Content */}
-        {activeTab === "links" && (
-          <>
-            <Section>
-              <SectionTitle>Test Send to All Users</SectionTitle>
-              <Button onClick={handleSendLinks} disabled={isLoading}>
-                {isLoading ? "Sending..." : "Test Send Links to Users"}
-              </Button>
-            </Section>
-
-            <Section>
-              <SectionTitle>Send to Specific Category</SectionTitle>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "15px",
-                }}
-              >
-                <SelectCategory
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                >
-                  <option value="tech">Tech</option>
-                  <option value="business">Business</option>
-                </SelectCategory>
-
-                <Checkbox style={{ margin: "0 15px" }}>
-                  <input
-                    type="checkbox"
-                    checked={testModeEnabled}
-                    onChange={(e) => setTestModeEnabled(e.target.checked)}
-                    id="testModeCheckbox"
-                  />
-                  <label
-                    htmlFor="testModeCheckbox"
-                    style={{ marginLeft: "8px" }}
-                  >
-                    Test Mode (only test users)
-                  </label>
-                </Checkbox>
-
-                <Button
-                  onClick={handleSendLinksToCategory}
-                  disabled={sendingToCategory}
-                >
-                  {sendingToCategory
-                    ? "Sending..."
-                    : `Send to ${selectedCategory} subscribers`}
-                </Button>
-              </div>
-            </Section>
-
-            {result && (
-              <ResultContainer>
-                <ResultTitle>Function Result:</ResultTitle>
-                <p>
-                  <strong>Status:</strong>{" "}
-                  {result.success ? "Success" : "Failed"}
-                </p>
-                <p>
-                  <strong>Message:</strong> {result.message}
-                </p>
-
-                <StatusBox status={status}>
-                  {status === "success"
-                    ? "Successfully sent messages!"
-                    : status === "error"
-                    ? "Error sending messages"
-                    : ""}
-                </StatusBox>
-
-                {displayResultStats(result)}
-
-                <div style={{ marginTop: "15px" }}>
-                  <details>
-                    <summary>Response Details</summary>
-                    <pre style={{ maxHeight: "250px", overflow: "auto" }}>
-                      {JSON.stringify(result, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              </ResultContainer>
-            )}
-          </>
-        )}
-
-        {/* Articles Tab Content */}
-        {activeTab === "articles" && (
-          <>
-            <Button onClick={fetchArticles} disabled={fetchingArticles}>
-              {fetchingArticles ? "Loading..." : "Refresh Articles"}
-            </Button>
-
-            {fetchingArticles ? (
-              <p>Loading articles...</p>
-            ) : (
-              <>
-                <ResultTitle>Articles ({articles.length})</ResultTitle>
-                <ArticleList>{articles.map(renderArticleCard)}</ArticleList>
-              </>
-            )}
-          </>
-        )}
-
-        {/* Users Tab Content */}
-        {activeTab === "users" && (
-          <>
-            <Button onClick={fetchUsers} disabled={fetchingUsers}>
-              {fetchingUsers ? "Loading..." : "Refresh Users"}
-            </Button>
-
-            {fetchingUsers ? (
-              <p>Loading users...</p>
-            ) : (
-              <>
-                <ResultTitle>Users ({users.length})</ResultTitle>
-                <CardContainer>{users.map(renderUserCard)}</CardContainer>
-              </>
-            )}
-          </>
-        )}
-      </div>
+      {activeTab === "dashboard" && renderDashboard()}
+      {activeTab === "members" && renderMembers()}
+      {activeTab === "feedback" && renderFeedback()}
     </Wrapper>
   );
 }
