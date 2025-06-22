@@ -57,6 +57,7 @@ async function fetchJWT(): Promise<string> {
 /**
  * Custom React Hook for managing Speechmatics real-time transcription.
  *
+ * @param isPausedRef - Optional ref to track pause state for filtering incoming data
  * @returns An object containing:
  *  - `speechmaticsResults`: { activePartialSegment, finalTranscript }
  *  - `speechmaticsError`: Any error message from the Speechmatics service (null if no error).
@@ -65,7 +66,7 @@ async function fetchJWT(): Promise<string> {
  *  - `stopSpeechmatics`: Async function to stop the Speechmatics client.
  *  - `sendSpeechmaticsAudio`: Function to send an audio chunk (ArrayBuffer) to Speechmatics.
  */
-export const useSpeechmatics = () => {
+export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
   // --- State ---
   const [activePartialSegment, setActivePartialSegment] = useState<
     SpeechmaticsResult[]
@@ -99,22 +100,32 @@ export const useSpeechmatics = () => {
   // --- Internal Event Handlers for Speechmatics Client ---
   const handleReceivedMessage = useCallback((data: SpeechmaticsMessage) => {
     // console.log("[SpeechmaticsService] Received message:", JSON.stringify(data, null, 2));
+    
+    // Drop data when paused (but keep speechmatics running)
+    const isPaused = isPausedRef?.current;
+    
     switch (data.message) {
       case "RecognitionStarted":
         setIsSpeechmaticsSocketOpen(true);
         break;
       case "AddPartialTranscript":
-        setActivePartialSegment(data.results || []);
+        // Only update partial transcripts when not paused
+        if (!isPaused) {
+          setActivePartialSegment(data.results || []);
+        }
         break;
       case "AddTranscript": {
-        const finalizedResults = data.results || [];
-        if (finalizedResults.length > 0) {
-          setFinalTranscript((prevFinal) => {
-            const updatedFullTranscript = [...prevFinal, ...finalizedResults];
-            return updatedFullTranscript;
-          });
+        // Only add final transcripts when not paused
+        if (!isPaused) {
+          const finalizedResults = data.results || [];
+          if (finalizedResults.length > 0) {
+            setFinalTranscript((prevFinal) => {
+              const updatedFullTranscript = [...prevFinal, ...finalizedResults];
+              return updatedFullTranscript;
+            });
+          }
+          setActivePartialSegment([]); // Clear partial segment as it's now final
         }
-        setActivePartialSegment([]); // Clear partial segment as it's now final
         break;
       }
       case "EndOfTranscript":
@@ -144,7 +155,7 @@ export const useSpeechmatics = () => {
         // console.warn("[SpeechmaticsService] Unhandled message type:", data.message);
         break;
     }
-  }, []); // Callbacks use refs for targetSentence/activePartialSegment and stable state setters.
+  }, [isPausedRef]); // Callbacks use refs for pause state and stable state setters.
 
   const handleSocketStateChange = useCallback((eventData: unknown) => {
     const actualState = (
@@ -228,6 +239,7 @@ export const useSpeechmatics = () => {
           },
           speaker_diarization_config: {
             max_speakers: 5,
+            speaker_sensitivity: 0.7, // Increased from default 0.5 for better speaker detection
           },
         };
 

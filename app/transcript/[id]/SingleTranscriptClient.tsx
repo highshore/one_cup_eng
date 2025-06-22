@@ -159,6 +159,11 @@ const TranscriptBody = styled.div`
   overflow-wrap: break-word;
   hyphens: auto;
   width: 100%;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  white-space: normal;
 `;
 
 const WordSpan = styled.span<{
@@ -188,8 +193,6 @@ const WordSpan = styled.span<{
   text-underline-offset: 2px;
   transition: all 0.2s ease;
   border-radius: 3px;
-  margin-right: 0.25rem;
-  margin-left: ${(props) => (props.$isPunctuation ? "-0.25rem" : "0")};
   word-break: break-word;
   opacity: ${(props) => (props.$isPartial ? "0.7" : "1")};
   padding: ${(props) => (props.$isCurrentlyPlaying ? "0.125rem 0.25rem" : "0")};
@@ -1390,6 +1393,11 @@ export default function SingleTranscriptClient() {
   const [error, setError] = useState<string | null>(null);
 
   // Use the existing speech hook
+  // Keep track of when we were paused to filter out results during pause periods
+  const pausePeriodsRef = useRef<Array<{ start: number; end?: number }>>([]);
+  // Ref to track pause state for audio processing callback
+  const isPausedRef = useRef<boolean>(false);
+
   const {
     speechmaticsResults,
     speechmaticsError,
@@ -1398,10 +1406,10 @@ export default function SingleTranscriptClient() {
     stopSpeechmatics,
     sendSpeechmaticsAudio,
     setSavedTranscript, // We'll need to add this to the hook
-  } = useSpeechmatics();
+  } = useSpeechmatics(isPausedRef);
 
-  // Keep track of when we were paused to filter out results during pause periods
-  const pausePeriodsRef = useRef<Array<{ start: number; end?: number }>>([]);
+  // Firestore transcript data (source of truth for saved transcript)
+  const [savedTranscriptData, setSavedTranscriptData] = useState<any[]>([]);
 
   // Audio recording state
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -1601,7 +1609,7 @@ export default function SingleTranscriptClient() {
       }>;
     } | null = null;
 
-    validResults.forEach((result) => {
+    validResults.forEach((result, index) => {
       const word = result.alternatives[0];
       const speaker = word.speaker || "UU";
 
@@ -1636,10 +1644,24 @@ export default function SingleTranscriptClient() {
     return snippets;
   }, []);
 
-  // Apply filtering to remove paused periods, but only when not currently paused
+  // Get new live data that hasn't been saved yet
+  const newLiveData = useMemo(() => {
+    const currentFinalTranscript = speechmaticsResults.finalTranscript || [];
+    const savedDataLength = savedTranscriptData.length;
+    
+    // Only show new data that's beyond what's already saved
+    return currentFinalTranscript.slice(savedDataLength);
+  }, [speechmaticsResults.finalTranscript, savedTranscriptData.length]);
+
+  // Combine saved Firestore data with new live data
+  const combinedFinalTranscript = useMemo(() => {
+    return [...savedTranscriptData, ...newLiveData];
+  }, [savedTranscriptData, newLiveData]);
+
+  // Apply filtering to remove paused periods from the combined data
   const filteredFinalTranscript = isPaused
-    ? filterPausedResults(speechmaticsResults.finalTranscript || [])
-    : speechmaticsResults.finalTranscript || [];
+    ? filterPausedResults(combinedFinalTranscript)
+    : combinedFinalTranscript;
 
   const filteredActivePartialSegment = isPaused
     ? [] // Don't show active partials when paused
@@ -1831,7 +1853,11 @@ export default function SingleTranscriptClient() {
       workletNode.port.onmessage = (event) => {
         const audioData = event.data;
         if (audioData && audioData.byteLength > 0) {
-          sendSpeechmaticsAudio(audioData);
+          // Only send audio to speechmatics when not paused
+          // This keeps speechmatics running but drops data during pause
+          if (!isPausedRef.current) {
+            sendSpeechmaticsAudio(audioData);
+          }
         }
       };
 
@@ -2129,6 +2155,11 @@ export default function SingleTranscriptClient() {
     }
   }, [isRecording, isPaused]);
 
+  // Sync pause state with ref for audio processing callback
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
   // Speaker assignment functions
   const handleSpeakerClick = (speakerId: string) => {
     setSelectedSpeaker(speakerId);
@@ -2162,15 +2193,13 @@ export default function SingleTranscriptClient() {
 
   // Auto-save transcript to Firestore with comprehensive data
   const saveTranscriptToFirestore = useCallback(async () => {
-    if (!transcriptId || !speechmaticsResults.finalTranscript) return;
+    if (!transcriptId || !combinedFinalTranscript) return;
 
     try {
       const transcriptRef = doc(db, "transcripts", transcriptId);
 
       // Use filtered transcript data (excluding paused periods)
-      const transcriptData = filterPausedResults(
-        speechmaticsResults.finalTranscript
-      );
+      const transcriptData = filterPausedResults(combinedFinalTranscript);
       const totalWords = transcriptData.reduce((count, result) => {
         return count + (result.alternatives?.[0]?.content ? 1 : 0);
       }, 0);
@@ -2206,6 +2235,10 @@ export default function SingleTranscriptClient() {
           pausePeriods: pausePeriodsRef.current,
         },
       });
+
+      // Update our local saved data to match what was just saved
+      setSavedTranscriptData(transcriptData);
+
       console.log(
         `[Auto-save] Transcript saved: ${totalWords} words, ${speakers.size} speakers, latest: ${latestTimestamp}s, paused: ${totalPausedDuration}s`
       );
@@ -2214,7 +2247,7 @@ export default function SingleTranscriptClient() {
     }
   }, [
     transcriptId,
-    speechmaticsResults.finalTranscript,
+    combinedFinalTranscript,
     filterPausedResults,
     totalPausedDuration,
   ]);
@@ -2238,8 +2271,8 @@ export default function SingleTranscriptClient() {
 
   // Generate speaking analysis reports
   const handleGenerateReports = async () => {
-    if (!transcriptId || !speechmaticsResults.finalTranscript) {
-      alert("No transcript data available for analysis");
+    if (!transcriptId || savedTranscriptData.length === 0) {
+      alert("No saved transcript data available for analysis");
       return;
     }
 
@@ -2262,10 +2295,8 @@ export default function SingleTranscriptClient() {
         "generateSpeakingReports"
       );
 
-      // Use filtered transcript data (excluding paused periods)
-      const transcriptData = filterPausedResults(
-        speechmaticsResults.finalTranscript
-      );
+      // Use saved Firestore transcript data (source of truth)
+      const transcriptData = filterPausedResults(savedTranscriptData);
 
       const result = await generateSpeakingReports({
         transcriptId,
@@ -2284,9 +2315,8 @@ export default function SingleTranscriptClient() {
       };
 
       if (data.success) {
-        alert(
-          `Successfully generated ${data.reportCount} speaking analysis reports!`
-        );
+        const message = `Successfully generated ${data.reportCount} speaking analysis reports!\n\nView the reports in the Speaking Analysis Reports section below, or visit:\n${window.location.href}`;
+        alert(message);
         setReportsGenerated(true);
         // Load the generated reports
         await loadReports();
@@ -2380,7 +2410,7 @@ export default function SingleTranscriptClient() {
           setHideUnidentifiedSpeakers(data.hideUnidentifiedSpeakers || false);
           setReportsGenerated(data.reportsGenerated || false);
 
-          // Load saved transcript data into Speechmatics hook
+          // Load saved transcript data - this is the source of truth
           if (
             data.transcriptContent &&
             Array.isArray(data.transcriptContent) &&
@@ -2391,7 +2421,10 @@ export default function SingleTranscriptClient() {
               data.transcriptContent.length,
               "saved transcript items"
             );
+            setSavedTranscriptData(data.transcriptContent);
             setSavedTranscript(data.transcriptContent);
+          } else {
+            setSavedTranscriptData([]);
           }
 
           // Load saved recording duration
@@ -2525,10 +2558,9 @@ export default function SingleTranscriptClient() {
     if (
       isRecording &&
       !isPaused &&
-      speechmaticsResults.finalTranscript &&
-      speechmaticsResults.finalTranscript.length > 0
+      newLiveData.length > 0
     ) {
-      // Save every 2 seconds during active recording
+      // Save every 2 seconds during active recording when there's new live data
       const saveTimer = setTimeout(() => {
         saveTranscriptToFirestore();
       }, 2000);
@@ -2536,7 +2568,7 @@ export default function SingleTranscriptClient() {
       return () => clearTimeout(saveTimer);
     }
   }, [
-    speechmaticsResults.finalTranscript,
+    newLiveData.length,
     saveTranscriptToFirestore,
     isRecording,
     isPaused,
@@ -2612,8 +2644,6 @@ export default function SingleTranscriptClient() {
 
   // Create a flat array of words with timestamps for word-level syncing
   const flatWordsWithTimestamps = useMemo(() => {
-    if (!speechmaticsResults.finalTranscript) return [];
-
     return filteredFinalTranscript
       .filter((item) => item.alternatives && item.alternatives[0])
       .map((item, originalIndex) => ({
@@ -3125,8 +3155,8 @@ export default function SingleTranscriptClient() {
                   </LegendItem>
                 </LegendSpeakers>
                 <ConfidenceNote>
-                  Low confidence words appear underlined • Click timestamps to
-                  jump to audio position • Keywords are used as custom
+                  Low confidence words appear underlined • 
+                  Click timestamps to jump to audio position • Keywords are used as custom
                   dictionary for better recognition
                   {hideUnidentifiedSpeakers &&
                     " • Unidentified speakers are hidden"}
@@ -3214,6 +3244,8 @@ export default function SingleTranscriptClient() {
                             }}
                           >
                             {word.content}
+                            {/* Add space after word unless it's punctuation */}
+                            {!isPunctuationOrAttached(word) ? " " : ""}
                           </WordSpan>
                         );
                       })}
