@@ -60,7 +60,7 @@ const FloatingButtonContainer = styled.div<{
 const ToggleControlsButton = styled.button`
   position: fixed;
   right: 1rem;
-  top: 40%;
+  top: 45%;
   transform: translateY(-50%);
   z-index: 101;
   background: ${colors.primary};
@@ -153,52 +153,17 @@ const FloatingAudioButton = styled(FloatingButton)`
   }
 `;
 
-const CloseButton = styled.button`
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: ${colors.text.light};
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.7rem;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: #e74c3c;
-    transform: scale(1.1);
-  }
-
-  @media (max-width: 480px) {
-    top: -6px;
-    right: -6px;
-    width: 18px;
-    height: 18px;
-    font-size: 0.6rem;
-  }
-`;
-
 interface FloatingControlsProps {
-  isQuickReading: boolean;
   isAudioMode: boolean;
   hasAudio: boolean;
-  onToggleQuickReading: () => void;
   onToggleAudioMode: () => void;
   isVisible: boolean;
   onToggleVisibility: () => void;
 }
 
 const FloatingControls: React.FC<FloatingControlsProps> = ({
-  isQuickReading,
   isAudioMode,
   hasAudio,
-  onToggleQuickReading,
   onToggleAudioMode,
   isVisible,
   onToggleVisibility,
@@ -212,21 +177,10 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
 
       {/* Floating Controls Container */}
       <FloatingButtonContainer isAudioMode={isAudioMode} isVisible={isVisible}>
-        <CloseButton onClick={onToggleVisibility}>✕</CloseButton>
-
-        <FloatingButton
-          onClick={onToggleQuickReading}
-          className={isQuickReading ? "active" : ""}
-          disabled={isAudioMode}
-        >
-          {isQuickReading ? "✕ 속독 해제" : "⚡ 속독 모드"}
-        </FloatingButton>
-
         {hasAudio && (
           <FloatingAudioButton
             onClick={onToggleAudioMode}
             className={isAudioMode ? "active" : ""}
-            disabled={isQuickReading}
           >
             {isAudioMode ? "✕ 오디오 해제" : "🎧 오디오 모드"}
           </FloatingAudioButton>

@@ -1041,6 +1041,52 @@ export const processRecurringPayments = onSchedule(
             });
 
             logger.info(`Successfully renewed subscription for user ${userId}`);
+
+            // --- Send Kakao notification for successful recurring payment ---
+            try {
+              // Get user's phone number from Firebase Auth
+              const userRecord = await admin.auth().getUser(userId);
+              const phoneNumber = userRecord.phoneNumber;
+
+              if (phoneNumber) {
+                // Format phone number for Kakao notification
+                const recipientNo = phoneNumber
+                  .replace(/^\+82/, "0") // Convert +8210... to 010...
+                  .replace(/\D/g, ""); // Remove non-digits
+                logger.info(
+                  `Formatted phone number for Kakao: ${recipientNo} for user ${userId}`
+                );
+
+                if (recipientNo.startsWith("010") && recipientNo.length >= 10) {
+                  const kakaoRecipientList = [
+                    {
+                      recipientNo: recipientNo,
+                    },
+                  ];
+                  await sendKakaoMessages(
+                    kakaoRecipientList,
+                    "recurring-payment"
+                  );
+                  logger.info(
+                    `Kakao message 'recurring-payment' sent to user ${userId} at ${recipientNo}`
+                  );
+                } else {
+                  logger.warn(
+                    `User ${userId} has an invalid phone number for Kakao: ${recipientNo}. Skipping Kakao message.`
+                  );
+                }
+              } else {
+                logger.warn(
+                  `User ${userId} does not have a phone number in Auth. Skipping Kakao message.`
+                );
+              }
+            } catch (kakaoError) {
+              logger.error(
+                `Failed to send 'recurring-payment' Kakao message to user ${userId}:`,
+                kakaoError
+              );
+              // Do not let Kakao error fail the entire payment processing
+            }
           } else {
             // Payment failed, log with detailed information
             const errorCode = paymentResponse.data.PCD_PAY_CODE || "unknown";

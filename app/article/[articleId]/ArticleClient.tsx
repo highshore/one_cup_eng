@@ -281,9 +281,9 @@ const KoreanParagraph = styled.p<{ isVisible: boolean }>`
   background: ${colors.primaryPale};
   padding: 1rem;
   border-radius: 8px;
-  max-height: ${(props) => (props.isVisible ? "500px" : "0")};
+  max-height: ${(props) => (props.isVisible ? "auto" : "0")};
   opacity: ${(props) => (props.isVisible ? 1 : 0)};
-  overflow: hidden;
+  overflow-y: ${(props) => (props.isVisible ? "auto" : "hidden")};
   transition: all 0.3s ease;
   margin-top: ${(props) => (props.isVisible ? "0.15rem" : "0")};
   border-left: 3px solid ${colors.accent};
@@ -292,6 +292,7 @@ const KoreanParagraph = styled.p<{ isVisible: boolean }>`
     font-size: 1rem;
     line-height: 1.6;
     padding: 0.9rem;
+    max-height: ${(props) => (props.isVisible ? "none" : "0")};
   }
 `;
 
@@ -1382,12 +1383,14 @@ const DiscussionTopicsList = styled.ul`
 `;
 
 const DiscussionTopicItem = styled.li`
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   color: ${colors.text.dark};
   line-height: 1.6;
   margin-bottom: 0.6rem;
   padding-left: 1rem;
   position: relative;
+  cursor: pointer;
+  transition: color 0.2s ease;
 
   &:last-child {
     margin-bottom: 0;
@@ -1402,8 +1405,12 @@ const DiscussionTopicItem = styled.li`
     font-size: 1.1rem;
   }
 
+  &:hover {
+    color: ${colors.primary};
+  }
+
   @media (max-width: 768px) {
-    font-size: 0.9rem;
+    font-size: 1rem;
     padding-left: 0.9rem;
   }
 `;
@@ -3046,7 +3053,14 @@ const Article = () => {
               article.discussion_topics.length > 0 ? (
               <DiscussionTopicsList>
                 {article.discussion_topics.map((topic, index) => (
-                  <DiscussionTopicItem key={index}>{topic}</DiscussionTopicItem>
+                  <DiscussionTopicItem
+                    key={index}
+                    className="article-text"
+                    data-original-text={topic}
+                    onClick={handleWordClick}
+                  >
+                    {topic}
+                  </DiscussionTopicItem>
                 ))}
               </DiscussionTopicsList>
             ) : (
@@ -3679,10 +3693,8 @@ const Article = () => {
 
         {/* Floating Controls */}
         <FloatingControls
-          isQuickReading={isQuickReading}
           isAudioMode={isAudioMode}
           hasAudio={!!article.audio?.url}
-          onToggleQuickReading={() => setIsQuickReading(!isQuickReading)}
           onToggleAudioMode={toggleAudioMode}
           isVisible={isFloatingControlsVisible}
           onToggleVisibility={() =>
