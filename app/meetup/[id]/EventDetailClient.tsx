@@ -38,6 +38,21 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../lib/firebase/firebase";
 import GlobalLoadingScreen from "../../lib/components/GlobalLoadingScreen";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { DragOverlay } from "@dnd-kit/core";
 
 // TypeScript declarations for Naver Maps
 declare global {
@@ -957,6 +972,91 @@ const ParticipantItem = styled.div`
   }
 `;
 
+const ParticipantItemWrapper = styled.div`
+  /* Wrapper for dnd-kit sortable */
+`;
+
+// Draggable Participant Component
+const DraggableParticipant: React.FC<{
+  participant: UserWithDetails;
+  onAvatarClick: (uid: string) => void;
+  isLeader?: boolean;
+  sessionNumber: number;
+}> = ({ participant, onAvatarClick, isLeader = false, sessionNumber }) => {
+  const uniqueId = `${sessionNumber}-${participant.uid}`;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: uniqueId, disabled: isLeader });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 9999 : "auto",
+    cursor: isLeader ? "default" : "grab",
+  };
+
+  const formatParticipantDisplay = (user: UserWithDetails): string => {
+    const isValidDisplayName = (displayName?: string): boolean => {
+      if (!displayName) return false;
+      const userPattern = /^User [a-zA-Z0-9]{6}$/;
+      return !userPattern.test(displayName);
+    };
+
+    const maskName = (name: string): string => {
+      if (name.length <= 2) return name;
+      const midIndex = Math.floor(name.length / 2);
+      return name.substring(0, midIndex) + "*" + name.substring(midIndex + 1);
+    };
+
+    const formatLeaderDisplay = (user: UserWithDetails): string => {
+      const validName = isValidDisplayName(user.displayName);
+      return validName ? user.displayName! : "익명";
+    };
+
+    if (isLeader) {
+      return formatLeaderDisplay(user);
+    }
+
+    const validName = isValidDisplayName(user.displayName);
+    if (!validName) return `익명 (${user.phoneLast4 || "****"})`;
+
+    const maskedName = maskName(user.displayName!);
+    return `${maskedName} (${user.phoneLast4 || "****"})`;
+  };
+
+  const itemContent = (
+    <ParticipantItem>
+      <UserAvatar
+        uid={participant.uid}
+        size={isLeader ? 32 : 24}
+        isLeader={isLeader}
+        onClick={() => onAvatarClick(participant.uid)}
+      />
+      <UserName>{formatParticipantDisplay(participant)}</UserName>
+      {isLeader && <LeaderBadge>리더</LeaderBadge>}
+    </ParticipantItem>
+  );
+
+  return isLeader ? (
+    <>{itemContent}</>
+  ) : (
+    <ParticipantItemWrapper
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+    >
+      {itemContent}
+    </ParticipantItemWrapper>
+  );
+};
+
 // Naver Map Component - Updated with dynamic script loading
 interface NaverMapProps {
   latitude: number;
@@ -1225,6 +1325,8 @@ export function EventDetailClient() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedUserIsLeader, setSelectedUserIsLeader] = useState(false);
   const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [selectedUserDetails, setSelectedUserDetails] =
+    useState<UserWithDetails | null>(null);
 
   // Seating arrangement state
   const [seatingAssignments, setSeatingAssignments] = useState<
@@ -1241,6 +1343,7 @@ export function EventDetailClient() {
     return false;
   });
   const [seatingLoading, setSeatingLoading] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const eventId = params?.id;
 
@@ -1267,8 +1370,13 @@ export function EventDetailClient() {
       const { db } = await import("../../lib/firebase/firebase");
 
       const eventRef = doc(db, "meetup", event.id);
-      const seatingData: SavedSeatingArrangement = {
-        assignments,
+
+      // Sanitize only the assignments array to remove undefined values,
+      // particularly from optional fields like photoURL in UserWithDetails.
+      const cleanedAssignments = JSON.parse(JSON.stringify(assignments));
+
+      const seatingData = {
+        assignments: cleanedAssignments,
         generatedAt: new Date(),
         generatedBy: currentUser?.uid || "localhost-user",
       };
@@ -1277,7 +1385,8 @@ export function EventDetailClient() {
         seatingArrangement: seatingData,
       });
 
-      alert("좌석 배치가 성공적으로 저장되었습니다!");
+      // No alert on drag-and-drop save for better UX
+      // alert("좌석 배치가 성공적으로 저장되었습니다!");
     } catch (error) {
       alert(
         "좌석 배치 저장 중 오류가 발생했습니다: " +
@@ -1327,9 +1436,23 @@ export function EventDetailClient() {
                 };
               });
 
+            // Robustly handle `generatedAt` which might be a Timestamp or a string
+            const rawGeneratedAt = data.seatingArrangement.generatedAt;
+            let generatedAtDate;
+            if (rawGeneratedAt && typeof rawGeneratedAt.toDate === "function") {
+              // It's a Firestore Timestamp
+              generatedAtDate = rawGeneratedAt.toDate();
+            } else if (typeof rawGeneratedAt === "string") {
+              // It's likely an ISO string from previous broken saves
+              generatedAtDate = new Date(rawGeneratedAt);
+            } else {
+              // Fallback for unexpected types
+              generatedAtDate = new Date();
+            }
+
             return {
               assignments: reconstructedAssignments,
-              generatedAt: data.seatingArrangement.generatedAt.toDate(),
+              generatedAt: generatedAtDate,
               generatedBy: data.seatingArrangement.generatedBy,
             };
           }
@@ -1795,6 +1918,20 @@ export function EventDetailClient() {
 
     if (!event) return;
 
+    // Find user details from seating assignments to show in the dialog
+    let userDetails: UserWithDetails | null = null;
+    for (const assignment of seatingAssignments) {
+      if (assignment.leaderDetails.uid === uid) {
+        userDetails = assignment.leaderDetails;
+        break;
+      }
+      const participant = assignment.participants.find((p) => p.uid === uid);
+      if (participant) {
+        userDetails = participant;
+        break;
+      }
+    }
+
     // Check if the clicked user is a leader or participant
     const isLeader = event.leaders.includes(uid);
     const isParticipant = event.participants.includes(uid);
@@ -1809,6 +1946,7 @@ export function EventDetailClient() {
 
     setSelectedUserId(uid);
     setSelectedUserIsLeader(isLeader);
+    setSelectedUserDetails(userDetails); // Save details to state
     setShowAdminActionDialog(true);
   };
 
@@ -2048,6 +2186,147 @@ export function EventDetailClient() {
     await handleJoin();
   };
 
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragStart = (event: DragEndEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  // dnd-kit drag end handler
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) {
+      return;
+    }
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Do nothing if dropped in the same place
+    if (activeId === overId) {
+      return;
+    }
+
+    const [activeSessionStr, activeUid] = activeId.split("-");
+    const [overSessionStr, _] = overId.split("-");
+
+    const activeSession = parseInt(activeSessionStr, 10);
+    const overSession = parseInt(overSessionStr, 10);
+
+    // Prevent dragging between sessions
+    if (activeSession !== overSession) {
+      return;
+    }
+
+    setSeatingAssignments((prevAssignments) => {
+      let sourceGroupIndex = -1;
+      let draggedItemIndex = -1;
+      let draggedItem: UserWithDetails | undefined;
+
+      // Find the source group and the dragged participant within the correct session
+      prevAssignments.forEach((group, groupIndex) => {
+        if (group.sessionNumber === activeSession) {
+          const itemIndex = group.participants.findIndex(
+            (p) => p.uid === activeUid
+          );
+          if (itemIndex !== -1) {
+            sourceGroupIndex = groupIndex;
+            draggedItemIndex = itemIndex;
+            draggedItem = group.participants[itemIndex];
+          }
+        }
+      });
+
+      // If we didn't find the dragged item, something is wrong.
+      if (sourceGroupIndex === -1 || !draggedItem) {
+        return prevAssignments;
+      }
+
+      // Find the destination group within the same session
+      let destGroupIndex = -1;
+
+      // The `over.id` can be a participant's unique ID or a leader's unique ID
+      const [__, overUid] = overId.split("-");
+      prevAssignments.forEach((group, groupIndex) => {
+        if (group.sessionNumber === overSession) {
+          if (
+            group.leaderUid === overUid ||
+            group.participants.some((p) => p.uid === overUid)
+          ) {
+            destGroupIndex = groupIndex;
+          }
+        }
+      });
+
+      if (destGroupIndex === -1) {
+        return prevAssignments;
+      }
+
+      const newAssignments = [...prevAssignments];
+
+      // Remove from source group
+      const sourceGroup = { ...newAssignments[sourceGroupIndex] };
+      sourceGroup.participants = [...sourceGroup.participants];
+      sourceGroup.participants.splice(draggedItemIndex, 1);
+      newAssignments[sourceGroupIndex] = sourceGroup;
+
+      // Add to destination group
+      const destGroup = { ...newAssignments[destGroupIndex] };
+      destGroup.participants = [...destGroup.participants];
+
+      // Find drop position
+      const overItemIndex = destGroup.participants.findIndex(
+        (p) => p.uid === overUid
+      );
+
+      if (overItemIndex !== -1) {
+        // Insert before the "over" item
+        destGroup.participants.splice(overItemIndex, 0, draggedItem);
+      } else {
+        // Dropped on the group card (leader) or an empty list
+        destGroup.participants.push(draggedItem);
+      }
+      newAssignments[destGroupIndex] = destGroup;
+
+      // Save the updated arrangement to Firestore
+      saveSeatingArrangement(newAssignments);
+
+      return newAssignments;
+    });
+  };
+
+  const activeParticipantData = useMemo(() => {
+    if (!activeId) return null;
+    const [sessionStr, uid] = activeId.split("-");
+    const session = parseInt(sessionStr, 10);
+
+    for (const assignment of seatingAssignments) {
+      if (assignment.sessionNumber === session) {
+        if (assignment.leaderDetails.uid === uid) {
+          return {
+            participant: assignment.leaderDetails,
+            isLeader: true,
+            session,
+          };
+        }
+        const participant = assignment.participants.find((p) => p.uid === uid);
+        if (participant) {
+          return { participant, isLeader: false, session };
+        }
+      }
+    }
+    return null;
+  }, [activeId, seatingAssignments]);
+
   // Loading state
   if (loading || (currentUser && subscriptionLoading)) {
     return <GlobalLoadingScreen />;
@@ -2101,8 +2380,22 @@ export function EventDetailClient() {
     lockStatus.reason === "started" ||
     new Date(`${event.date}T${event.time}`) < new Date();
 
+  // Determine if the button should be disabled
+  // Allow enrolled users to cancel even when event is full
+  const shouldDisableButton = () => {
+    if (!isLocked) return false;
+
+    // If user is already enrolled, they can always cancel
+    if (isCurrentUserParticipant) return false;
+
+    // For non-enrolled users, disable for any lock reason
+    return true;
+  };
+
+  const isButtonDisabled = shouldDisableButton();
+
   const getButtonText = () => {
-    if (!isLocked) {
+    if (!isButtonDisabled) {
       if (!currentUser) {
         return "로그인하고 참가하기";
       }
@@ -2112,6 +2405,7 @@ export function EventDetailClient() {
       return isCurrentUserParticipant ? "취소" : "참가 신청하기";
     }
 
+    // Button is disabled - show appropriate locked message
     switch (lockStatus.reason) {
       case "started":
         return "모집 종료";
@@ -2311,9 +2605,13 @@ export function EventDetailClient() {
         <ActionButtons ref={actionButtonRef} $isFloating={isButtonFloating}>
           <ActionButton
             $variant={
-              isLocked ? "locked" : isCurrentUserParticipant ? "cancel" : "join"
+              isButtonDisabled
+                ? "locked"
+                : isCurrentUserParticipant
+                ? "cancel"
+                : "join"
             }
-            onClick={isLocked ? undefined : handleJoinClick}
+            onClick={isButtonDisabled ? undefined : handleJoinClick}
           >
             <span
               style={{
@@ -2322,7 +2620,7 @@ export function EventDetailClient() {
                 justifyContent: "center",
               }}
             >
-              {isLocked ? (
+              {isButtonDisabled ? (
                 "🔒"
               ) : isCurrentUserParticipant ? (
                 <CancelIcon fillColor="#FFFFFF" width="20px" height="20px" />
@@ -2364,111 +2662,125 @@ export function EventDetailClient() {
           (typeof window !== "undefined" &&
             window.location.hostname === "localhost")) &&
           showSeatingTable && (
-            <SeatingSection>
-              <SectionTitle>좌석 배치</SectionTitle>
-              {typeof window !== "undefined" &&
-                window.location.hostname === "localhost" &&
-                !isAdmin && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SeatingSection>
+                <SectionTitle>좌석 배치</SectionTitle>
+                {typeof window !== "undefined" &&
+                  window.location.hostname === "localhost" &&
+                  !isAdmin && (
+                    <div
+                      style={{
+                        background: "#fff3cd",
+                        border: "1px solid #ffc107",
+                        borderRadius: "8px",
+                        padding: "0.75rem",
+                        marginBottom: "1rem",
+                        color: "#856404",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      🚧 Testing Mode: Seating arrangement visible for localhost
+                      development
+                    </div>
+                  )}
+                <SeatingControls>
+                  <SeatingButton
+                    onClick={refreshSeatingArrangement}
+                    disabled={seatingLoading}
+                  >
+                    {seatingLoading ? "⏳" : "🔄"} 다시 배치하기
+                  </SeatingButton>
+                  <SeatingButton onClick={() => setShowSeatingTable(false)}>
+                    ❌ 닫기
+                  </SeatingButton>
+                </SeatingControls>
+
+                {seatingAssignments.length > 0 ? (
+                  <SeatingTable>
+                    {[1, 2].map((sessionNumber) => (
+                      <div key={sessionNumber}>
+                        <SessionTitle>세션 {sessionNumber}</SessionTitle>
+                        {seatingAssignments
+                          .filter(
+                            (assignment) =>
+                              assignment.sessionNumber === sessionNumber
+                          )
+                          .map((assignment) => (
+                            <SortableContext
+                              key={`${sessionNumber}-${assignment.leaderUid}`}
+                              items={assignment.participants.map(
+                                (p) => `${sessionNumber}-${p.uid}`
+                              )}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <GroupCard
+                                key={`${sessionNumber}-${assignment.leaderUid}`}
+                                $hasTranscript={!!assignment.transcriptId}
+                                onClick={() =>
+                                  handleSeatingGroupClick(assignment)
+                                }
+                              >
+                                <LeaderInfo>
+                                  <DraggableParticipant
+                                    participant={assignment.leaderDetails}
+                                    onAvatarClick={handleAvatarClick}
+                                    isLeader={true}
+                                    sessionNumber={sessionNumber}
+                                  />
+                                </LeaderInfo>
+
+                                <ParticipantsList>
+                                  {assignment.participants.map(
+                                    (participant) => (
+                                      <DraggableParticipant
+                                        key={`${sessionNumber}-${participant.uid}`}
+                                        participant={participant}
+                                        onAvatarClick={handleAvatarClick}
+                                        sessionNumber={sessionNumber}
+                                      />
+                                    )
+                                  )}
+                                </ParticipantsList>
+                              </GroupCard>
+                            </SortableContext>
+                          ))}
+                      </div>
+                    ))}
+                  </SeatingTable>
+                ) : (
                   <div
                     style={{
-                      background: "#fff3cd",
-                      border: "1px solid #ffc107",
+                      padding: "2rem",
+                      textAlign: "center",
+                      color: "#64748b",
+                      background: "#f8fafc",
                       borderRadius: "8px",
-                      padding: "0.75rem",
-                      marginBottom: "1rem",
-                      color: "#856404",
-                      fontSize: "14px",
-                      fontWeight: "500",
+                      border: "1px solid #e2e8f0",
                     }}
                   >
-                    🚧 Testing Mode: Seating arrangement visible for localhost
-                    development
+                    좌석 배치가 아직 생성되지 않았습니다.
+                    <br />
+                    "🪑 Generate Seating" 버튼을 클릭하여 좌석을 배치하세요.
                   </div>
                 )}
-              <SeatingControls>
-                <SeatingButton
-                  onClick={refreshSeatingArrangement}
-                  disabled={seatingLoading}
-                >
-                  {seatingLoading ? "⏳" : "🔄"} 다시 배치하기
-                </SeatingButton>
-                <SeatingButton onClick={() => setShowSeatingTable(false)}>
-                  ❌ 닫기
-                </SeatingButton>
-              </SeatingControls>
-
-              {seatingAssignments.length > 0 ? (
-                <SeatingTable>
-                  {[1, 2].map((sessionNumber) => (
-                    <div key={sessionNumber}>
-                      <SessionTitle>세션 {sessionNumber}</SessionTitle>
-                      {seatingAssignments
-                        .filter(
-                          (assignment) =>
-                            assignment.sessionNumber === sessionNumber
-                        )
-                        .map((assignment) => (
-                          <GroupCard
-                            key={`${sessionNumber}-${assignment.leaderUid}`}
-                            $hasTranscript={!!assignment.transcriptId}
-                            onClick={() => handleSeatingGroupClick(assignment)}
-                          >
-                            <LeaderInfo>
-                              <UserAvatar
-                                uid={assignment.leaderDetails.uid}
-                                size={32}
-                                isLeader={true}
-                                onClick={() =>
-                                  handleAvatarClick(
-                                    assignment.leaderDetails.uid
-                                  )
-                                }
-                              />
-                              <UserName>
-                                {formatLeaderDisplay(assignment.leaderDetails)}
-                              </UserName>
-                              <LeaderBadge>리더</LeaderBadge>
-                            </LeaderInfo>
-
-                            <ParticipantsList>
-                              {assignment.participants.map((participant) => (
-                                <ParticipantItem key={participant.uid}>
-                                  <UserAvatar
-                                    uid={participant.uid}
-                                    size={24}
-                                    isLeader={false}
-                                    onClick={() =>
-                                      handleAvatarClick(participant.uid)
-                                    }
-                                  />
-                                  <UserName>
-                                    {formatParticipantDisplay(participant)}
-                                  </UserName>
-                                </ParticipantItem>
-                              ))}
-                            </ParticipantsList>
-                          </GroupCard>
-                        ))}
-                    </div>
-                  ))}
-                </SeatingTable>
-              ) : (
-                <div
-                  style={{
-                    padding: "2rem",
-                    textAlign: "center",
-                    color: "#64748b",
-                    background: "#f8fafc",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                  }}
-                >
-                  좌석 배치가 아직 생성되지 않았습니다.
-                  <br />
-                  "🪑 Generate Seating" 버튼을 클릭하여 좌석을 배치하세요.
-                </div>
-              )}
-            </SeatingSection>
+              </SeatingSection>
+              <DragOverlay>
+                {activeId && activeParticipantData ? (
+                  <DraggableParticipant
+                    participant={activeParticipantData.participant}
+                    onAvatarClick={() => {}} // No action on overlay
+                    isLeader={activeParticipantData.isLeader}
+                    sessionNumber={activeParticipantData.session}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           )}
       </Content>
 
@@ -2571,6 +2883,14 @@ export function EventDetailClient() {
             <h3>사용자 관리</h3>
             <p>
               이 사용자에 대해 어떤 작업을 하시겠습니까?
+              <br />
+              <strong>
+                {selectedUserDetails
+                  ? `${selectedUserDetails.displayName || "익명"} (${
+                      selectedUserDetails.phoneLast4 || "****"
+                    })`
+                  : `User ID: ${selectedUserId}`}
+              </strong>
               <br />
               현재 역할: {selectedUserIsLeader ? "리더" : "참가자"}
             </p>
