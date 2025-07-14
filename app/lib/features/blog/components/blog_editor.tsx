@@ -920,6 +920,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                 )}
 
                 <FileInput
+                  id="featured-image"
                   ref={featuredImageInputRef}
                   type="file"
                   accept="image/jpeg,image/jpg,image/png,image/webp"

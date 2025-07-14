@@ -743,7 +743,7 @@ export default function BlogDetailClient({
             alt="English Cup Logo"
           />
           <AuthorInfo>
-            <AuthorName>English Cup Team</AuthorName>
+            <AuthorName>영어 한잔 운영진</AuthorName>
             <PostDate>
               {formatDate(post.publishedAt || post.createdAt)}
             </PostDate>
@@ -766,17 +766,16 @@ export default function BlogDetailClient({
       />
 
       <CTASection>
-        <CTATitle>Ready to improve your English skills?</CTATitle>
+        <CTATitle>영어 실력을 진짜로 키우고 싶다면?</CTATitle>
         <CTADescription>
-          Join our English meetups led by professional interpreters and
-          translators.
+          통번역사 및 다양한 백그라운드를 가진 멤버들과 함께하는 영어 밋업에
+          참여해보세요.
           <br />
-          Practice real conversations and boost your communication skills every
-          week.
+          매주 실전 영어를 연습하고, 커뮤니케이션 능력을 한 단계 높여보세요. 🚀
         </CTADescription>
         <CTAButton onClick={handleMeetupClick}>
           <span>🚀</span>
-          Check Out Meetups
+          밋업 확인하기
         </CTAButton>
       </CTASection>
 

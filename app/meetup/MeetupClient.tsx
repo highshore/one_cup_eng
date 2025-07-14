@@ -170,6 +170,120 @@ const BlogBannerTitle = styled.h3`
   }
 `;
 
+// Blog Posts Grid Styled Components
+const BlogPostsGrid = styled.div`
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 20px 0;
+  margin: 0 -1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
+
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+
+  &::-webkit-scrollbar {
+    display: none; /* WebKit */
+  }
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+    padding: 16px 0;
+    margin: 0 -0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+`;
+
+const BlogPostCard = styled.div<{ $imageUrl?: string }>`
+  background: ${(props) =>
+    props.$imageUrl
+      ? `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${props.$imageUrl}) center/cover`
+      : "#f6f6f6"};
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e5e9;
+  aspect-ratio: 4 / 3;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  width: 220px;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    border-color: #ff6600;
+  }
+
+  @media (max-width: 768px) {
+    width: 160px;
+  }
+`;
+
+const BlogPostCardContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1rem;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+`;
+
+const BlogPostCardText = styled.div`
+  flex: 1;
+  color: ${(props) => (props.theme?.imageUrl ? "white" : "#333")};
+`;
+
+const BlogPostCardLabel = styled.div`
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ff6600;
+  margin-bottom: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+
+  @media (max-width: 768px) {
+    font-size: 0.65rem;
+    margin-bottom: 0.25rem;
+  }
+`;
+
+const BlogPostCardTitle = styled.h3`
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: ${(props) => (props.theme?.imageUrl ? "white" : "#000")};
+  margin: 0;
+  line-height: 1.3;
+  word-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  ${(props) =>
+    props.theme?.imageUrl && "text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"};
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    line-height: 1.2;
+    -webkit-line-clamp: 2;
+  }
+`;
+
 const SectionTitle = styled.h2`
   color: #333;
   font-size: 1.4rem;
@@ -438,7 +552,7 @@ const MeetupClient: React.FC = () => {
   const [lastDoc, setLastDoc] =
     useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [latestBlogPost, setLatestBlogPost] = useState<BlogPost | null>(null);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null);
 
   // Helper function to convert MeetupEvent date and time to Date object
@@ -548,22 +662,20 @@ const MeetupClient: React.FC = () => {
     };
   }, [hasMore, loadingMore, loadMoreEvents]);
 
-  // Load latest blog post
-  const loadLatestBlogPost = useCallback(async () => {
+  // Load all blog posts
+  const loadBlogPosts = useCallback(async () => {
     try {
       const posts = await fetchBlogPosts();
-      if (posts.length > 0) {
-        setLatestBlogPost(posts[0]); // Get the latest post
-      }
+      setBlogPosts(posts);
     } catch (err) {
-      console.error("Failed to load latest blog post:", err);
+      console.error("Failed to load blog posts:", err);
     }
   }, []);
 
   // Initial load
   useEffect(() => {
     loadEvents(true);
-    loadLatestBlogPost();
+    loadBlogPosts();
   }, []); // Empty dependency array to run only on mount
 
   // Scroll to top when component mounts or when filters change
@@ -579,29 +691,32 @@ const MeetupClient: React.FC = () => {
     // Handle avatar click - could show user profile modal, etc.
   };
 
-  const handleBlogClick = () => {
-    if (latestBlogPost) {
-      router.push(`/blog/${latestBlogPost.id}`);
-    }
+  const handleBlogClick = (blogPost: BlogPost) => {
+    router.push(`/blog/${blogPost.id}`);
   };
 
-  const renderBlogBanner = () => {
-    if (!latestBlogPost) return null;
+  const renderBlogPosts = () => {
+    if (!blogPosts || blogPosts.length === 0) return null;
 
     return (
-      <BlogBanner
-        $imageUrl={latestBlogPost.featuredImage}
-        onClick={handleBlogClick}
-      >
-        <BlogBannerContent>
-          <BlogBannerText theme={{ imageUrl: latestBlogPost.featuredImage }}>
-            <BlogBannerLabel>Latest from Blog</BlogBannerLabel>
-            <BlogBannerTitle theme={{ imageUrl: latestBlogPost.featuredImage }}>
-              {latestBlogPost.title}
-            </BlogBannerTitle>
-          </BlogBannerText>
-        </BlogBannerContent>
-      </BlogBanner>
+      <BlogPostsGrid>
+        {blogPosts.map((post) => (
+          <BlogPostCard
+            key={post.id}
+            $imageUrl={post.featuredImage}
+            onClick={() => handleBlogClick(post)}
+          >
+            <BlogPostCardContent>
+              <BlogPostCardText theme={{ imageUrl: post.featuredImage }}>
+                <BlogPostCardLabel>Blog Post</BlogPostCardLabel>
+                <BlogPostCardTitle theme={{ imageUrl: post.featuredImage }}>
+                  {post.title}
+                </BlogPostCardTitle>
+              </BlogPostCardText>
+            </BlogPostCardContent>
+          </BlogPostCard>
+        ))}
+      </BlogPostsGrid>
     );
   };
 
@@ -707,8 +822,8 @@ const MeetupClient: React.FC = () => {
         <HeaderIcon>📱</HeaderIcon>
       </Header>
 
-      {/* Blog Banner */}
-      {renderBlogBanner()}
+      {/* Blog Posts */}
+      {blogPosts.length > 0 && <>{renderBlogPosts()}</>}
 
       {loading && <GlobalLoadingScreen size="large" />}
 
