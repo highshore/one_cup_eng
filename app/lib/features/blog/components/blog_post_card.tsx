@@ -2,92 +2,97 @@ import React from "react";
 import styled from "styled-components";
 import { BlogPost } from "../types/blog_types";
 
-// Define colors for consistency
+// Define colors for YC-style design
 const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
+  primary: "#000000",
+  primaryLight: "#333333",
+  primaryDark: "#000000",
+  primaryPale: "#f8f9fa",
+  primaryBg: "#ffffff",
+  accent: "#FF6600", // YC Orange
+  accentHover: "#E55A00",
+  accentLight: "#FFF4E6",
   text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
+    dark: "#000000",
+    medium: "#666666",
+    light: "#999999",
   },
+  border: "#e1e5e9",
+  shadow: "rgba(0, 0, 0, 0.1)",
+  backgroundGray: "#f6f6f6",
 };
 
 const CardContainer = styled.article`
   background: white;
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
-  border: 1px solid ${colors.primaryPale};
-  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px ${colors.shadow};
+  border: 1px solid ${colors.border};
+  transition: all 0.2s ease;
   cursor: pointer;
   position: relative;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 
-  aspect-ratio: 4 / 3;
-  max-width: 100%;
   display: flex;
   flex-direction: column;
+  height: 400px;
 
   &:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px ${colors.shadow};
     border-color: ${colors.accent};
   }
 
   @media (max-width: 768px) {
-    border-radius: 14px;
-    aspect-ratio: 4 / 3;
+    border-radius: 4px;
+    height: 360px;
 
     &:hover {
-      transform: translateY(-3px);
+      transform: translateY(-1px);
     }
   }
 `;
 
 const FeaturedImage = styled.div<{ $hasImage: boolean; $imageUrl?: string }>`
   width: 100%;
-  flex: 0 0 55%; /* Takes up 55% of the card height */
+  height: 200px;
   background: ${(props) =>
     props.$hasImage && props.$imageUrl
       ? `url(${props.$imageUrl}) center/cover`
-      : `linear-gradient(135deg, ${colors.accent} 0%, ${colors.primary} 100%)`};
+      : `${colors.backgroundGray}`};
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-bottom: 1px solid ${colors.border};
 
   @media (max-width: 768px) {
-    flex: 0 0 50%; /* Slightly smaller on mobile for more content space */
+    height: 160px;
   }
 `;
 
 const ImagePlaceholder = styled.div`
-  color: white;
-  font-size: 3rem;
+  color: ${colors.text.light};
+  font-size: 2.5rem;
   font-weight: 300;
-  opacity: 0.8;
 
   @media (max-width: 768px) {
-    font-size: 2.5rem;
+    font-size: 2rem;
   }
 `;
 
 const StatusBadge = styled.div<{ $status: string }>`
   position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 3px 10px;
-  border-radius: 16px;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   color: white;
   background: ${(props) => {
     switch (props.$status) {
@@ -103,22 +108,22 @@ const StatusBadge = styled.div<{ $status: string }>`
   }};
 
   @media (max-width: 768px) {
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    top: 8px;
-    right: 8px;
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    top: 10px;
+    right: 10px;
   }
 `;
 
 const CardContent = styled.div`
-  flex: 1; /* Takes up remaining space after image */
-  padding: 1.25rem;
+  flex: 1;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Allow content to shrink if needed */
+  min-height: 0;
 
   @media (max-width: 768px) {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 `;
 
@@ -130,33 +135,34 @@ const ContentMain = styled.div`
 
 const ContentFooter = styled.div`
   margin-top: auto;
-  padding-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid ${colors.border};
 `;
 
 const PostTitle = styled.h2`
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 600;
   color: ${colors.text.dark};
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.75rem;
   line-height: 1.3;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 
   @media (max-width: 768px) {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     margin-bottom: 0.5rem;
   }
 `;
 
 const PostExcerpt = styled.p`
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: ${colors.text.medium};
   line-height: 1.5;
-  margin-bottom: 0.8rem;
-  font-family: "Noto Sans KR", sans-serif;
+  margin-bottom: 1rem;
+  font-family: inherit;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -164,7 +170,7 @@ const PostExcerpt = styled.p`
 
   @media (max-width: 768px) {
     font-size: 0.85rem;
-    margin-bottom: 0.7rem;
+    margin-bottom: 0.75rem;
     line-height: 1.4;
   }
 `;
@@ -174,107 +180,97 @@ const PostMeta = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.75rem;
-  font-size: 0.8rem;
-  color: ${colors.text.light};
-  font-family: "Noto Sans KR", sans-serif;
 
   @media (max-width: 768px) {
-    font-size: 0.75rem;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.5rem;
   }
 `;
 
 const Author = styled.span`
-  font-weight: 600;
-  color: ${colors.text.medium};
-  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.85rem;
+  color: ${colors.text.dark};
+  font-weight: 500;
+  font-family: inherit;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+  }
 `;
 
 const PostDate = styled.span`
+  font-size: 0.8rem;
   color: ${colors.text.light};
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
+
+  @media (max-width: 768px) {
+    font-size: 0.75rem;
+  }
 `;
 
 const TagsContainer = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
-
-  @media (max-width: 768px) {
-    gap: 0.3rem;
-    margin-bottom: 0.6rem;
-  }
+  gap: 0.5rem;
 `;
 
 const Tag = styled.span`
-  background: ${colors.primaryPale};
-  color: ${colors.text.medium};
-  padding: 0.2rem 0.6rem;
-  border-radius: 16px;
-  font-size: 0.7rem;
+  background: ${colors.accentLight};
+  color: ${colors.accent};
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
   font-weight: 500;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
+  border: 1px solid ${colors.accent};
 
   @media (max-width: 768px) {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 14px;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
   }
 `;
 
 const AdminActions = styled.div`
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 12px;
+  left: 12px;
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
 
   ${CardContainer}:hover & {
     opacity: 1;
   }
 
   @media (max-width: 768px) {
-    top: 8px;
-    left: 8px;
-    gap: 0.3rem;
+    top: 10px;
+    left: 10px;
   }
 `;
 
 const ActionButton = styled.button`
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: white;
+  border: 1px solid ${colors.border};
+  border-radius: 4px;
+  padding: 0.5rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: ${colors.text.dark};
-  font-size: 0.85rem;
-  font-family: "Noto Sans KR", sans-serif;
+  box-shadow: 0 2px 4px ${colors.shadow};
 
   &:hover {
-    background: white;
-    transform: scale(1.1);
+    background: ${colors.primaryPale};
+    border-color: ${colors.accent};
   }
 
-  &.edit {
-    color: #3b82f6;
-  }
-
-  &.delete {
-    color: #ef4444;
+  &.delete:hover {
+    background: #fee;
+    border-color: #dc3545;
   }
 
   @media (max-width: 768px) {
-    width: 28px;
-    height: 28px;
-    font-size: 0.75rem;
+    padding: 0.375rem;
+    font-size: 0.8rem;
   }
 `;
 
@@ -341,13 +337,13 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({
           <>
             <StatusBadge $status={post.status}>{post.status}</StatusBadge>
             <AdminActions>
-              <ActionButton className="edit" onClick={handleEdit} title="편집">
+              <ActionButton className="edit" onClick={handleEdit} title="Edit">
                 ✏️
               </ActionButton>
               <ActionButton
                 className="delete"
                 onClick={handleDelete}
-                title="삭제"
+                title="Delete"
               >
                 🗑️
               </ActionButton>
@@ -364,7 +360,7 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({
 
         <ContentFooter>
           <PostMeta>
-            <Author>by 영어 한잔</Author>
+            <Author>by 운영진</Author>
             <PostDate>
               {formatDate(post.publishedAt || post.createdAt)}
             </PostDate>

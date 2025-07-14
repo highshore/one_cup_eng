@@ -15,63 +15,103 @@ import {
 import { BlogEditor } from "../lib/features/blog/components/blog_editor";
 import { BlogPostCard } from "../lib/features/blog/components/blog_post_card";
 
-// Define colors for consistency
+// Define colors for YC-style design
 const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
+  primary: "#000000",
+  primaryLight: "#333333",
+  primaryDark: "#000000",
+  primaryPale: "#f8f9fa",
+  primaryBg: "#ffffff",
+  accent: "#FF6600", // YC Orange
+  accentHover: "#E55A00",
+  accentLight: "#FFF4E6",
   text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
+    dark: "#000000",
+    medium: "#666666",
+    light: "#999999",
   },
+  border: "#e1e5e9",
+  shadow: "rgba(0, 0, 0, 0.1)",
+  backgroundGray: "#f6f6f6",
 };
 
 const BlogContainer = styled.div`
-  padding: 1.5rem 0;
-  font-family: "Noto Sans KR", sans-serif;
+  padding: 2rem 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  background-color: ${colors.primaryBg};
+  min-height: 100vh;
 
   @media (max-width: 768px) {
-    padding: 1rem 0;
+    padding: 1.5rem 0;
+  }
+`;
+
+const BlogHeader = styled.div`
+  margin-bottom: 3rem;
+  text-align: center;
+
+  @media (max-width: 768px) {
+    margin-bottom: 2rem;
+  }
+`;
+
+const BlogTitle = styled.h1`
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: ${colors.text.dark};
+  margin: 0 0 1rem 0;
+  letter-spacing: -0.02em;
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
+`;
+
+const BlogSubtitle = styled.p`
+  font-size: 1.1rem;
+  color: ${colors.text.medium};
+  margin: 0;
+  font-weight: 400;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
   }
 `;
 
 const AdminControls = styled.div`
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 1.5rem;
-  gap: 0.75rem;
+  margin-bottom: 2rem;
+  gap: 1rem;
 
   @media (max-width: 768px) {
     justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
   }
 `;
 
 const AdminButton = styled.button`
-  background: ${colors.primary};
+  background: ${colors.accent};
   color: white;
   border: none;
-  border-radius: 25px;
-  padding: 10px 20px;
-  font-size: 0.95rem;
+  border-radius: 4px;
+  padding: 12px 24px;
+  font-size: 0.9rem;
   font-weight: 600;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 3px 10px rgba(44, 24, 16, 0.2);
+  gap: 8px;
+  box-shadow: 0 2px 4px ${colors.shadow};
 
   &:hover {
-    background: ${colors.primaryLight};
+    background: ${colors.accentHover};
     transform: translateY(-1px);
-    box-shadow: 0 5px 15px rgba(44, 24, 16, 0.3);
+    box-shadow: 0 4px 8px ${colors.shadow};
   }
 
   &:active {
@@ -79,27 +119,22 @@ const AdminButton = styled.button`
   }
 
   @media (max-width: 768px) {
-    padding: 8px 16px;
-    font-size: 0.9rem;
+    padding: 10px 20px;
+    font-size: 0.85rem;
   }
 `;
 
 const BlogGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
   align-items: start;
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: 1.25rem;
-    margin-top: 1.25rem;
-  }
-
-  & > * {
-    max-width: 600px;
-    justify-self: center;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
   }
 `;
 
@@ -108,35 +143,36 @@ const LoadingState = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   color: ${colors.text.medium};
+  background: ${colors.primaryBg};
 `;
 
 const EmptyState = styled.div`
   text-align: center;
-  padding: 3rem 2rem;
-  color: ${colors.text.light};
-  background: white;
-  border-radius: 16px;
-  border: 2px dashed ${colors.primaryPale};
-  font-family: "Noto Sans KR", sans-serif;
+  padding: 4rem 2rem;
+  color: ${colors.text.medium};
+  background: ${colors.primaryBg};
+  border: 2px dashed ${colors.border};
+  border-radius: 8px;
+  font-family: inherit;
 
   h3 {
-    font-size: 1.4rem;
-    margin-bottom: 0.75rem;
-    color: ${colors.text.medium};
-    font-family: "Noto Sans KR", sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: ${colors.text.dark};
+    font-family: inherit;
     font-weight: 600;
   }
 
   p {
-    font-size: 0.95rem;
+    font-size: 1rem;
     line-height: 1.5;
-    font-family: "Noto Sans KR", sans-serif;
+    font-family: inherit;
   }
 
   @media (max-width: 768px) {
-    padding: 2.5rem 1.5rem;
+    padding: 3rem 1.5rem;
 
     h3 {
       font-size: 1.3rem;
@@ -153,9 +189,10 @@ const ErrorState = styled.div`
   padding: 2rem;
   color: #dc3545;
   background: #fff5f5;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #f5c6cb;
   margin: 2rem 0;
+  font-family: inherit;
 `;
 
 interface BlogClientProps {
@@ -298,19 +335,19 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
     <BlogContainer>
       {isAdmin && (
         <AdminControls>
-          <AdminButton onClick={handleCreatePost}>새 포스트 작성</AdminButton>
-          <AdminButton onClick={loadBlogPosts}>새로고침</AdminButton>
+          <AdminButton onClick={handleCreatePost}>+ New Post</AdminButton>
+          <AdminButton onClick={loadBlogPosts}>Refresh</AdminButton>
         </AdminControls>
       )}
 
       {error && <ErrorState>{error}</ErrorState>}
 
-      {loading && <LoadingState>로딩 중...</LoadingState>}
+      {loading && <LoadingState>Loading posts...</LoadingState>}
 
       {!loading && blogPosts.length === 0 && !error && (
         <EmptyState>
-          <h3>아직 블로그 포스트가 없습니다</h3>
-          <p>첫 번째 포스트를 작성해보세요!</p>
+          <h3>No posts yet</h3>
+          <p>Be the first to share your thoughts!</p>
         </EmptyState>
       )}
 

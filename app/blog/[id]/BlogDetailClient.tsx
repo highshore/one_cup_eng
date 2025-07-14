@@ -13,43 +13,51 @@ import {
 import { useAuth } from "../../lib/contexts/auth_context";
 import { BlogEditor } from "../../lib/features/blog/components/blog_editor";
 
-// Define colors for consistency - Updated for more modern, crisp design
+// Define colors for YC-style design
 const colors = {
-  primary: "#1a1a1a",
+  primary: "#000000",
   primaryLight: "#333333",
   primaryDark: "#000000",
   primaryPale: "#f8f9fa",
   primaryBg: "#ffffff",
-  accent: "#0066cc",
-  accentHover: "#0052a3",
+  accent: "#FF6600", // YC Orange
+  accentHover: "#E55A00",
+  accentLight: "#FFF4E6",
   text: {
-    dark: "#1a1a1a",
-    medium: "#4a5568",
-    light: "#718096",
+    dark: "#000000",
+    medium: "#666666",
+    light: "#999999",
   },
-  border: "#e2e8f0",
+  border: "#e1e5e9",
   shadow: "rgba(0, 0, 0, 0.1)",
+  backgroundGray: "#f6f6f6",
 };
 
 const DetailContainer = styled.div`
-  padding: 1.5rem 0;
-  font-family: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  padding: 2rem 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   line-height: 1.6;
+  background-color: ${colors.primaryBg};
+  min-height: 100vh;
+
+  @media (max-width: 768px) {
+    padding: 1.5rem 0;
+  }
 `;
 
 const BackButton = styled.button`
   background: transparent;
-  color: #424242;
+  color: ${colors.text.medium};
   border: 1px solid ${colors.border};
-  border-radius: 12px;
-  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
   font-size: 0.9rem;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -57,23 +65,24 @@ const BackButton = styled.button`
   &:hover {
     background: ${colors.primaryPale};
     border-color: ${colors.accent};
-    color: ${colors.accentHover};
+    color: ${colors.accent};
   }
 
   @media (max-width: 768px) {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+    padding: 0.625rem 1.25rem;
   }
 `;
 
 const FeaturedImage = styled.div<{ $hasImage: boolean; $imageUrl?: string }>`
   width: 100%;
-  height: 400px;
+  height: 300px;
   background: ${(props) =>
     props.$hasImage && props.$imageUrl
       ? `url(${props.$imageUrl}) center/cover`
-      : `linear-gradient(135deg, ${colors.primaryPale} 0%, ${colors.border} 100%)`};
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
+      : `${colors.backgroundGray}`};
+  border-radius: 6px;
+  margin-bottom: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,8 +90,8 @@ const FeaturedImage = styled.div<{ $hasImage: boolean; $imageUrl?: string }>`
   border: 1px solid ${colors.border};
 
   @media (max-width: 768px) {
-    height: 250px;
-    margin-bottom: 1.25rem;
+    height: 200px;
+    margin-bottom: 1.5rem;
   }
 `;
 
@@ -100,12 +109,12 @@ const StatusBadge = styled.div<{ $status: string }>`
   position: absolute;
   top: 12px;
   right: 12px;
-  padding: 4px 12px;
+  padding: 6px 12px;
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.5px;
   color: white;
   background: ${(props) => {
     switch (props.$status) {
@@ -122,14 +131,14 @@ const StatusBadge = styled.div<{ $status: string }>`
 `;
 
 const PostHeader = styled.header`
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   border-bottom: 1px solid ${colors.border};
-  padding-bottom: 1.5rem;
+  padding-bottom: 2rem;
 `;
 
 const PostTitle = styled.h1`
   font-size: 2.5rem;
-  font-weight: 800;
+  font-weight: 700;
   color: ${colors.text.dark};
   margin-bottom: 1rem;
   line-height: 1.2;
@@ -138,14 +147,14 @@ const PostTitle = styled.h1`
 
   @media (max-width: 768px) {
     font-size: 2rem;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.75rem;
   }
 `;
 
 const PostMeta = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
   margin: 1.5rem 0 0 0;
   color: ${colors.text.medium};
 `;
@@ -170,39 +179,40 @@ const AuthorInfo = styled.div`
 `;
 
 const AuthorName = styled.span`
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: ${colors.text.dark};
 
   @media (max-width: 768px) {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
   }
 `;
 
 const PostDate = styled.span`
   color: ${colors.text.light};
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 400;
 
   @media (max-width: 768px) {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 `;
 
 const TagsContainer = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  margin-top: 1rem;
 `;
 
 const Tag = styled.span`
-  background: ${colors.primaryPale};
-  color: ${colors.text.medium};
+  background: ${colors.accentLight};
+  color: ${colors.accent};
   padding: 0.25rem 0.75rem;
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: 500;
-  border: 1px solid ${colors.border};
+  border: 1px solid ${colors.accent};
 `;
 
 const PostContent = styled.div`
@@ -210,7 +220,7 @@ const PostContent = styled.div`
   line-height: 1.7;
   color: ${colors.text.dark};
   font-family: inherit;
-  margin-bottom: 1.5rem;
+  margin-bottom: 3rem;
 
   /* Enhanced typography styles */
   h1,
@@ -221,15 +231,15 @@ const PostContent = styled.div`
   h6 {
     font-family: inherit;
     color: ${colors.text.dark};
-    margin: 0.75rem 0 0.25rem 0;
-    font-weight: 700;
+    margin: 2rem 0 1rem 0;
+    font-weight: 600;
     line-height: 1.3;
     letter-spacing: -0.01em;
   }
 
   h1 {
     font-size: 2rem;
-    font-weight: 800;
+    font-weight: 700;
   }
   h2 {
     font-size: 1.75rem;
@@ -259,44 +269,31 @@ const PostContent = styled.div`
   h4 + p,
   h5 + p,
   h6 + p {
-    margin-top: 0.4rem;
+    margin-top: 0.5rem;
   }
 
   p {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
     font-family: inherit;
   }
 
   /* Enhanced bold text styling */
   strong,
   b {
-    font-weight: 700;
+    font-weight: 600;
     color: ${colors.text.dark};
   }
 
   img {
-    max-width: 60%;
+    max-width: 100%;
     height: auto;
-    border-radius: 8px;
-    margin: 1.5rem auto;
+    border-radius: 6px;
+    margin: 2rem auto;
     box-shadow: 0 4px 12px ${colors.shadow};
     display: block;
     cursor: pointer;
     transition: transform 0.2s ease;
     border: 1px solid ${colors.border};
-
-    &.size-small {
-      max-width: 40%;
-    }
-    &.size-medium {
-      max-width: 60%;
-    }
-    &.size-large {
-      max-width: 80%;
-    }
-    &.size-full {
-      max-width: 100%;
-    }
 
     &:hover {
       transform: scale(1.02);
@@ -307,22 +304,22 @@ const PostContent = styled.div`
   blockquote {
     border-left: 4px solid ${colors.accent};
     padding-left: 1.5rem;
-    margin: 1.5rem 0;
+    margin: 2rem 0;
     font-style: italic;
     color: ${colors.text.medium};
     background: ${colors.primaryPale};
-    padding: 0.75rem 1.5rem;
-    border-radius: 0 4px 4px 0;
+    padding: 1rem 1.5rem;
+    border-radius: 0 6px 6px 0;
   }
 
   ul,
   ol {
     padding-left: 1.5rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
   }
 
   li {
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
   }
 
   code {
@@ -336,10 +333,10 @@ const PostContent = styled.div`
 
   pre {
     background: ${colors.primaryPale};
-    padding: 1.25rem;
-    border-radius: 8px;
+    padding: 1.5rem;
+    border-radius: 6px;
     overflow-x: auto;
-    margin: 1.5rem 0;
+    margin: 2rem 0;
     border: 1px solid ${colors.border};
     font-family: "JetBrains Mono", "Monaco", "Consolas", monospace;
   }
@@ -351,7 +348,7 @@ const PostContent = styled.div`
 
   @media (max-width: 768px) {
     font-size: 1rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 2rem;
 
     h1 {
       font-size: 1.75rem;
@@ -376,44 +373,30 @@ const PostContent = styled.div`
     h4,
     h5,
     h6 {
-      margin: 0.5rem 0 0.15rem 0;
+      margin: 1.5rem 0 0.75rem 0;
     }
 
     p {
-      margin-bottom: 0.5rem;
+      margin-bottom: 1.25rem;
     }
 
     img {
-      max-width: 80%;
-      margin: 1.25rem auto;
-
-      &.size-small {
-        max-width: 60%;
-      }
-      &.size-medium {
-        max-width: 80%;
-      }
-      &.size-large {
-        max-width: 95%;
-      }
-      &.size-full {
-        max-width: 100%;
-      }
+      margin: 1.5rem auto;
     }
 
     blockquote {
-      padding: 0.6rem 1rem;
-      margin: 1.25rem 0;
+      padding: 0.75rem 1.25rem;
+      margin: 1.5rem 0;
     }
 
     ul,
     ol {
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
     }
 
     pre {
-      padding: 1rem;
-      margin: 1.25rem 0;
+      padding: 1.25rem;
+      margin: 1.5rem 0;
     }
   }
 `;
@@ -432,7 +415,7 @@ const ErrorState = styled.div`
   padding: 2rem;
   color: #dc2626;
   background: #fef2f2;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #fecaca;
   margin: 2rem 0;
 `;
@@ -448,94 +431,71 @@ const gradientShine = keyframes`
 `;
 
 const CTASection = styled.div`
-  margin: 2rem 0;
-  padding: 1.75rem;
-  background: linear-gradient(
-    135deg,
-    ${colors.primaryBg} 0%,
-    ${colors.primaryPale} 100%
-  );
-  border-radius: 20px;
-  border: 1px solid ${colors.border};
+  background: ${colors.primaryPale};
+  border-radius: 6px;
+  padding: 2rem;
   text-align: center;
+  margin-top: 3rem;
+  border: 1px solid ${colors.border};
 
   @media (max-width: 768px) {
-    margin: 1.5rem 0;
     padding: 1.5rem;
   }
 `;
 
 const CTATitle = styled.h3`
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 600;
   color: ${colors.text.dark};
-  margin-bottom: 0.6rem;
+  margin-bottom: 1rem;
   font-family: inherit;
-  letter-spacing: -0.01em;
 
   @media (max-width: 768px) {
     font-size: 1.25rem;
-    margin-bottom: 0.5rem;
   }
 `;
 
 const CTADescription = styled.p`
   font-size: 1rem;
   color: ${colors.text.medium};
-  margin-bottom: 1.25rem;
-  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
   font-family: inherit;
 
   @media (max-width: 768px) {
     font-size: 0.9rem;
-    margin-bottom: 1rem;
   }
 `;
 
 const CTAButton = styled.button`
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 2rem;
   border: none;
-  border-radius: 20px;
-  font-size: 16px;
-  font-weight: 700;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0.5rem;
   position: relative;
   overflow: hidden;
   color: white;
   font-family: inherit;
-
-  /* Gradient background similar to event detail join button */
-  background: linear-gradient(
-    90deg,
-    #000000 0%,
-    #000000 25%,
-    #1a0808 35%,
-    #2a0808 45%,
-    #3a1010 50%,
-    #2a0808 55%,
-    #1a0808 65%,
-    #000000 75%,
-    #000000 100%
-  );
-  background-size: 200% 100%;
-  animation: ${gradientShine} 3s ease-in-out infinite;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  background: ${colors.accent};
+  box-shadow: 0 2px 8px ${colors.shadow};
 
   &:hover {
+    background: ${colors.accentHover};
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 16px ${colors.shadow};
   }
 
   @media (max-width: 768px) {
     padding: 0.875rem 1.5rem;
-    font-size: 14px;
-    border-radius: 16px;
-    gap: 6px;
+    font-size: 0.9rem;
+    gap: 0.375rem;
 
     &:hover {
       transform: translateY(-1px);
@@ -546,9 +506,9 @@ const CTAButton = styled.button`
 const AdminControls = styled.div`
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
   border-top: 1px solid ${colors.border};
 
   @media (max-width: 768px) {
@@ -557,11 +517,11 @@ const AdminControls = styled.div`
 `;
 
 const AdminButton = styled.button`
-  background: ${colors.primary};
+  background: ${colors.accent};
   color: white;
   border: none;
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
   font-size: 0.9rem;
   font-weight: 500;
   font-family: inherit;
@@ -573,7 +533,7 @@ const AdminButton = styled.button`
   box-shadow: 0 2px 4px ${colors.shadow};
 
   &:hover {
-    background: ${colors.primaryLight};
+    background: ${colors.accentHover};
     transform: translateY(-1px);
     box-shadow: 0 4px 8px ${colors.shadow};
   }
@@ -756,14 +716,14 @@ export default function BlogDetailClient({
     return (
       <DetailContainer>
         <ErrorState>{error || "포스트를 찾을 수 없습니다."}</ErrorState>
-        <BackButton onClick={handleBack}>← 블로그로 돌아가기</BackButton>
+        <BackButton onClick={handleBack}>← Back to Blog</BackButton>
       </DetailContainer>
     );
   }
 
   return (
     <DetailContainer>
-      <BackButton onClick={handleBack}>← 블로그로 돌아가기</BackButton>
+      <BackButton onClick={handleBack}>← Back to Blog</BackButton>
 
       <FeaturedImage
         $hasImage={!!post.featuredImage}
@@ -780,10 +740,10 @@ export default function BlogDetailClient({
         <PostMeta>
           <AuthorAvatar
             src="/images/logos/1cup_logo.jpg"
-            alt="영어 한잔 로고"
+            alt="English Cup Logo"
           />
           <AuthorInfo>
-            <AuthorName>영어 한잔 운영진</AuthorName>
+            <AuthorName>English Cup Team</AuthorName>
             <PostDate>
               {formatDate(post.publishedAt || post.createdAt)}
             </PostDate>
@@ -806,27 +766,25 @@ export default function BlogDetailClient({
       />
 
       <CTASection>
-        <CTATitle>✨ 영어 실력 향상을 위한 다음 단계</CTATitle>
+        <CTATitle>Ready to improve your English skills?</CTATitle>
         <CTADescription>
-          통번역사 출신 운영진이 직접 리딩하는 영어 모임에 참여해보세요!
+          Join our English meetups led by professional interpreters and
+          translators.
           <br />
-          매주 실전 토론을 통해 영어 커뮤니케이션 실력을 향상시키세요.
+          Practice real conversations and boost your communication skills every
+          week.
         </CTADescription>
         <CTAButton onClick={handleMeetupClick}>
           <span>🚀</span>
-          밋업 확인하기
+          Check Out Meetups
         </CTAButton>
       </CTASection>
 
       {isAdmin && (
         <AdminControls>
-          <AdminButton onClick={handleEditPost}>
-            <span>✏️</span>
-            수정하기
-          </AdminButton>
+          <AdminButton onClick={handleEditPost}>Edit Post</AdminButton>
           <AdminButton className="delete" onClick={handleDeletePost}>
-            <span>🗑️</span>
-            삭제하기
+            Delete Post
           </AdminButton>
         </AdminControls>
       )}

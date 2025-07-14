@@ -6,19 +6,24 @@ import {
   validateBlogImageFiles,
 } from "../services/blog_image_service";
 
-// Define colors for consistency
+// Define colors for YC-style design
 const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
+  primary: "#000000",
+  primaryLight: "#333333",
+  primaryDark: "#000000",
+  primaryPale: "#f8f9fa",
+  primaryBg: "#ffffff",
+  accent: "#FF6600", // YC Orange
+  accentHover: "#E55A00",
+  accentLight: "#FFF4E6",
   text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
+    dark: "#000000",
+    medium: "#666666",
+    light: "#999999",
   },
+  border: "#e1e5e9",
+  shadow: "rgba(0, 0, 0, 0.1)",
+  backgroundGray: "#f6f6f6",
 };
 
 const EditorOverlay = styled.div`
@@ -38,85 +43,90 @@ const EditorOverlay = styled.div`
 
 const EditorContainer = styled.div`
   background: white;
-  border-radius: 16px;
+  border-radius: 8px;
   width: 100%;
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
-  font-family: "Noto Sans KR", sans-serif;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 
   @media (max-width: 768px) {
     max-height: 95vh;
-    border-radius: 14px;
+    border-radius: 6px;
   }
 `;
 
 const EditorHeader = styled.div`
-  padding: 1.25rem 1.75rem;
-  border-bottom: 1px solid ${colors.primaryPale};
-  background: ${colors.primaryBg};
-  border-radius: 16px 16px 0 0;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid ${colors.border};
+  background: ${colors.primaryPale};
+  border-radius: 8px 8px 0 0;
 
   @media (max-width: 768px) {
-    padding: 1rem 1.25rem;
-    border-radius: 14px 14px 0 0;
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px 6px 0 0;
   }
 `;
 
 const EditorTitle = styled.h2`
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 600;
   color: ${colors.text.dark};
   margin: 0;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
 
   @media (max-width: 768px) {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
   }
 `;
 
 const EditorForm = styled.form`
-  padding: 1.5rem;
+  padding: 2rem;
 
   @media (max-width: 768px) {
-    padding: 1.25rem;
+    padding: 1.5rem;
   }
 `;
 
 const FormGroup = styled.div`
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 
   @media (max-width: 768px) {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
   }
 `;
 
 const Label = styled.label`
   display: block;
-  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
   font-weight: 600;
   color: ${colors.text.dark};
-  margin-bottom: 0.4rem;
-  font-family: "Noto Sans KR", sans-serif;
+  font-size: 0.9rem;
+  font-family: inherit;
+
+  @media (max-width: 768px) {
+    font-size: 0.85rem;
+  }
 `;
 
 const Input = styled.input`
   width: 100%;
-  padding: 0.6rem 0.8rem;
-  border: 2px solid ${colors.primaryPale};
-  border-radius: 10px;
-  font-size: 0.95rem;
+  padding: 0.75rem;
+  border: 1px solid ${colors.border};
+  border-radius: 4px;
+  font-size: 1rem;
   color: ${colors.text.dark};
   background: white;
   transition: all 0.2s ease;
   box-sizing: border-box;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
 
   &:focus {
     outline: none;
     border-color: ${colors.accent};
-    box-shadow: 0 0 0 3px rgba(200, 162, 122, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
   }
 
   &::placeholder {
@@ -124,64 +134,30 @@ const Input = styled.input`
   }
 
   @media (max-width: 768px) {
-    padding: 0.5rem 0.7rem;
+    padding: 0.625rem;
     font-size: 0.9rem;
-    border-radius: 8px;
-  }
-`;
-
-const TextArea = styled.textarea`
-  width: 100%;
-  min-height: 100px;
-  padding: 0.6rem 0.8rem;
-  border: 2px solid ${colors.primaryPale};
-  border-radius: 10px;
-  font-size: 0.85rem;
-  color: ${colors.text.dark};
-  background: white;
-  transition: all 0.2s ease;
-  resize: vertical;
-  font-family: "Noto Sans KR", sans-serif;
-  line-height: 1.5;
-  box-sizing: border-box;
-
-  &:focus {
-    outline: none;
-    border-color: ${colors.accent};
-    box-shadow: 0 0 0 3px rgba(200, 162, 122, 0.1);
-  }
-
-  &::placeholder {
-    color: ${colors.text.light};
-  }
-
-  @media (max-width: 768px) {
-    padding: 0.5rem 0.7rem;
-    font-size: 0.8rem;
-    min-height: 80px;
-    border-radius: 8px;
   }
 `;
 
 const ContentEditor = styled.textarea`
   width: 100%;
-  min-height: 280px;
-  padding: 0.8rem;
-  border: 2px solid ${colors.primaryPale};
-  border-radius: 10px;
-  font-size: 0.95rem;
+  min-height: 300px;
+  padding: 1rem;
+  border: 1px solid ${colors.border};
+  border-radius: 4px;
+  font-size: 1rem;
   color: ${colors.text.dark};
   background: white;
   transition: all 0.2s ease;
   resize: vertical;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
   line-height: 1.6;
   box-sizing: border-box;
 
   &:focus {
     outline: none;
     border-color: ${colors.accent};
-    box-shadow: 0 0 0 3px rgba(200, 162, 122, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
   }
 
   &::placeholder {
@@ -189,35 +165,33 @@ const ContentEditor = styled.textarea`
   }
 
   @media (max-width: 768px) {
-    padding: 0.7rem;
+    padding: 0.875rem;
     font-size: 0.9rem;
-    min-height: 220px;
-    border-radius: 8px;
+    min-height: 250px;
   }
 `;
 
 const Select = styled.select`
   width: 100%;
-  padding: 0.6rem 0.8rem;
-  border: 2px solid ${colors.primaryPale};
-  border-radius: 10px;
-  font-size: 0.95rem;
+  padding: 0.75rem;
+  border: 1px solid ${colors.border};
+  border-radius: 4px;
+  font-size: 1rem;
   color: ${colors.text.dark};
   background: white;
   transition: all 0.2s ease;
   box-sizing: border-box;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
 
   &:focus {
     outline: none;
     border-color: ${colors.accent};
-    box-shadow: 0 0 0 3px rgba(200, 162, 122, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
   }
 
   @media (max-width: 768px) {
-    padding: 0.5rem 0.7rem;
+    padding: 0.625rem;
     font-size: 0.9rem;
-    border-radius: 8px;
   }
 `;
 
@@ -230,199 +204,143 @@ const TagsInput = styled(Input)`
 const FormRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.8rem;
+  gap: 1rem;
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: 0.6rem;
+    gap: 0.75rem;
   }
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
-  gap: 0.8rem;
+  gap: 1rem;
   justify-content: flex-end;
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid ${colors.primaryPale};
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid ${colors.border};
 
   @media (max-width: 768px) {
     flex-direction: column-reverse;
-    gap: 0.6rem;
-    margin-top: 1.25rem;
-    padding-top: 1rem;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
   }
 `;
 
-const Button = styled.button<{ $variant?: "primary" | "secondary" | "danger" }>`
-  padding: 0.6rem 1.25rem;
+const Button = styled.button`
+  padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 25px;
-  font-size: 0.95rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
   font-weight: 600;
-  font-family: "Noto Sans KR", sans-serif;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 110px;
-
-  ${(props) => {
-    switch (props.$variant) {
-      case "primary":
-        return `
-          background: ${colors.primary};
-          color: white;
-          box-shadow: 0 4px 12px rgba(44, 24, 16, 0.2);
-          
-          &:hover {
-            background: ${colors.primaryLight};
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(44, 24, 16, 0.3);
-          }
-        `;
-      case "danger":
-        return `
-          background: #ef4444;
-          color: white;
-          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
-          
-          &:hover {
-            background: #dc2626;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
-          }
-        `;
-      default:
-        return `
-          background: ${colors.primaryPale};
-          color: ${colors.text.dark};
-          
-          &:hover {
-            background: ${colors.accent};
-            color: white;
-            transform: translateY(-2px);
-          }
-        `;
-    }
-  }}
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  @media (max-width: 768px) {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    min-width: 90px;
-  }
-`;
-
-const CharCount = styled.div`
-  text-align: right;
-  font-size: 0.75rem;
-  color: ${colors.text.light};
-  margin-top: 0.2rem;
-  font-family: "Noto Sans KR", sans-serif;
-`;
-
-const HelpText = styled.div`
-  font-size: 0.75rem;
-  color: ${colors.text.light};
-  margin-top: 0.2rem;
-  line-height: 1.4;
-  font-family: "Noto Sans KR", sans-serif;
-`;
-
-const UploadButton = styled.button`
-  padding: 0.6rem 0.8rem;
-  background: ${colors.accent};
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  font-family: "Noto Sans KR", sans-serif;
+  font-family: inherit;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  min-width: 110px;
-  justify-content: center;
-
-  &:hover {
-    background: ${colors.primaryLight};
-    transform: translateY(-1px);
-  }
+  gap: 0.5rem;
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
   }
 
   @media (max-width: 768px) {
-    padding: 0.5rem 0.7rem;
-    font-size: 0.8rem;
-    min-width: 90px;
-    gap: 0.3rem;
+    padding: 0.875rem 1.5rem;
+    font-size: 0.85rem;
+    justify-content: center;
   }
 `;
 
-const HiddenFileInput = styled.input`
+const PrimaryButton = styled(Button)`
+  background: ${colors.accent};
+  color: white;
+  box-shadow: 0 2px 4px ${colors.shadow};
+
+  &:hover:not(:disabled) {
+    background: ${colors.accentHover};
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px ${colors.shadow};
+  }
+`;
+
+const SecondaryButton = styled(Button)`
+  background: transparent;
+  color: ${colors.text.medium};
+  border: 1px solid ${colors.border};
+
+  &:hover:not(:disabled) {
+    background: ${colors.primaryPale};
+    border-color: ${colors.accent};
+    color: ${colors.accent};
+  }
+`;
+
+const FileInput = styled.input`
   display: none;
 `;
 
-const ImagePreview = styled.div`
-  margin-top: 0.4rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-
-  img {
-    width: 50px;
-    height: 50px;
-    object-fit: cover;
-    border-radius: 6px;
-    border: 1px solid ${colors.primaryPale};
-  }
-
-  @media (max-width: 768px) {
-    margin-top: 0.3rem;
-    gap: 0.3rem;
-
-    img {
-      width: 40px;
-      height: 40px;
-      border-radius: 5px;
-    }
-  }
-`;
-
-const RemoveImageButton = styled.button`
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
+const FileInputLabel = styled.label`
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: ${colors.primaryPale};
+  color: ${colors.text.dark};
+  border: 1px solid ${colors.border};
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.2s ease;
 
   &:hover {
-    background: #dc2626;
-    transform: scale(1.1);
+    background: ${colors.primaryLight};
+    color: white;
+    border-color: ${colors.primaryLight};
   }
+
+  @media (max-width: 768px) {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.85rem;
+  }
+`;
+
+const ImagePreview = styled.div`
+  margin-top: 1rem;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid ${colors.border};
+  max-width: 300px;
+
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  @media (max-width: 768px) {
+    max-width: 100%;
+  }
+`;
+
+const UploadProgress = styled.div`
+  margin-top: 0.5rem;
+  color: ${colors.text.medium};
+  font-size: 0.85rem;
+`;
+
+const ErrorMessage = styled.div`
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+`;
+
+const HelpText = styled.div`
+  color: ${colors.text.light};
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  line-height: 1.4;
 `;
 
 const ContentImageControls = styled.div`
@@ -455,7 +373,7 @@ const FormattingControls = styled.div`
 const FormatButton = styled.button<{ $active?: boolean }>`
   background: ${(props) => (props.$active ? colors.accent : "white")};
   color: ${(props) => (props.$active ? "white" : colors.text.dark)};
-  border: 1px solid ${colors.primaryPale};
+  border: 1px solid ${colors.border};
   border-radius: 6px;
   padding: 0.4rem 0.6rem;
   font-size: 0.85rem;
@@ -519,14 +437,24 @@ const ContentImageButton = styled.button`
   }
 `;
 
-const UploadProgress = styled.div`
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: ${colors.primaryBg};
-  border-radius: 6px;
-  font-size: 0.8rem;
-  color: ${colors.text.medium};
-  border: 1px solid ${colors.primaryPale};
+const RemoveImageButton = styled.button`
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+  }
 `;
 
 interface BlogEditorProps {
@@ -552,6 +480,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const featuredImageInputRef = useRef<HTMLInputElement>(null);
   const contentImageInputRef = useRef<HTMLInputElement>(null);
@@ -657,6 +586,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     try {
       setUploading(true);
       setUploadProgress("대표 이미지 업로드 중...");
+      setUploadError(null);
 
       const imageUrl = await uploadBlogImage(valid[0]);
 
@@ -668,7 +598,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
       setUploadProgress("");
     } catch (error) {
       console.error("Featured image upload failed:", error);
-      alert(
+      setUploadError(
         "이미지 업로드에 실패했습니다: " +
           (error instanceof Error ? error.message : String(error))
       );
@@ -698,6 +628,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     try {
       setUploading(true);
       setUploadProgress("컨텐츠 이미지 업로드 중...");
+      setUploadError(null);
 
       const imageUrl = await uploadBlogImage(valid[0]);
 
@@ -741,7 +672,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
       setUploadProgress("");
     } catch (error) {
       console.error("Content image upload failed:", error);
-      alert(
+      setUploadError(
         "이미지 업로드에 실패했습니다: " +
           (error instanceof Error ? error.message : String(error))
       );
@@ -870,20 +801,20 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
               placeholder="블로그 포스트 제목을 입력하세요"
               required
             />
-            <CharCount>{formData.title.length}/100</CharCount>
+            <HelpText>제목은 100자 이내로 작성해주세요.</HelpText>
           </FormGroup>
 
           <FormGroup>
             <Label htmlFor="excerpt">요약</Label>
-            <TextArea
+            <Input
               id="excerpt"
               name="excerpt"
+              type="text"
               value={formData.excerpt}
               onChange={handleChange}
               placeholder="포스트의 간단한 요약을 작성하세요 (선택사항)"
-              rows={3}
             />
-            <CharCount>{formData.excerpt.length}/300</CharCount>
+            <HelpText>요약은 300자 이내로 작성해주세요.</HelpText>
           </FormGroup>
 
           <FormGroup>
@@ -941,9 +872,9 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
               placeholder="여기에 블로그 포스트 내용을 작성하세요..."
               required
             />
-            <CharCount>{formData.content.length} 글자</CharCount>
+            <HelpText>내용은 최소 100자 이상 작성해주세요.</HelpText>
 
-            <HiddenFileInput
+            <FileInput
               ref={contentImageInputRef}
               type="file"
               accept="image/jpeg,image/jpg,image/png,image/webp"
@@ -968,13 +899,9 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
             <FormGroup>
               <Label>대표 이미지</Label>
               <FeaturedImageUploadSection>
-                <UploadButton
-                  type="button"
-                  onClick={handleFeaturedImageButtonClick}
-                  disabled={uploading}
-                >
-                  📁 파일 선택
-                </UploadButton>
+                <FileInputLabel htmlFor="featured-image">
+                  파일 선택
+                </FileInputLabel>
 
                 {formData.featuredImage && (
                   <ImagePreview>
@@ -992,7 +919,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                   </ImagePreview>
                 )}
 
-                <HiddenFileInput
+                <FileInput
                   ref={featuredImageInputRef}
                   type="file"
                   accept="image/jpeg,image/jpg,image/png,image/webp"
@@ -1018,17 +945,18 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
             </HelpText>
           </FormGroup>
 
+          {uploadError && <ErrorMessage>{uploadError}</ErrorMessage>}
           {uploadProgress && <UploadProgress>{uploadProgress}</UploadProgress>}
 
           <ButtonGroup>
-            <Button type="button" onClick={onCancel} disabled={uploading}>
-              취소
-            </Button>
-            <Button
-              type="submit"
-              $variant="primary"
-              disabled={saving || uploading}
+            <SecondaryButton
+              type="button"
+              onClick={onCancel}
+              disabled={uploading}
             >
+              취소
+            </SecondaryButton>
+            <PrimaryButton type="submit" disabled={saving || uploading}>
               {saving
                 ? "저장 중..."
                 : uploading
@@ -1036,7 +964,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                 : post
                 ? "수정하기"
                 : "발행하기"}
-            </Button>
+            </PrimaryButton>
           </ButtonGroup>
         </EditorForm>
       </EditorContainer>

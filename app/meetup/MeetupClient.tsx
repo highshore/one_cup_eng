@@ -95,21 +95,26 @@ const Logo = styled.h1`
 const BlogBanner = styled.div<{ $imageUrl?: string }>`
   background: ${(props) =>
     props.$imageUrl
-      ? `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(${props.$imageUrl}) center/cover`
-      : "#212121"};
-  border-radius: 30px;
+      ? `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${props.$imageUrl}) center/cover`
+      : "#f6f6f6"};
+  border-radius: 8px;
   margin: 20px 0;
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e0e0e0;
-  height: 180px;
-  aspect-ratio: 4 / 3;
+  border: 1px solid #e1e5e9;
+  height: 160px;
   position: relative;
 
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    border-color: #ff6600;
+  }
+
+  @media (max-width: 768px) {
+    height: 140px;
+    margin: 16px 0;
   }
 `;
 
@@ -118,7 +123,7 @@ const BlogBannerContent = styled.div`
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  padding: 24px;
+  padding: 20px;
   height: 100%;
   width: 100%;
   position: absolute;
@@ -132,34 +137,35 @@ const BlogBannerContent = styled.div`
 
 const BlogBannerText = styled.div`
   flex: 1;
-  color: white;
+  color: ${(props) => (props.theme?.imageUrl ? "white" : "#333")};
 `;
 
 const BlogBannerLabel = styled.div`
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #f8d27a;
+  color: #ff6600;
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 
   @media (max-width: 768px) {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     margin-bottom: 0.375rem;
   }
 `;
 
 const BlogBannerTitle = styled.h3`
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: ${(props) => (props.theme?.imageUrl ? "white" : "#000")};
   margin: 0;
   line-height: 1.3;
   word-wrap: break-word;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  ${(props) =>
+    props.theme?.imageUrl && "text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"};
 
   @media (max-width: 768px) {
-    font-size: 20px;
+    font-size: 1rem;
     line-height: 1.2;
   }
 `;
@@ -588,9 +594,11 @@ const MeetupClient: React.FC = () => {
         onClick={handleBlogClick}
       >
         <BlogBannerContent>
-          <BlogBannerText>
-            <BlogBannerLabel>따끈따끈한 밋업 후기</BlogBannerLabel>
-            <BlogBannerTitle>{latestBlogPost.title}</BlogBannerTitle>
+          <BlogBannerText theme={{ imageUrl: latestBlogPost.featuredImage }}>
+            <BlogBannerLabel>Latest from Blog</BlogBannerLabel>
+            <BlogBannerTitle theme={{ imageUrl: latestBlogPost.featuredImage }}>
+              {latestBlogPost.title}
+            </BlogBannerTitle>
           </BlogBannerText>
         </BlogBannerContent>
       </BlogBanner>
