@@ -828,6 +828,46 @@ const highlightFirstLetters = (text: string): string => {
   return highlightWithHyphens(text);
 };
 
+// YouTube URL detection and conversion utilities
+const isYouTubeUrl = (url: string): boolean => {
+  if (!url) return false;
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)/i;
+  return youtubeRegex.test(url);
+};
+
+const extractYouTubeVideoId = (url: string): string | null => {
+  if (!url) return null;
+
+  // Handle youtu.be format: https://youtu.be/VIDEO_ID or https://youtu.be/VIDEO_ID?params
+  const youtuBeMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+  if (youtuBeMatch) {
+    return youtuBeMatch[1];
+  }
+
+  // Handle youtube.com format: https://youtube.com/watch?v=VIDEO_ID or https://www.youtube.com/watch?v=VIDEO_ID
+  const youtubeMatch = url.match(/youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]+)/);
+  if (youtubeMatch) {
+    return youtubeMatch[1];
+  }
+
+  // Handle embed format: https://youtube.com/embed/VIDEO_ID
+  const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+  if (embedMatch) {
+    return embedMatch[1];
+  }
+
+  return null;
+};
+
+const getYouTubeEmbedUrl = (url: string): string | null => {
+  const videoId = extractYouTubeVideoId(url);
+  console.log("YouTube URL:", url, "Video ID:", videoId); // Debug log
+  if (videoId) {
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
+  return null;
+};
+
 // Add a helper function to extract a complete word from bionic reading mode text
 const extractFullWordFromBionicText = (
   element: HTMLElement,
@@ -1346,6 +1386,19 @@ const ArticleImage = styled.img`
 
   @media (max-width: 768px) {
     margin: 1rem 0 0.5rem 0;
+  }
+`;
+
+const YouTubeIframe = styled.iframe`
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  margin: 1.5rem 0 1.5rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: none;
+
+  @media (max-width: 768px) {
+    margin: 1rem 0 1rem 0;
   }
 `;
 
@@ -2965,20 +3018,43 @@ const Article = () => {
             : "단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을 클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다."}
         </CalloutBox>
 
-        {/* Display article image if available */}
-        {article.image_url && (
-          <>
-            <ArticleImage
-              src={article.image_url}
-              alt={article.title.english}
-              loading="lazy"
-            />
-            <ImageCaption>
-              이 이미지는 기사 이해를 돕기 위한 이미지로, AI에 의해 생성되었으며
-              실제와 다를 수 있습니다.
-            </ImageCaption>
-          </>
-        )}
+        {/* Display YouTube video if URL is YouTube, otherwise show image if available */}
+        {(() => {
+          console.log("Article URL:", article.url);
+          console.log("Article image_url:", article.image_url);
+          console.log("Is YouTube URL:", isYouTubeUrl(article.url));
+
+          // Check if the main URL is a YouTube video
+          if (isYouTubeUrl(article.url)) {
+            return (
+              <YouTubeIframe
+                src={getYouTubeEmbedUrl(article.url) || ""}
+                title={article.title.english}
+                allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              />
+            );
+          }
+
+          // Otherwise, show image if available
+          if (article.image_url) {
+            return (
+              <>
+                <ArticleImage
+                  src={article.image_url}
+                  alt={article.title.english}
+                  loading="lazy"
+                />
+                <ImageCaption>
+                  이 이미지는 기사 이해를 돕기 위한 이미지로, AI에 의해
+                  생성되었으며 실제와 다를 수 있습니다.
+                </ImageCaption>
+              </>
+            );
+          }
+
+          return null;
+        })()}
 
         {/* Discussion Topics */}
         {(article.discussion_topics && article.discussion_topics.length > 0) ||

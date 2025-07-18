@@ -170,12 +170,12 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
 }) => {
   return (
     <>
-      {/* Toggle Button */}
+      {/* Floating controls temporarily disabled */}
+      {/* 
       <ToggleControlsButton onClick={onToggleVisibility}>
         {isVisible ? "✕" : "⚙️"}
       </ToggleControlsButton>
 
-      {/* Floating Controls Container */}
       <FloatingButtonContainer isAudioMode={isAudioMode} isVisible={isVisible}>
         {hasAudio && (
           <FloatingAudioButton
@@ -186,6 +186,7 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
           </FloatingAudioButton>
         )}
       </FloatingButtonContainer>
+      */}
     </>
   );
 };
