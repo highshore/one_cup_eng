@@ -22,6 +22,7 @@ import {
   FiTarget,
   FiBookOpen,
   FiAward,
+  FiActivity,
 } from "react-icons/fi";
 
 // Register Chart.js components
@@ -71,172 +72,193 @@ interface LanguageSuggestion {
   difficulty: "beginner" | "intermediate" | "advanced";
 }
 
-// Styled Components
+// Styled Components - YC Startup Design
 const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   min-height: 100vh;
-  font-family: "Avenir", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  color: #1a1a1a;
 `;
 
 const Header = styled.div`
-  text-align: center;
   margin-bottom: 3rem;
-  padding: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
-  color: white;
-  box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+  padding: 0;
 `;
 
 const Title = styled.h1`
-  font-size: 3rem;
-  font-weight: 800;
+  font-size: 2.5rem;
+  font-weight: 700;
   margin-bottom: 0.5rem;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  color: #000;
+  letter-spacing: -0.025em;
 `;
 
 const Subtitle = styled.p`
-  font-size: 1.2rem;
-  opacity: 0.9;
-  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  color: #6b7280;
+  margin-bottom: 2rem;
+  font-weight: 400;
 `;
 
-const SessionInfo = styled.div`
+const SessionMetaData = styled.div`
   display: flex;
-  justify-content: center;
-  gap: 3rem;
-  margin-top: 1.5rem;
-  flex-wrap: wrap;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid #e5e7eb;
 `;
 
-const SessionDetail = styled.div`
-  text-align: center;
-
+const MetaItem = styled.div`
   .label {
-    font-size: 0.9rem;
-    opacity: 0.8;
-    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    color: #6b7280;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
   }
 
   .value {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
+    color: #000;
   }
 `;
 
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
+const TabNavigation = styled.div`
+  display: flex;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e5e7eb;
 `;
 
-const Card = styled.div`
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+const Tab = styled.button<{ active: boolean }>`
+  padding: 1rem 0;
+  margin-right: 2rem;
+  border: none;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: ${(props) => (props.active ? "#000" : "#6b7280")};
+  border-bottom: 2px solid ${(props) => (props.active ? "#000" : "transparent")};
+  cursor: pointer;
+  transition: all 0.2s ease;
 
   &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    color: #000;
   }
 `;
 
 const MetricsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.5rem;
   margin-bottom: 3rem;
 `;
 
-const MetricCard = styled(Card)`
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
+const MetricCard = styled.div`
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   padding: 1.5rem;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: #d1d5db;
+  }
 `;
 
-const MetricIcon = styled.div<{ color: string }>`
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: linear-gradient(
-    135deg,
-    ${(props) => props.color}20,
-    ${(props) => props.color}40
-  );
+const MetricHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+`;
+
+const MetricIcon = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  color: ${(props) => props.color};
-`;
-
-const MetricContent = styled.div`
-  flex: 1;
+  width: 40px;
+  height: 40px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  color: #374151;
 `;
 
 const MetricValue = styled.div`
   font-size: 2rem;
   font-weight: 700;
-  color: #1a202c;
+  color: #000;
   margin-bottom: 0.25rem;
 `;
 
 const MetricLabel = styled.div`
-  font-size: 0.9rem;
-  color: #718096;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
 `;
 
-const SectionTitle = styled.h2`
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #2d3748;
+const ContentGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+`;
+
+const Card = styled.div`
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 2rem;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: #d1d5db;
+  }
+`;
+
+const SectionTitle = styled.h3`
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #000;
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 `;
 
 const ChartContainer = styled.div`
   position: relative;
   height: 300px;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 `;
 
 const ProgressChart = styled.div`
   height: 400px;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 `;
 
-const LanguageSuggestionsContainer = styled.div`
+const SuggestionsContainer = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 2rem;
 `;
 
-const SuggestionCategory = styled.div`
-  background: #f8fafc;
-  border-radius: 12px;
-  padding: 1.5rem;
-  border-left: 4px solid #667eea;
+const SuggestionSection = styled.div`
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 2rem;
 `;
 
-const CategoryTitle = styled.h3`
-  font-size: 1.2rem;
+const SuggestionTitle = styled.h3`
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #2d3748;
-  margin-bottom: 1rem;
+  color: #000;
+  margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -249,64 +271,75 @@ const SuggestionList = styled.div`
 `;
 
 const SuggestionItem = styled.div`
-  background: white;
-  border-radius: 8px;
   padding: 1rem;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
+  border: 1px solid #f3f4f6;
+  border-radius: 6px;
+  transition: border-color 0.2s ease;
 
   &:hover {
-    border-color: #667eea;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    border-color: #e5e7eb;
   }
 `;
 
 const SuggestionWord = styled.div`
   font-weight: 600;
-  color: #2d3748;
+  color: #000;
   margin-bottom: 0.5rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
 `;
 
 const SuggestionDefinition = styled.div`
-  color: #4a5568;
+  color: #374151;
   margin-bottom: 0.5rem;
   line-height: 1.5;
+  font-size: 0.875rem;
 `;
 
 const SuggestionExample = styled.div`
-  color: #718096;
+  color: #6b7280;
   font-style: italic;
-  padding: 0.5rem;
-  background: #f7fafc;
-  border-radius: 6px;
-  border-left: 3px solid #667eea;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 4px;
+  border-left: 3px solid #e5e7eb;
+  font-size: 0.875rem;
 `;
 
 const DifficultyBadge = styled.span<{ difficulty: string }>`
   display: inline-block;
   padding: 0.25rem 0.75rem;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
   background: ${(props) =>
     props.difficulty === "beginner"
-      ? "#48bb78"
+      ? "#f3f4f6"
       : props.difficulty === "intermediate"
-      ? "#ed8936"
-      : "#9f7aea"};
-  color: white;
-  margin-top: 0.5rem;
+      ? "#f3f4f6"
+      : "#f3f4f6"};
+  color: ${(props) =>
+    props.difficulty === "beginner"
+      ? "#16a34a"
+      : props.difficulty === "intermediate"
+      ? "#ea580c"
+      : "#7c3aed"};
+  border: 1px solid
+    ${(props) =>
+      props.difficulty === "beginner"
+        ? "#dcfce7"
+        : props.difficulty === "intermediate"
+        ? "#fed7aa"
+        : "#ede9fe"};
 `;
 
 const TranscriptSection = styled.div`
-  background: white;
-  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   padding: 2rem;
-  margin-top: 2rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 `;
 
 const TranscriptSegment = styled.div<{ isUser: boolean }>`
@@ -314,46 +347,32 @@ const TranscriptSegment = styled.div<{ isUser: boolean }>`
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding: 1rem;
-  border-radius: 12px;
-  background: ${(props) => (props.isUser ? "#e6f7ff" : "#f0f8e6")};
-  border-left: 4px solid ${(props) => (props.isUser ? "#1890ff" : "#52c41a")};
+  border-radius: 6px;
+  background: ${(props) => (props.isUser ? "#f9fafb" : "#f3f4f6")};
+  border-left: 3px solid ${(props) => (props.isUser ? "#000" : "#6b7280")};
 `;
 
 const SpeakerLabel = styled.div<{ isUser: boolean }>`
   font-weight: 600;
-  color: ${(props) => (props.isUser ? "#1890ff" : "#52c41a")};
-  min-width: 80px;
-  font-size: 0.9rem;
+  color: ${(props) => (props.isUser ? "#000" : "#6b7280")};
+  min-width: 60px;
+  font-size: 0.875rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
 `;
 
 const TranscriptText = styled.div`
   flex: 1;
   line-height: 1.6;
-  color: #2d3748;
+  color: #374151;
 `;
 
-const TabContainer = styled.div`
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  border-bottom: 2px solid #e2e8f0;
-`;
-
-const Tab = styled.button<{ active: boolean }>`
-  padding: 1rem 2rem;
-  border: none;
-  background: ${(props) => (props.active ? "#667eea" : "transparent")};
-  color: ${(props) => (props.active ? "white" : "#718096")};
-  border-radius: 8px 8px 0 0;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${(props) => (props.active ? "#667eea" : "#f7fafc")};
-  }
+const ChartDescription = styled.p`
+  color: #6b7280;
+  font-size: 0.875rem;
+  text-align: center;
+  margin-top: 1rem;
+  line-height: 1.5;
 `;
 
 // Sample data for demonstration
@@ -479,25 +498,27 @@ export default function ReportClient() {
   const [currentSession] = useState<SessionData>(SAMPLE_SESSIONS[0]);
   const [sessionHistory] = useState<SessionData[]>(SAMPLE_SESSIONS);
 
-  // Chart data for progress tracking
+  // Chart data for progress tracking with black theme
   const progressData = {
     labels: sessionHistory.map((s) => new Date(s.date).toLocaleDateString()),
     datasets: [
       {
         label: "Words per Minute",
         data: sessionHistory.map((s) => s.wordsPerMinute),
-        borderColor: "#667eea",
-        backgroundColor: "rgba(102, 126, 234, 0.1)",
+        borderColor: "#000",
+        backgroundColor: "rgba(0, 0, 0, 0.05)",
         tension: 0.4,
         fill: true,
+        borderWidth: 2,
       },
       {
         label: "Overall Score",
         data: sessionHistory.map((s) => s.overallScore),
-        borderColor: "#48bb78",
-        backgroundColor: "rgba(72, 187, 120, 0.1)",
+        borderColor: "#374151",
+        backgroundColor: "rgba(55, 65, 81, 0.05)",
         tension: 0.4,
         fill: true,
+        borderWidth: 2,
       },
     ],
   };
@@ -511,7 +532,7 @@ export default function ReportClient() {
           currentSession.fluencyScore,
           currentSession.coherenceScore,
         ],
-        backgroundColor: ["#667eea", "#48bb78", "#ed8936"],
+        backgroundColor: ["#000", "#374151", "#6b7280"],
         borderWidth: 0,
       },
     ],
@@ -529,8 +550,8 @@ export default function ReportClient() {
           Math.round(currentSession.speakingTime * 0.6),
           Math.round(currentSession.speakingTime * 0.4),
         ],
-        backgroundColor: ["#667eea", "#9f7aea"],
-        borderRadius: 8,
+        backgroundColor: ["#000", "#374151"],
+        borderRadius: 4,
       },
     ],
   };
@@ -541,11 +562,40 @@ export default function ReportClient() {
     plugins: {
       legend: {
         position: "top" as const,
+        labels: {
+          color: "#374151",
+          font: {
+            family: "-apple-system, BlinkMacSystemFont, sans-serif",
+            size: 12,
+          },
+        },
       },
     },
     scales: {
+      x: {
+        grid: {
+          color: "#f3f4f6",
+        },
+        ticks: {
+          color: "#6b7280",
+          font: {
+            family: "-apple-system, BlinkMacSystemFont, sans-serif",
+            size: 11,
+          },
+        },
+      },
       y: {
         beginAtZero: true,
+        grid: {
+          color: "#f3f4f6",
+        },
+        ticks: {
+          color: "#6b7280",
+          font: {
+            family: "-apple-system, BlinkMacSystemFont, sans-serif",
+            size: 11,
+          },
+        },
       },
     },
   };
@@ -556,6 +606,14 @@ export default function ReportClient() {
     plugins: {
       legend: {
         position: "bottom" as const,
+        labels: {
+          color: "#374151",
+          font: {
+            family: "-apple-system, BlinkMacSystemFont, sans-serif",
+            size: 12,
+          },
+          padding: 20,
+        },
       },
     },
   };
@@ -564,47 +622,49 @@ export default function ReportClient() {
     <>
       <MetricsGrid>
         <MetricCard>
-          <MetricIcon color="#667eea">
-            <FiClock />
-          </MetricIcon>
-          <MetricContent>
-            <MetricValue>{currentSession.speakingTime}min</MetricValue>
-            <MetricLabel>Speaking Time</MetricLabel>
-          </MetricContent>
+          <MetricHeader>
+            <MetricIcon>
+              <FiClock />
+            </MetricIcon>
+          </MetricHeader>
+          <MetricValue>{currentSession.speakingTime}min</MetricValue>
+          <MetricLabel>Speaking Time</MetricLabel>
         </MetricCard>
 
         <MetricCard>
-          <MetricIcon color="#48bb78">
-            <FiMessageSquare />
-          </MetricIcon>
-          <MetricContent>
-            <MetricValue>{currentSession.totalWords}</MetricValue>
-            <MetricLabel>Total Words</MetricLabel>
-          </MetricContent>
+          <MetricHeader>
+            <MetricIcon>
+              <FiMessageSquare />
+            </MetricIcon>
+          </MetricHeader>
+          <MetricValue>
+            {currentSession.totalWords.toLocaleString()}
+          </MetricValue>
+          <MetricLabel>Total Words</MetricLabel>
         </MetricCard>
 
         <MetricCard>
-          <MetricIcon color="#ed8936">
-            <FiTrendingUp />
-          </MetricIcon>
-          <MetricContent>
-            <MetricValue>{currentSession.wordsPerMinute}</MetricValue>
-            <MetricLabel>Words per Minute</MetricLabel>
-          </MetricContent>
+          <MetricHeader>
+            <MetricIcon>
+              <FiActivity />
+            </MetricIcon>
+          </MetricHeader>
+          <MetricValue>{currentSession.wordsPerMinute}</MetricValue>
+          <MetricLabel>Words per Minute</MetricLabel>
         </MetricCard>
 
         <MetricCard>
-          <MetricIcon color="#9f7aea">
-            <FiAward />
-          </MetricIcon>
-          <MetricContent>
-            <MetricValue>{currentSession.overallScore}%</MetricValue>
-            <MetricLabel>Overall Score</MetricLabel>
-          </MetricContent>
+          <MetricHeader>
+            <MetricIcon>
+              <FiAward />
+            </MetricIcon>
+          </MetricHeader>
+          <MetricValue>{currentSession.overallScore}%</MetricValue>
+          <MetricLabel>Overall Score</MetricLabel>
         </MetricCard>
       </MetricsGrid>
 
-      <Grid>
+      <ContentGrid>
         <Card>
           <SectionTitle>
             <FiTarget />
@@ -613,18 +673,24 @@ export default function ReportClient() {
           <ChartContainer>
             <Doughnut data={scoreBreakdownData} options={doughnutOptions} />
           </ChartContainer>
+          <ChartDescription>
+            Performance breakdown across key speaking metrics
+          </ChartDescription>
         </Card>
 
         <Card>
           <SectionTitle>
             <FiClock />
-            Speaking Time by Topic
+            Speaking Time Distribution
           </SectionTitle>
           <ChartContainer>
             <Bar data={speakingTimeData} options={chartOptions} />
           </ChartContainer>
+          <ChartDescription>
+            Time spent discussing each topic during the session
+          </ChartDescription>
         </Card>
-      </Grid>
+      </ContentGrid>
     </>
   );
 
@@ -632,26 +698,25 @@ export default function ReportClient() {
     <Card>
       <SectionTitle>
         <FiTrendingUp />
-        Progress Over Time
+        Performance Trends
       </SectionTitle>
       <ProgressChart>
         <Line data={progressData} options={chartOptions} />
       </ProgressChart>
-      <p style={{ color: "#718096", textAlign: "center", marginTop: "1rem" }}>
-        Track your improvement across multiple sessions. The blue line shows
-        your speaking pace, while the green line represents your overall
-        performance score.
-      </p>
+      <ChartDescription>
+        Track your improvement across multiple sessions. Monitor both speaking
+        pace and overall performance scores over time.
+      </ChartDescription>
     </Card>
   );
 
   const renderSuggestions = () => (
-    <LanguageSuggestionsContainer>
-      <SuggestionCategory>
-        <CategoryTitle>
+    <SuggestionsContainer>
+      <SuggestionSection>
+        <SuggestionTitle>
           <FiBookOpen />
           Recommended Vocabulary
-        </CategoryTitle>
+        </SuggestionTitle>
         <SuggestionList>
           {LANGUAGE_SUGGESTIONS.filter((s) => s.category === "vocabulary").map(
             (suggestion, index) => (
@@ -668,13 +733,13 @@ export default function ReportClient() {
             )
           )}
         </SuggestionList>
-      </SuggestionCategory>
+      </SuggestionSection>
 
-      <SuggestionCategory>
-        <CategoryTitle>
+      <SuggestionSection>
+        <SuggestionTitle>
           <FiMessageSquare />
           Useful Expressions
-        </CategoryTitle>
+        </SuggestionTitle>
         <SuggestionList>
           {LANGUAGE_SUGGESTIONS.filter((s) => s.category === "expression").map(
             (suggestion, index) => (
@@ -691,8 +756,8 @@ export default function ReportClient() {
             )
           )}
         </SuggestionList>
-      </SuggestionCategory>
-    </LanguageSuggestionsContainer>
+      </SuggestionSection>
+    </SuggestionsContainer>
   );
 
   const renderTranscript = () => (
@@ -701,10 +766,10 @@ export default function ReportClient() {
         <FiMessageSquare />
         Session Transcript
       </SectionTitle>
-      <p style={{ color: "#718096", marginBottom: "2rem" }}>
-        Review your conversation with AI-powered analysis. Areas for improvement
-        are highlighted.
-      </p>
+      <ChartDescription style={{ textAlign: "left", marginBottom: "2rem" }}>
+        Review your conversation with detailed analysis. Areas for improvement
+        are highlighted below.
+      </ChartDescription>
 
       {/* Sample transcript segments */}
       <TranscriptSegment isUser={true}>
@@ -717,7 +782,7 @@ export default function ReportClient() {
       </TranscriptSegment>
 
       <TranscriptSegment isUser={false}>
-        <SpeakerLabel isUser={false}>Partner</SpeakerLabel>
+        <SpeakerLabel isUser={false}>AI</SpeakerLabel>
         <TranscriptText>
           I completely agree. What specific strategies do you think are most
           effective for career growth?
@@ -735,7 +800,7 @@ export default function ReportClient() {
       </TranscriptSegment>
 
       <TranscriptSegment isUser={false}>
-        <SpeakerLabel isUser={false}>Partner</SpeakerLabel>
+        <SpeakerLabel isUser={false}>AI</SpeakerLabel>
         <TranscriptText>
           That's a great point about feedback. How do you handle situations
           where the feedback is difficult to hear?
@@ -757,27 +822,29 @@ export default function ReportClient() {
   return (
     <Container>
       <Header>
-        <Title>English Speaking Report</Title>
-        <Subtitle>Comprehensive analysis of your speaking session</Subtitle>
-        <SessionInfo>
-          <SessionDetail>
+        <Title>Speaking Analytics</Title>
+        <Subtitle>
+          Comprehensive analysis of your English speaking performance
+        </Subtitle>
+        <SessionMetaData>
+          <MetaItem>
             <div className="label">Session Date</div>
             <div className="value">
               {new Date(currentSession.date).toLocaleDateString()}
             </div>
-          </SessionDetail>
-          <SessionDetail>
+          </MetaItem>
+          <MetaItem>
             <div className="label">Topic 1</div>
             <div className="value">{currentSession.topic1}</div>
-          </SessionDetail>
-          <SessionDetail>
+          </MetaItem>
+          <MetaItem>
             <div className="label">Topic 2</div>
             <div className="value">{currentSession.topic2}</div>
-          </SessionDetail>
-        </SessionInfo>
+          </MetaItem>
+        </SessionMetaData>
       </Header>
 
-      <TabContainer>
+      <TabNavigation>
         <Tab
           active={activeTab === "overview"}
           onClick={() => setActiveTab("overview")}
@@ -802,7 +869,7 @@ export default function ReportClient() {
         >
           Transcript
         </Tab>
-      </TabContainer>
+      </TabNavigation>
 
       {activeTab === "overview" && renderOverview()}
       {activeTab === "progress" && renderProgress()}
