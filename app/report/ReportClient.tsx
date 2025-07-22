@@ -76,7 +76,7 @@ interface LanguageSuggestion {
 const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 2rem 0rem;
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -375,131 +375,50 @@ const ChartDescription = styled.p`
   line-height: 1.5;
 `;
 
-// Sample data for demonstration
-const SAMPLE_SESSIONS: SessionData[] = [
-  {
-    id: "1",
-    date: "2024-01-15",
-    topic1: "Career Development",
-    topic2: "International Business",
-    speakingTime: 45,
-    totalWords: 850,
-    wordsPerMinute: 120,
-    pronunciationScore: 85,
-    fluencyScore: 78,
-    coherenceScore: 82,
-    overallScore: 82,
-    suggestedWords: ["articulate", "leverage", "synergize"],
-    suggestedExpressions: [
-      "on the other hand",
-      "needless to say",
-      "by and large",
-    ],
-    transcript: [],
-  },
-  {
-    id: "2",
-    date: "2024-01-08",
-    topic1: "Technology Trends",
-    topic2: "Remote Work",
-    speakingTime: 42,
-    totalWords: 780,
-    wordsPerMinute: 115,
-    pronunciationScore: 80,
-    fluencyScore: 75,
-    coherenceScore: 78,
-    overallScore: 78,
-    suggestedWords: ["innovative", "facilitate", "optimize"],
-    suggestedExpressions: [
-      "in my opinion",
-      "as a matter of fact",
-      "to put it simply",
-    ],
-    transcript: [],
-  },
-  {
-    id: "3",
-    date: "2024-01-01",
-    topic1: "Leadership Skills",
-    topic2: "Team Management",
-    speakingTime: 38,
-    totalWords: 720,
-    wordsPerMinute: 110,
-    pronunciationScore: 82,
-    fluencyScore: 72,
-    coherenceScore: 75,
-    overallScore: 76,
-    suggestedWords: ["delegate", "collaborate", "motivate"],
-    suggestedExpressions: [
-      "in terms of",
-      "with regard to",
-      "speaking of which",
-    ],
-    transcript: [],
-  },
-];
+// Empty State Components
+const EmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #6b7280;
+`;
 
-const LANGUAGE_SUGGESTIONS: LanguageSuggestion[] = [
-  {
-    word: "articulate",
-    definition: "To express thoughts and ideas clearly and effectively",
-    example:
-      "She was able to articulate her vision for the company during the presentation.",
-    category: "vocabulary",
-    difficulty: "intermediate",
-  },
-  {
-    word: "on the other hand",
-    definition:
-      "Used to present a contrasting point or alternative perspective",
-    example:
-      "The project was expensive. On the other hand, it delivered excellent results.",
-    category: "expression",
-    difficulty: "intermediate",
-  },
-  {
-    word: "synergize",
-    definition:
-      "To combine efforts or resources to achieve greater effectiveness",
-    example:
-      "The two departments need to synergize their efforts for this project.",
-    category: "vocabulary",
-    difficulty: "advanced",
-  },
-  {
-    word: "facilitate",
-    definition: "To make an action or process easier or help bring about",
-    example:
-      "The new software will facilitate communication between remote teams.",
-    category: "vocabulary",
-    difficulty: "intermediate",
-  },
-  {
-    word: "needless to say",
-    definition:
-      "Used to indicate that something is obvious and doesn't need explanation",
-    example: "Needless to say, punctuality is important in business meetings.",
-    category: "expression",
-    difficulty: "beginner",
-  },
-  {
-    word: "leverage",
-    definition: "To use something to maximum advantage",
-    example: "We can leverage our existing network to expand into new markets.",
-    category: "vocabulary",
-    difficulty: "advanced",
-  },
-];
+const EmptyStateIcon = styled.div`
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+`;
+
+const EmptyStateTitle = styled.h3`
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+`;
+
+const EmptyStateMessage = styled.p`
+  font-size: 0.875rem;
+  color: #6b7280;
+  max-width: 300px;
+  line-height: 1.5;
+`;
+
+// Real data will be loaded from props or API calls
+// No dummy/fallback data - proper empty states will be shown when no data exists
 
 export default function ReportClient() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "progress" | "suggestions" | "transcript"
   >("overview");
-  const [currentSession] = useState<SessionData>(SAMPLE_SESSIONS[0]);
-  const [sessionHistory] = useState<SessionData[]>(SAMPLE_SESSIONS);
+  const [currentSession, setCurrentSession] = useState<SessionData | null>(null);
+  const [sessionHistory, setSessionHistory] = useState<SessionData[]>([]);
+  const [languageSuggestions, setLanguageSuggestions] = useState<LanguageSuggestion[]>([]);
 
-  // Chart data for progress tracking with black theme
-  const progressData = {
+  // Chart data for progress tracking - only create if we have data
+  const progressData = sessionHistory.length > 0 ? {
     labels: sessionHistory.map((s) => new Date(s.date).toLocaleDateString()),
     datasets: [
       {
@@ -521,9 +440,9 @@ export default function ReportClient() {
         borderWidth: 2,
       },
     ],
-  };
+  } : null;
 
-  const scoreBreakdownData = {
+  const scoreBreakdownData = currentSession ? {
     labels: ["Pronunciation", "Fluency", "Coherence"],
     datasets: [
       {
@@ -536,9 +455,9 @@ export default function ReportClient() {
         borderWidth: 0,
       },
     ],
-  };
+  } : null;
 
-  const speakingTimeData = {
+  const speakingTimeData = currentSession ? {
     labels: [
       "Topic 1: " + currentSession.topic1,
       "Topic 2: " + currentSession.topic2,
@@ -554,7 +473,7 @@ export default function ReportClient() {
         borderRadius: 4,
       },
     ],
-  };
+  } : null;
 
   const chartOptions = {
     responsive: true,
@@ -618,81 +537,111 @@ export default function ReportClient() {
     },
   };
 
-  const renderOverview = () => (
-    <>
-      <MetricsGrid>
-        <MetricCard>
-          <MetricHeader>
-            <MetricIcon>
+  const renderOverview = () => {
+    if (!currentSession) {
+      return (
+        <EmptyState>
+          <EmptyStateIcon>📊</EmptyStateIcon>
+          <EmptyStateTitle>No Session Data Available</EmptyStateTitle>
+          <EmptyStateMessage>
+            Complete a speaking session to view your performance metrics and analytics.
+          </EmptyStateMessage>
+        </EmptyState>
+      );
+    }
+
+    return (
+      <>
+        <MetricsGrid>
+          <MetricCard>
+            <MetricHeader>
+              <MetricIcon>
+                <FiClock />
+              </MetricIcon>
+            </MetricHeader>
+            <MetricValue>{currentSession.speakingTime}min</MetricValue>
+            <MetricLabel>Speaking Time</MetricLabel>
+          </MetricCard>
+
+          <MetricCard>
+            <MetricHeader>
+              <MetricIcon>
+                <FiMessageSquare />
+              </MetricIcon>
+            </MetricHeader>
+            <MetricValue>
+              {currentSession.totalWords.toLocaleString()}
+            </MetricValue>
+            <MetricLabel>Total Words</MetricLabel>
+          </MetricCard>
+
+          <MetricCard>
+            <MetricHeader>
+              <MetricIcon>
+                <FiActivity />
+              </MetricIcon>
+            </MetricHeader>
+            <MetricValue>{currentSession.wordsPerMinute}</MetricValue>
+            <MetricLabel>Words per Minute</MetricLabel>
+          </MetricCard>
+
+          <MetricCard>
+            <MetricHeader>
+              <MetricIcon>
+                <FiAward />
+              </MetricIcon>
+            </MetricHeader>
+            <MetricValue>{currentSession.overallScore}%</MetricValue>
+            <MetricLabel>Overall Score</MetricLabel>
+          </MetricCard>
+        </MetricsGrid>
+
+        <ContentGrid>
+          <Card>
+            <SectionTitle>
+              <FiTarget />
+              Score Breakdown
+            </SectionTitle>
+            {scoreBreakdownData ? (
+              <>
+                <ChartContainer>
+                  <Doughnut data={scoreBreakdownData} options={doughnutOptions} />
+                </ChartContainer>
+                <ChartDescription>
+                  Performance breakdown across key speaking metrics
+                </ChartDescription>
+              </>
+            ) : (
+              <EmptyState>
+                <EmptyStateMessage>No score data available</EmptyStateMessage>
+              </EmptyState>
+            )}
+          </Card>
+
+          <Card>
+            <SectionTitle>
               <FiClock />
-            </MetricIcon>
-          </MetricHeader>
-          <MetricValue>{currentSession.speakingTime}min</MetricValue>
-          <MetricLabel>Speaking Time</MetricLabel>
-        </MetricCard>
-
-        <MetricCard>
-          <MetricHeader>
-            <MetricIcon>
-              <FiMessageSquare />
-            </MetricIcon>
-          </MetricHeader>
-          <MetricValue>
-            {currentSession.totalWords.toLocaleString()}
-          </MetricValue>
-          <MetricLabel>Total Words</MetricLabel>
-        </MetricCard>
-
-        <MetricCard>
-          <MetricHeader>
-            <MetricIcon>
-              <FiActivity />
-            </MetricIcon>
-          </MetricHeader>
-          <MetricValue>{currentSession.wordsPerMinute}</MetricValue>
-          <MetricLabel>Words per Minute</MetricLabel>
-        </MetricCard>
-
-        <MetricCard>
-          <MetricHeader>
-            <MetricIcon>
-              <FiAward />
-            </MetricIcon>
-          </MetricHeader>
-          <MetricValue>{currentSession.overallScore}%</MetricValue>
-          <MetricLabel>Overall Score</MetricLabel>
-        </MetricCard>
-      </MetricsGrid>
-
-      <ContentGrid>
-        <Card>
-          <SectionTitle>
-            <FiTarget />
-            Score Breakdown
-          </SectionTitle>
-          <ChartContainer>
-            <Doughnut data={scoreBreakdownData} options={doughnutOptions} />
-          </ChartContainer>
-          <ChartDescription>
-            Performance breakdown across key speaking metrics
-          </ChartDescription>
-        </Card>
-
-        <Card>
-          <SectionTitle>
-            <FiClock />
-            Speaking Time Distribution
-          </SectionTitle>
-          <ChartContainer>
-            <Bar data={speakingTimeData} options={chartOptions} />
-          </ChartContainer>
-          <ChartDescription>
-            Time spent discussing each topic during the session
-          </ChartDescription>
-        </Card>
-      </ContentGrid>
-    </>
-  );
+              Speaking Time Distribution
+            </SectionTitle>
+            {speakingTimeData ? (
+              <>
+                <ChartContainer>
+                  <Bar data={speakingTimeData} options={chartOptions} />
+                </ChartContainer>
+                <ChartDescription>
+                  Time spent discussing each topic during the session
+                </ChartDescription>
+              </>
+            ) : (
+              <EmptyState>
+                <EmptyStateMessage>No speaking time data available</EmptyStateMessage>
+              </EmptyState>
+            )}
+          </Card>
+        </ContentGrid>
+      </>
+    );
+  };
 
   const renderProgress = () => (
     <Card>
@@ -700,148 +649,158 @@ export default function ReportClient() {
         <FiTrendingUp />
         Performance Trends
       </SectionTitle>
-      <ProgressChart>
-        <Line data={progressData} options={chartOptions} />
-      </ProgressChart>
-      <ChartDescription>
-        Track your improvement across multiple sessions. Monitor both speaking
-        pace and overall performance scores over time.
-      </ChartDescription>
+      {progressData ? (
+        <>
+          <ProgressChart>
+            <Line data={progressData} options={chartOptions} />
+          </ProgressChart>
+          <ChartDescription>
+            Track your improvement across multiple sessions. Monitor both speaking
+            pace and overall performance scores over time.
+          </ChartDescription>
+        </>
+      ) : (
+        <EmptyState>
+          <EmptyStateIcon>📈</EmptyStateIcon>
+          <EmptyStateTitle>No Progress Data</EmptyStateTitle>
+          <EmptyStateMessage>
+            Complete multiple speaking sessions to view your progress trends and improvement over time.
+          </EmptyStateMessage>
+        </EmptyState>
+      )}
     </Card>
   );
 
-  const renderSuggestions = () => (
-    <SuggestionsContainer>
-      <SuggestionSection>
-        <SuggestionTitle>
-          <FiBookOpen />
-          Recommended Vocabulary
-        </SuggestionTitle>
-        <SuggestionList>
-          {LANGUAGE_SUGGESTIONS.filter((s) => s.category === "vocabulary").map(
-            (suggestion, index) => (
-              <SuggestionItem key={index}>
-                <SuggestionWord>{suggestion.word}</SuggestionWord>
-                <SuggestionDefinition>
-                  {suggestion.definition}
-                </SuggestionDefinition>
-                <SuggestionExample>"{suggestion.example}"</SuggestionExample>
-                <DifficultyBadge difficulty={suggestion.difficulty}>
-                  {suggestion.difficulty}
-                </DifficultyBadge>
-              </SuggestionItem>
-            )
-          )}
-        </SuggestionList>
-      </SuggestionSection>
+  const renderSuggestions = () => {
+    const vocabularySuggestions = languageSuggestions.filter((s) => s.category === "vocabulary");
+    const expressionSuggestions = languageSuggestions.filter((s) => s.category === "expression");
 
-      <SuggestionSection>
-        <SuggestionTitle>
+    if (languageSuggestions.length === 0) {
+      return (
+        <EmptyState>
+          <EmptyStateIcon>💡</EmptyStateIcon>
+          <EmptyStateTitle>No Language Suggestions</EmptyStateTitle>
+          <EmptyStateMessage>
+            Complete speaking sessions to receive personalized vocabulary and expression recommendations.
+          </EmptyStateMessage>
+        </EmptyState>
+      );
+    }
+
+    return (
+      <SuggestionsContainer>
+        <SuggestionSection>
+          <SuggestionTitle>
+            <FiBookOpen />
+            Recommended Vocabulary
+          </SuggestionTitle>
+          <SuggestionList>
+            {vocabularySuggestions.length > 0 ? (
+              vocabularySuggestions.map((suggestion, index) => (
+                <SuggestionItem key={index}>
+                  <SuggestionWord>{suggestion.word}</SuggestionWord>
+                  <SuggestionDefinition>
+                    {suggestion.definition}
+                  </SuggestionDefinition>
+                  <SuggestionExample>"{suggestion.example}"</SuggestionExample>
+                  <DifficultyBadge difficulty={suggestion.difficulty}>
+                    {suggestion.difficulty}
+                  </DifficultyBadge>
+                </SuggestionItem>
+              ))
+            ) : (
+              <EmptyStateMessage>No vocabulary suggestions available</EmptyStateMessage>
+            )}
+          </SuggestionList>
+        </SuggestionSection>
+
+        <SuggestionSection>
+          <SuggestionTitle>
+            <FiMessageSquare />
+            Useful Expressions
+          </SuggestionTitle>
+          <SuggestionList>
+            {expressionSuggestions.length > 0 ? (
+              expressionSuggestions.map((suggestion, index) => (
+                <SuggestionItem key={index}>
+                  <SuggestionWord>{suggestion.word}</SuggestionWord>
+                  <SuggestionDefinition>
+                    {suggestion.definition}
+                  </SuggestionDefinition>
+                  <SuggestionExample>"{suggestion.example}"</SuggestionExample>
+                  <DifficultyBadge difficulty={suggestion.difficulty}>
+                    {suggestion.difficulty}
+                  </DifficultyBadge>
+                </SuggestionItem>
+              ))
+            ) : (
+              <EmptyStateMessage>No expression suggestions available</EmptyStateMessage>
+            )}
+          </SuggestionList>
+        </SuggestionSection>
+      </SuggestionsContainer>
+    );
+  };
+
+  const renderTranscript = () => {
+    const hasTranscript = currentSession && currentSession.transcript && currentSession.transcript.length > 0;
+
+    return (
+      <TranscriptSection>
+        <SectionTitle>
           <FiMessageSquare />
-          Useful Expressions
-        </SuggestionTitle>
-        <SuggestionList>
-          {LANGUAGE_SUGGESTIONS.filter((s) => s.category === "expression").map(
-            (suggestion, index) => (
-              <SuggestionItem key={index}>
-                <SuggestionWord>{suggestion.word}</SuggestionWord>
-                <SuggestionDefinition>
-                  {suggestion.definition}
-                </SuggestionDefinition>
-                <SuggestionExample>"{suggestion.example}"</SuggestionExample>
-                <DifficultyBadge difficulty={suggestion.difficulty}>
-                  {suggestion.difficulty}
-                </DifficultyBadge>
-              </SuggestionItem>
-            )
-          )}
-        </SuggestionList>
-      </SuggestionSection>
-    </SuggestionsContainer>
-  );
-
-  const renderTranscript = () => (
-    <TranscriptSection>
-      <SectionTitle>
-        <FiMessageSquare />
-        Session Transcript
-      </SectionTitle>
-      <ChartDescription style={{ textAlign: "left", marginBottom: "2rem" }}>
-        Review your conversation with detailed analysis. Areas for improvement
-        are highlighted below.
-      </ChartDescription>
-
-      {/* Sample transcript segments */}
-      <TranscriptSegment isUser={true}>
-        <SpeakerLabel isUser={true}>You</SpeakerLabel>
-        <TranscriptText>
-          I think career development is really important for professionals who
-          want to advance in their field. It requires continuous learning and
-          adapting to new challenges in the workplace.
-        </TranscriptText>
-      </TranscriptSegment>
-
-      <TranscriptSegment isUser={false}>
-        <SpeakerLabel isUser={false}>AI</SpeakerLabel>
-        <TranscriptText>
-          I completely agree. What specific strategies do you think are most
-          effective for career growth?
-        </TranscriptText>
-      </TranscriptSegment>
-
-      <TranscriptSegment isUser={true}>
-        <SpeakerLabel isUser={true}>You</SpeakerLabel>
-        <TranscriptText>
-          Well, I believe networking is crucial. Building relationships with
-          colleagues and industry professionals can open up new opportunities.
-          Also, seeking feedback and being open to constructive criticism helps
-          us grow.
-        </TranscriptText>
-      </TranscriptSegment>
-
-      <TranscriptSegment isUser={false}>
-        <SpeakerLabel isUser={false}>AI</SpeakerLabel>
-        <TranscriptText>
-          That's a great point about feedback. How do you handle situations
-          where the feedback is difficult to hear?
-        </TranscriptText>
-      </TranscriptSegment>
-
-      <TranscriptSegment isUser={true}>
-        <SpeakerLabel isUser={true}>You</SpeakerLabel>
-        <TranscriptText>
-          It's challenging, but I try to approach it with an open mind. I remind
-          myself that the goal is improvement, not personal criticism. Taking
-          time to reflect on the feedback before responding emotionally is
-          important.
-        </TranscriptText>
-      </TranscriptSegment>
-    </TranscriptSection>
-  );
+          Session Transcript
+        </SectionTitle>
+        {hasTranscript ? (
+          <>
+            <ChartDescription style={{ textAlign: "left", marginBottom: "2rem" }}>
+              Review your conversation with detailed analysis. Areas for improvement
+              are highlighted below.
+            </ChartDescription>
+            {currentSession!.transcript.map((segment, index) => (
+              <TranscriptSegment key={index} isUser={segment.speaker === "user"}>
+                <SpeakerLabel isUser={segment.speaker === "user"}>
+                  {segment.speaker === "user" ? "You" : "AI"}
+                </SpeakerLabel>
+                <TranscriptText>{segment.text}</TranscriptText>
+              </TranscriptSegment>
+            ))}
+          </>
+        ) : (
+          <EmptyState>
+            <EmptyStateIcon>💬</EmptyStateIcon>
+            <EmptyStateTitle>No Transcript Available</EmptyStateTitle>
+            <EmptyStateMessage>
+              Complete a speaking session to view your detailed conversation transcript and analysis.
+            </EmptyStateMessage>
+          </EmptyState>
+        )}
+      </TranscriptSection>
+    );
+  };
 
   return (
     <Container>
       <Header>
         <Title>Speaking Analytics</Title>
-        <Subtitle>
-          Comprehensive analysis of your English speaking performance
-        </Subtitle>
-        <SessionMetaData>
-          <MetaItem>
-            <div className="label">Session Date</div>
-            <div className="value">
-              {new Date(currentSession.date).toLocaleDateString()}
-            </div>
-          </MetaItem>
-          <MetaItem>
-            <div className="label">Topic 1</div>
-            <div className="value">{currentSession.topic1}</div>
-          </MetaItem>
-          <MetaItem>
-            <div className="label">Topic 2</div>
-            <div className="value">{currentSession.topic2}</div>
-          </MetaItem>
-        </SessionMetaData>
+        {currentSession && (
+          <SessionMetaData>
+            <MetaItem>
+              <div className="label">Session Date</div>
+              <div className="value">
+                {new Date(currentSession.date).toLocaleDateString()}
+              </div>
+            </MetaItem>
+            <MetaItem>
+              <div className="label">Topic 1</div>
+              <div className="value">{currentSession.topic1}</div>
+            </MetaItem>
+            <MetaItem>
+              <div className="label">Topic 2</div>
+              <div className="value">{currentSession.topic2}</div>
+            </MetaItem>
+          </SessionMetaData>
+        )}
       </Header>
 
       <TabNavigation>

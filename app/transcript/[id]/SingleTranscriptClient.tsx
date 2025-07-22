@@ -953,6 +953,223 @@ const DropdownItem = styled.button`
   }
 `;
 
+// Speaking Metrics styled components
+const MetricsContainer = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+`;
+
+const MetricsHeader = styled.div`
+  padding: 1rem 1.5rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background: #f8fafc;
+  }
+`;
+
+const MetricsTitle = styled.h3`
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const MetricsToggle = styled.span<{ $isOpen: boolean }>`
+  font-size: 1.2rem;
+  color: #64748b;
+  transform: ${props => props.$isOpen ? 'rotate(180deg)' : 'rotate(0deg)'};
+  transition: transform 0.2s ease;
+`;
+
+const MetricsContent = styled.div<{ $isVisible: boolean }>`
+  max-height: ${props => props.$isVisible ? '600px' : '0'};
+  overflow: ${props => props.$isVisible ? 'auto' : 'hidden'};
+  transition: max-height 0.3s ease;
+  
+  /* Custom scrollbar styling for better UX */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #94a3b8;
+    }
+  }
+  
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+`;
+
+const MetricsGrid = styled.div`
+  padding: 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+`;
+
+const SpeakerMetricsCard = styled.div`
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+`;
+
+const SpeakerMetricsHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+`;
+
+const MetricsSpeakerName = styled.div`
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1e293b;
+`;
+
+const MetricsRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+`;
+
+const MetricItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+const MetricLabel = styled.span`
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+`;
+
+const MetricValue = styled.span`
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+`;
+
+const MetricUnit = styled.span`
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin-left: 0.25rem;
+`;
+
+// Qualitative Analysis styled components
+const QualitativeSection = styled.div`
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+`;
+
+const QualitativeSectionTitle = styled.h4`
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const QualitativeGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+`;
+
+const QualitativeCard = styled.div`
+  background: #fafbfc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+`;
+
+const QualitativeHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+`;
+
+const QualitativeTitle = styled.h5`
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+`;
+
+const QualitativeLevel = styled.span<{ $level: string }>`
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  background: ${props => {
+    if (props.$level.includes('6+')) return '#059669';
+    if (props.$level.includes('5')) return '#0891b2';
+    if (props.$level.includes('4')) return '#7c3aed';
+    if (props.$level.includes('3')) return '#ea580c';
+    return '#dc2626';
+  }};
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+`;
+
+const QualitativeScore = styled.div`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5rem;
+`;
+
+const QualitativeDescription = styled.p`
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0 0 0.75rem 0;
+`;
+
+const QualitativeDetails = styled.div`
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.3;
+`;
+
 // Report Dialog styled components
 const ReportDialogOverlay = styled.div`
   position: fixed;
@@ -1467,6 +1684,13 @@ export default function SingleTranscriptClient() {
 
   // Report generation state
   const [showCreateReportDialog, setShowCreateReportDialog] = useState(false);
+
+  // Speaking metrics state
+  const [showMetrics, setShowMetrics] = useState(false);
+
+  // Qualitative analysis state
+  const [qualitativeAnalysis, setQualitativeAnalysis] = useState<Record<string, any>>({});
+  const [isLoadingQualitativeAnalysis, setIsLoadingQualitativeAnalysis] = useState(false);
   const [isGeneratingReports, setIsGeneratingReports] = useState(false);
   const [reports, setReports] = useState<UserSpeakingReport[]>([]);
   const [selectedReport, setSelectedReport] =
@@ -1787,6 +2011,411 @@ export default function SingleTranscriptClient() {
     return colors[speaker as keyof typeof colors] || { avatar: "#6b7280" };
   };
 
+  // Speaking Metrics Calculation Functions
+  const calculateSpeakingMetrics = useMemo(() => {
+    if (filteredFinalTranscript.length === 0) return {};
+
+    const speakerMetrics: Record<string, any> = {};
+    const speakingSegments: Record<string, Array<{startTime: number, endTime: number, words: string[]}>> = {};
+    
+    // Group by speakers and calculate segments
+    filteredFinalTranscript.forEach((result, index) => {
+      if (!result.alternatives || !result.alternatives[0]) return;
+      
+      const word = result.alternatives[0];
+      const speaker = word.speaker || 'UU';
+      const startTime = result.start_time || 0;
+      const endTime = result.end_time || startTime + 0.5; // Default 0.5s if no end time
+      const content = word.content || '';
+      
+      if (!speakingSegments[speaker]) {
+        speakingSegments[speaker] = [];
+      }
+      
+      // Check if this continues the current segment (same speaker within 2 seconds)
+      const lastSegment = speakingSegments[speaker][speakingSegments[speaker].length - 1];
+      if (lastSegment && (startTime - lastSegment.endTime) <= 2) {
+        // Continue existing segment
+        lastSegment.endTime = endTime;
+        lastSegment.words.push(content);
+      } else {
+        // Start new segment
+        speakingSegments[speaker].push({
+          startTime,
+          endTime,
+          words: [content]
+        });
+      }
+    });
+
+    // Calculate metrics for each speaker
+    Object.keys(speakingSegments).forEach(speaker => {
+      const segments = speakingSegments[speaker];
+      
+      // 1. Total Speaking Time
+      const totalSpeakingTime = segments.reduce((sum, segment) => 
+        sum + (segment.endTime - segment.startTime), 0
+      );
+      
+      // 3. Speaking Turn Count
+      const speakingTurns = segments.length;
+      
+      // 4. Average Speaking Duration
+      const avgSpeakingDuration = speakingTurns > 0 ? totalSpeakingTime / speakingTurns : 0;
+      
+      // 5. Longest Speaking Turn
+      const longestSpeakingTurn = segments.length > 0 ? 
+        Math.max(...segments.map(seg => seg.endTime - seg.startTime)) : 0;
+      
+      // Get all words for this speaker
+      const allWords = segments.flatMap(seg => seg.words).filter(word => word.trim().length > 0);
+      const totalWords = allWords.length;
+      
+      // 6. Unique Words Used / Lexical Diversity
+      const wordsLowerCase = allWords.map(word => 
+        word.toLowerCase().replace(/[^\w\s]/g, '') // Remove punctuation
+      ).filter(word => word.length > 0);
+      
+      const uniqueWords = new Set(wordsLowerCase);
+      const lexicalDiversity = totalWords > 0 ? (uniqueWords.size / totalWords) * 100 : 0;
+      
+      // 7. Questions Asked
+      const allText = segments.map(seg => seg.words.join(' ')).join(' ');
+      const questionMarks = (allText.match(/\?/g) || []).length;
+      const questionWords = ['who', 'what', 'when', 'where', 'why', 'how', 'do', 'did', 'can', 'could', 'would', 'will', 'should', 'is', 'are', 'was', 'were'];
+      const questionStarters = questionWords.reduce((count, qWord) => {
+        const regex = new RegExp(`\\b${qWord}\\b`, 'gi');
+        const matches = allText.match(regex) || [];
+        return count + matches.length;
+      }, 0);
+      const questionsAsked = questionMarks + Math.floor(questionStarters / 3); // Rough estimate
+      
+      speakerMetrics[speaker] = {
+        totalSpeakingTime: Math.round(totalSpeakingTime * 10) / 10, // Round to 1 decimal
+        speakingTurns,
+        avgSpeakingDuration: Math.round(avgSpeakingDuration * 10) / 10,
+        longestSpeakingTurn: Math.round(longestSpeakingTurn * 10) / 10,
+        totalWords,
+        uniqueWords: uniqueWords.size,
+        lexicalDiversity: Math.round(lexicalDiversity * 10) / 10,
+        questionsAsked
+      };
+    });
+
+    // 2. Calculate Speaking Time Share (%)
+    const totalSessionTime = Object.values(speakerMetrics).reduce((sum: number, metrics: any) => 
+      sum + metrics.totalSpeakingTime, 0
+    );
+    
+    Object.keys(speakerMetrics).forEach(speaker => {
+      const timeShare = totalSessionTime > 0 ? 
+        (speakerMetrics[speaker].totalSpeakingTime / totalSessionTime) * 100 : 0;
+      speakerMetrics[speaker].speakingTimeShare = Math.round(timeShare * 10) / 10;
+    });
+
+    return speakerMetrics;
+  }, [filteredFinalTranscript]);
+
+  // Analysis helper functions (defined before the useMemo to avoid hoisting issues)
+  const getComplexityLevel = (score: number) => {
+    if (score >= 80) return 'C6+';
+    if (score >= 70) return 'C5';
+    if (score >= 60) return 'C4';
+    if (score >= 50) return 'C3';
+    if (score >= 40) return 'C2';
+    return 'C1';
+  };
+
+  const getAccuracyLevel = (score: number) => {
+    if (score >= 85) return 'A6+';
+    if (score >= 75) return 'A5';
+    if (score >= 65) return 'A4';
+    if (score >= 55) return 'A3';
+    if (score >= 45) return 'A2';
+    return 'A1';
+  };
+
+  const getFluencyLevel = (score: number) => {
+    if (score >= 80) return 'F6+';
+    if (score >= 70) return 'F5';
+    if (score >= 60) return 'F4';
+    if (score >= 50) return 'F3';
+    if (score >= 40) return 'F2';
+    return 'F1';
+  };
+
+  const getComplexityDescription = (level: string, score: number) => {
+    if (level.includes('6+')) return '상위 25% 수준 - 주제에 대해 길고 분명하게 전달할 만큼의 어휘력 보유';
+    if (level.includes('5')) return '고급 수준 - 다양하고 정교한 어휘 구사';
+    if (level.includes('4')) return '중상급 수준 - 적절한 어휘 선택과 문장 구성';
+    if (level.includes('3')) return '중급 수준 - 기본적인 복잡성 표현 가능';
+    return '초급 수준 - 단순한 어휘와 문장 구조 사용';
+  };
+
+  const getAccuracyDescription = (level: string, score: number) => {
+    if (level.includes('6+')) return '상위 20% 수준 - 복잡한 문법 구조 혼합 사용, 고급 문법에서 간헐적 실수';
+    if (level.includes('5')) return '고급 수준 - 대부분의 문법 구조를 정확하게 사용';
+    if (level.includes('4')) return '중상급 수준 - 기본 문법은 안정적, 복잡한 구조에서 실수';
+    if (level.includes('3')) return '중급 수준 - 문법적 정확성에 개선 여지';
+    return '초급 수준 - 기본 문법 학습 필요';
+  };
+
+  const getFluencyDescription = (level: string, score: number) => {
+    if (level.includes('6+')) return '상위 20% 수준 - 불편함 없이 영어 대화 가능, 자연스러운 속도와 흐름';
+    if (level.includes('5')) return '고급 수준 - 대체로 자연스러운 말하기, 가끔 망설임';
+    if (level.includes('4')) return '중상급 수준 - 의사소통 가능하나 간헐적 정체';
+    if (level.includes('3')) return '중급 수준 - 말하기 속도와 유창함 개선 필요';
+    return '초급 수준 - 말하기 연습과 속도 향상 필요';
+  };
+
+  // Analysis functions (defined before the useMemo that uses them)
+  const analyzeComplexity = (text: string, metrics: any) => {
+    const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    
+    // Vocabulary difficulty (basic heuristic - can be enhanced with AI)
+    const complexWords = words.filter(word => word.length > 6).length;
+    const vocabularyDifficulty = words.length > 0 ? (complexWords / words.length) * 100 : 0;
+    
+    // Sentence variety (simple heuristic)
+    const avgSentenceLength = sentences.length > 0 ? words.length / sentences.length : 0;
+    const sentenceVariety = Math.min((avgSentenceLength / 15) * 100, 100);
+    
+    // Vocabulary diversity (already calculated)
+    const vocabularyDiversity = metrics.lexicalDiversity || 0;
+    
+    // Overall complexity score (weighted average)
+    const complexityScore = Math.round(
+      (vocabularyDifficulty * 0.4 + sentenceVariety * 0.3 + vocabularyDiversity * 0.3)
+    );
+    
+    const level = getComplexityLevel(complexityScore);
+    const description = getComplexityDescription(level, complexityScore);
+    
+    return {
+      score: complexityScore,
+      level,
+      description,
+      details: {
+        vocabularyDifficulty: Math.round(vocabularyDifficulty),
+        sentenceVariety: Math.round(sentenceVariety),
+        vocabularyDiversity: Math.round(vocabularyDiversity)
+      }
+    };
+  };
+
+  const analyzeAccuracy = (text: string) => {
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    
+    // Basic grammar error detection (placeholder - will be enhanced with AI)
+    const commonErrors = [
+      /\ba\s+[aeiou]/gi, // a + vowel sound
+      /\ban\s+[^aeiou]/gi, // an + consonant sound
+      /\bdon't\s+never\b/gi, // double negative
+      /\bmore\s+better\b/gi, // double comparative
+      /\bmuch\s+many\b/gi, // countable/uncountable confusion
+    ];
+    
+    let errorCount = 0;
+    commonErrors.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) errorCount += matches.length;
+    });
+    
+    // Calculate accuracy score
+    const errorRate = words.length > 0 ? (errorCount / words.length) * 100 : 0;
+    const accuracyScore = Math.max(0, Math.round(100 - (errorRate * 10)));
+    
+    const level = getAccuracyLevel(accuracyScore);
+    const description = getAccuracyDescription(level, accuracyScore);
+    
+    return {
+      score: accuracyScore,
+      level,
+      description,
+      details: {
+        totalWords: words.length,
+        detectedErrors: errorCount,
+        errorRate: Math.round(errorRate * 100) / 100
+      }
+    };
+  };
+
+  const analyzeFluency = (text: string, metrics: any) => {
+    const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    
+    // Filler words detection
+    const fillerWords = ['um', 'uh', 'er', 'ah', 'like', 'you know', 'actually', 'basically'];
+    const fillerCount = words.filter(word => 
+      fillerWords.some(filler => word.includes(filler))
+    ).length;
+    
+    // Word repetition analysis
+    const wordCounts = words.reduce((acc: Record<string, number>, word) => {
+      acc[word] = (acc[word] || 0) + 1;
+      return acc;
+    }, {});
+    
+    const repetitions = Object.values(wordCounts).filter(count => count > 2).length;
+    
+    // Speaking rate analysis (from existing metrics)
+    const avgSpeakingRate = metrics.totalWords && metrics.totalSpeakingTime ? 
+      (metrics.totalWords / metrics.totalSpeakingTime) * 60 : 0; // words per minute
+    
+    // Calculate fluency score
+    const fillerPenalty = words.length > 0 ? (fillerCount / words.length) * 30 : 0;
+    const repetitionPenalty = words.length > 0 ? (repetitions / words.length) * 20 : 0;
+    const rateScore = Math.min((avgSpeakingRate / 150) * 50, 50); // optimal rate ~150 WPM
+    
+    const fluencyScore = Math.max(0, Math.round(
+      100 - fillerPenalty - repetitionPenalty + rateScore - 50
+    ));
+    
+    const level = getFluencyLevel(fluencyScore);
+    const description = getFluencyDescription(level, fluencyScore);
+    
+    return {
+      score: fluencyScore,
+      level,
+      description,
+      details: {
+        speakingRate: Math.round(avgSpeakingRate),
+        fillerWords: fillerCount,
+        repetitions,
+        fillerPercentage: words.length > 0 ? Math.round((fillerCount / words.length) * 100) : 0
+      }
+    };
+  };
+
+  // Async Qualitative Analysis with OpenAI GPT-4o-mini
+  const generateQualitativeAnalysis = useCallback(async () => {
+    if (filteredFinalTranscript.length === 0 || Object.keys(calculateSpeakingMetrics).length === 0) {
+      return;
+    }
+
+    setIsLoadingQualitativeAnalysis(true);
+    
+    try {
+      const speakerAnalysis: Record<string, any> = {};
+      
+      // Process each speaker
+      for (const speaker of Object.keys(calculateSpeakingMetrics)) {
+        const speakerSegments = filteredFinalTranscript.filter(result => 
+          result.alternatives?.[0]?.speaker === speaker
+        );
+        
+        const allText = speakerSegments
+          .map(result => result.alternatives?.[0]?.content || '')
+          .join(' ');
+        
+        if (!allText.trim() || allText.split(' ').length < 10) {
+          speakerAnalysis[speaker] = {
+            complexity: { score: 0, level: 'N/A', description: 'Insufficient data for AI analysis' },
+            accuracy: { score: 0, level: 'N/A', description: 'Insufficient data for AI analysis' },
+            fluency: { score: 0, level: 'N/A', description: 'Insufficient data for AI analysis' }
+          };
+          continue;
+        }
+
+        // Call OpenAI API for each speaker
+        const analysis = await analyzeWithOpenAI(allText, calculateSpeakingMetrics[speaker]);
+        speakerAnalysis[speaker] = analysis;
+      }
+      
+      setQualitativeAnalysis(speakerAnalysis);
+    } catch (error) {
+      console.error('Error generating qualitative analysis:', error);
+      // Fallback to basic analysis if API fails
+      const fallbackAnalysis = generateFallbackAnalysis();
+      setQualitativeAnalysis(fallbackAnalysis);
+    } finally {
+      setIsLoadingQualitativeAnalysis(false);
+    }
+  }, [filteredFinalTranscript, calculateSpeakingMetrics]);
+
+  // OpenAI API call function
+  const analyzeWithOpenAI = async (text: string, metrics: any) => {
+    const prompt = `Analyze this English speaking sample for a Korean learner. Provide scores (0-100) and levels for:
+
+1. COMPLEXITY (복잡성) - C1 to C6+ levels:
+- Vocabulary difficulty and variety
+- Sentence structure sophistication
+- Topic development depth
+
+2. ACCURACY (정확성) - A1 to A6+ levels:  
+- Grammar correctness
+- Proper word usage
+- Error frequency
+
+3. FLUENCY (유창성) - F1 to F6+ levels:
+- Speaking pace and rhythm
+- Hesitations and fillers
+- Natural flow
+
+Speaking sample: "${text}"
+Word count: ${metrics.totalWords}
+Speaking time: ${metrics.totalSpeakingTime}s
+Speaking rate: ${Math.round((metrics.totalWords / metrics.totalSpeakingTime) * 60)} WPM
+
+Respond in JSON format:
+{
+  "complexity": {"score": 0-100, "level": "C1-C6+", "description": "Korean description"},
+  "accuracy": {"score": 0-100, "level": "A1-A6+", "description": "Korean description"}, 
+  "fluency": {"score": 0-100, "level": "F1-F6+", "description": "Korean description"}
+}`;
+
+    const response = await fetch('/api/analyze-speech', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        model: 'gpt-4o-mini'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result.analysis;
+  };
+
+  // Fallback analysis function (uses existing local analysis)
+  const generateFallbackAnalysis = () => {
+    const speakerAnalysis: Record<string, any> = {};
+    
+    Object.keys(calculateSpeakingMetrics).forEach(speaker => {
+      const speakerSegments = filteredFinalTranscript.filter(result => 
+        result.alternatives?.[0]?.speaker === speaker
+      );
+      
+      const allText = speakerSegments
+        .map(result => result.alternatives?.[0]?.content || '')
+        .join(' ');
+      
+      if (!allText.trim()) {
+        speakerAnalysis[speaker] = {
+          complexity: { score: 0, level: 'N/A', description: 'Insufficient data' },
+          accuracy: { score: 0, level: 'N/A', description: 'Insufficient data' },
+          fluency: { score: 0, level: 'N/A', description: 'Insufficient data' }
+        };
+        return;
+      }
+
+      // Use existing local analysis as fallback
+      const complexity = analyzeComplexity(allText, calculateSpeakingMetrics[speaker]);
+      const accuracy = analyzeAccuracy(allText);
+      const fluency = analyzeFluency(allText, calculateSpeakingMetrics[speaker]);
+      
+      speakerAnalysis[speaker] = { complexity, accuracy, fluency };
+    });
+
+    return speakerAnalysis;
+  };
+
   // Check microphone permission on component mount
   useEffect(() => {
     const checkPermission = async () => {
@@ -2101,8 +2730,6 @@ export default function SingleTranscriptClient() {
     // Immediately save transcript when recording stops
     setTimeout(() => {
       saveTranscriptToFirestore();
-      // Show create report dialog after stopping recording
-      setShowCreateReportDialog(true);
     }, 1000); // Give a moment for final transcript to be processed
   };
 
@@ -2574,6 +3201,31 @@ export default function SingleTranscriptClient() {
     isPaused,
   ]);
 
+  // Generate qualitative analysis after transcript data is loaded and stable
+  useEffect(() => {
+    if (
+      filteredFinalTranscript.length > 0 && 
+      Object.keys(calculateSpeakingMetrics).length > 0 &&
+      !isRecording && // Only run when not actively recording
+      !isLoadingQualitativeAnalysis &&
+      Object.keys(qualitativeAnalysis).length === 0 // Only run if not already generated
+    ) {
+      // Delay the analysis to ensure UI has loaded first
+      const analysisTimer = setTimeout(() => {
+        generateQualitativeAnalysis();
+      }, 1000);
+
+      return () => clearTimeout(analysisTimer);
+    }
+  }, [
+    filteredFinalTranscript.length,
+    calculateSpeakingMetrics,
+    isRecording,
+    isLoadingQualitativeAnalysis,
+    qualitativeAnalysis,
+    generateQualitativeAnalysis
+  ]);
+
   const formatTime = (time: number): string => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
@@ -2989,6 +3641,208 @@ export default function SingleTranscriptClient() {
         </Controls>
       </Header>
 
+      {/* Speaking Metrics Display */}
+      {Object.keys(calculateSpeakingMetrics).length > 0 && (
+        <MetricsContainer>
+          <MetricsHeader onClick={() => setShowMetrics(!showMetrics)}>
+            <MetricsTitle>
+              📊 Speaking Metrics
+              <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#64748b' }}>
+                ({Object.keys(calculateSpeakingMetrics).length} speakers)
+              </span>
+            </MetricsTitle>
+            <MetricsToggle $isOpen={showMetrics}>▼</MetricsToggle>
+          </MetricsHeader>
+          <MetricsContent $isVisible={showMetrics}>
+            <MetricsGrid>
+              {Object.entries(calculateSpeakingMetrics).map(([speakerId, metrics]) => {
+                const speakerInfo = getSpeakerDisplayInfo(speakerId);
+                const speakerColor = getSpeakerColor(speakerId);
+                
+                return (
+                  <SpeakerMetricsCard key={speakerId}>
+                    <SpeakerMetricsHeader>
+                      {speakerInfo.isAssigned && speakerInfo.avatar ? (
+                        <UserAvatar
+                          uid={speakerInfo.avatar}
+                          size={32}
+                          isLeader={speakerInfo.isLeader}
+                        />
+                      ) : (
+                        <SpeakerAvatar
+                          $bgColor={speakerColor.avatar}
+                          $textColor="#ffffff"
+                          style={{ width: '32px', height: '32px', fontSize: '0.875rem' }}
+                        >
+                          {speakerId === 'UU' ? 'U' : speakerId.slice(1)}
+                        </SpeakerAvatar>
+                      )}
+                      <MetricsSpeakerName>{speakerInfo.name}</MetricsSpeakerName>
+                    </SpeakerMetricsHeader>
+                    
+                    <MetricsRow>
+                      <MetricItem>
+                        <MetricLabel>Total Speaking Time</MetricLabel>
+                        <MetricValue>
+                          {metrics.totalSpeakingTime}
+                          <MetricUnit>sec</MetricUnit>
+                        </MetricValue>
+                      </MetricItem>
+                      <MetricItem>
+                        <MetricLabel>Speaking Time Share</MetricLabel>
+                        <MetricValue>
+                          {metrics.speakingTimeShare}
+                          <MetricUnit>%</MetricUnit>
+                        </MetricValue>
+                      </MetricItem>
+                      <MetricItem>
+                        <MetricLabel>Speaking Turns</MetricLabel>
+                        <MetricValue>{metrics.speakingTurns}</MetricValue>
+                      </MetricItem>
+                      <MetricItem>
+                        <MetricLabel>Avg. Turn Duration</MetricLabel>
+                        <MetricValue>
+                          {metrics.avgSpeakingDuration}
+                          <MetricUnit>sec</MetricUnit>
+                        </MetricValue>
+                      </MetricItem>
+                    </MetricsRow>
+                    
+                    <MetricsRow>
+                      <MetricItem>
+                        <MetricLabel>Longest Turn</MetricLabel>
+                        <MetricValue>
+                          {metrics.longestSpeakingTurn}
+                          <MetricUnit>sec</MetricUnit>
+                        </MetricValue>
+                      </MetricItem>
+                      <MetricItem>
+                        <MetricLabel>Total Words</MetricLabel>
+                        <MetricValue>{metrics.totalWords}</MetricValue>
+                      </MetricItem>
+                      <MetricItem>
+                        <MetricLabel>Unique Words</MetricLabel>
+                        <MetricValue>
+                          {metrics.uniqueWords}
+                          <MetricUnit>({metrics.lexicalDiversity}% diversity)</MetricUnit>
+                        </MetricValue>
+                      </MetricItem>
+                      <MetricItem>
+                        <MetricLabel>Questions Asked</MetricLabel>
+                        <MetricValue>{metrics.questionsAsked}</MetricValue>
+                      </MetricItem>
+                    </MetricsRow>
+
+                    {/* Qualitative Analysis Section */}
+                    <QualitativeSection>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                        <QualitativeSectionTitle style={{ marginBottom: 0 }}>
+                          🎯 AI-Powered Qualitative Analysis
+                          {isLoadingQualitativeAnalysis && (
+                            <span style={{ fontSize: '0.8rem', fontWeight: 400, color: '#6b7280', marginLeft: '0.5rem' }}>
+                              (Analyzing with GPT-4o-mini...)
+                            </span>
+                          )}
+                        </QualitativeSectionTitle>
+                        {!isLoadingQualitativeAnalysis && filteredFinalTranscript.length > 0 && (
+                          <ToggleButton
+                            $active={false}
+                            onClick={generateQualitativeAnalysis}
+                            title="Regenerate AI analysis"
+                            style={{ fontSize: '0.8rem', padding: '0.5rem 1rem' }}
+                          >
+                            🔄 Refresh Analysis
+                          </ToggleButton>
+                        )}
+                      </div>
+                      
+                      {isLoadingQualitativeAnalysis ? (
+                        <div style={{ 
+                          display: 'flex', 
+                          justifyContent: 'center', 
+                          alignItems: 'center', 
+                          padding: '3rem', 
+                          color: '#6b7280' 
+                        }}>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🤖</div>
+                            <div>AI is analyzing speaking patterns...</div>
+                            <div style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                              This may take a few moments
+                            </div>
+                          </div>
+                        </div>
+                      ) : qualitativeAnalysis[speakerId] ? (
+                        <QualitativeGrid>
+                          {/* Complexity */}
+                          <QualitativeCard>
+                            <QualitativeHeader>
+                              <QualitativeTitle>Complexity | 복잡성</QualitativeTitle>
+                              <QualitativeLevel $level={qualitativeAnalysis[speakerId].complexity.level}>
+                                {qualitativeAnalysis[speakerId].complexity.level}
+                              </QualitativeLevel>
+                            </QualitativeHeader>
+                            <QualitativeScore>
+                              {qualitativeAnalysis[speakerId].complexity.score}/100
+                            </QualitativeScore>
+                            <QualitativeDescription>
+                              {qualitativeAnalysis[speakerId].complexity.description}
+                            </QualitativeDescription>
+                          </QualitativeCard>
+
+                          {/* Accuracy */}
+                          <QualitativeCard>
+                            <QualitativeHeader>
+                              <QualitativeTitle>Accuracy | 정확성</QualitativeTitle>
+                              <QualitativeLevel $level={qualitativeAnalysis[speakerId].accuracy.level}>
+                                {qualitativeAnalysis[speakerId].accuracy.level}
+                              </QualitativeLevel>
+                            </QualitativeHeader>
+                            <QualitativeScore>
+                              {qualitativeAnalysis[speakerId].accuracy.score}/100
+                            </QualitativeScore>
+                            <QualitativeDescription>
+                              {qualitativeAnalysis[speakerId].accuracy.description}
+                            </QualitativeDescription>
+                          </QualitativeCard>
+
+                          {/* Fluency */}
+                          <QualitativeCard>
+                            <QualitativeHeader>
+                              <QualitativeTitle>Fluency | 유창성</QualitativeTitle>
+                              <QualitativeLevel $level={qualitativeAnalysis[speakerId].fluency.level}>
+                                {qualitativeAnalysis[speakerId].fluency.level}
+                              </QualitativeLevel>
+                            </QualitativeHeader>
+                            <QualitativeScore>
+                              {qualitativeAnalysis[speakerId].fluency.score}/100
+                            </QualitativeScore>
+                            <QualitativeDescription>
+                              {qualitativeAnalysis[speakerId].fluency.description}
+                            </QualitativeDescription>
+                          </QualitativeCard>
+                        </QualitativeGrid>
+                      ) : (
+                        <div style={{ 
+                          display: 'flex', 
+                          justifyContent: 'center', 
+                          alignItems: 'center', 
+                          padding: '2rem', 
+                          color: '#9ca3af',
+                          fontStyle: 'italic'
+                        }}>
+                          Complete recording to generate AI analysis
+                        </div>
+                      )}
+                    </QualitativeSection>
+                  </SpeakerMetricsCard>
+                );
+              })}
+            </MetricsGrid>
+          </MetricsContent>
+        </MetricsContainer>
+      )}
+
       <Content>
         {speechmaticsError && <ErrorMessage>{speechmaticsError}</ErrorMessage>}
 
@@ -3111,7 +3965,7 @@ export default function SingleTranscriptClient() {
                         onClick={() => setShowCreateReportDialog(true)}
                         title="Generate speaking analysis reports"
                       >
-                        📊 Reports
+                        📊 Create & Show Reports
                       </ToggleButton>
                     )}
                   <ToggleButton
