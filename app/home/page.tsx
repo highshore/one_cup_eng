@@ -21,17 +21,17 @@ export default async function HomePage() {
 // Generate metadata for SEO
 export async function generateMetadata() {
   return {
-    title: "영어 한잔 | 실전 영어 학습 플랫폼",
+    title: "영어 한잔 | 오프라인 실전 영어",
     description:
       "매주 영어 모임으로 실전 회화 연습하고, 매일 영어 아티클로 어휘력을 늘려보세요.",
     keywords:
       "영어 학습, 영어 회화, 영어 모임, 영어 뉴스, 영어 공부, 영어 한잔",
     openGraph: {
-      title: "영어 한잔 | 실전 영어 학습 플랫폼",
+      title: "영어 한잔 | 오프라인 실전 영어",
       description:
         "매주 영어 모임으로 실전 회화 연습하고, 매일 영어 아티클로 어휘력을 늘려보세요.",
       type: "website",
-      url: "https://one-cup-eng.web.app",
+      url: "https://1cupenglish.com",
       images: [
         {
           url: "/images/logos/1cup_logo.jpg",
@@ -43,7 +43,7 @@ export async function generateMetadata() {
     },
     twitter: {
       card: "summary_large_image",
-      title: "영어 한잔 | 실전 영어 학습 플랫폼",
+      title: "영어 한잔 | 오프라인 실전 영어",
       description:
         "매주 영어 모임으로 실전 회화 연습하고, 매일 영어 아티클로 어휘력을 늘려보세요.",
       images: ["/images/logos/1cup_logo.jpg"],

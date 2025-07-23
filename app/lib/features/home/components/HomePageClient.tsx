@@ -911,7 +911,7 @@ export default function HomePageClient({
       {/* Features Section */}
       <FeaturesSection>
         <SectionTitle>
-          매주 일요일 15시 30분,
+          매주 일요일 오전 11시,
           <br />
           <span style={{ fontWeight: 600 }}>
             통역사 출신이 리딩하는 영어 모임
