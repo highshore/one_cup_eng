@@ -137,7 +137,7 @@ const BlogBannerContent = styled.div`
 
 const BlogBannerText = styled.div`
   flex: 1;
-  color: ${(props) => (props.theme?.imageUrl ? "white" : "#333")};
+  color: #333;
 `;
 
 const BlogBannerLabel = styled.div`
@@ -154,15 +154,14 @@ const BlogBannerLabel = styled.div`
   }
 `;
 
-const BlogBannerTitle = styled.h3`
+const BlogBannerTitle = styled.h3<{ $imageUrl?: string }>`
   font-size: 1.1rem;
   font-weight: 600;
-  color: ${(props) => (props.theme?.imageUrl ? "white" : "#000")};
+  color: ${(props) => (props.$imageUrl ? "white" : "#000")};
   margin: 0;
   line-height: 1.3;
   word-wrap: break-word;
-  ${(props) =>
-    props.theme?.imageUrl && "text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"};
+  ${(props) => props.$imageUrl && "text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"};
 
   @media (max-width: 768px) {
     font-size: 1rem;
@@ -244,9 +243,9 @@ const BlogPostCardContent = styled.div`
   }
 `;
 
-const BlogPostCardText = styled.div`
+const BlogPostCardText = styled.div<{ $imageUrl?: string }>`
   flex: 1;
-  color: ${(props) => (props.theme?.imageUrl ? "white" : "#333")};
+  color: ${(props) => (props.$imageUrl ? "white" : "#333")};
 `;
 
 const BlogPostCardLabel = styled.div`
@@ -263,10 +262,10 @@ const BlogPostCardLabel = styled.div`
   }
 `;
 
-const BlogPostCardTitle = styled.h3`
+const BlogPostCardTitle = styled.h3<{ $imageUrl?: string }>`
   font-size: 1.2rem;
   font-weight: 600;
-  color: ${(props) => (props.theme?.imageUrl ? "white" : "#000")};
+  color: ${(props) => (props.$imageUrl ? "white" : "#000")};
   margin: 0;
   line-height: 1.3;
   word-wrap: break-word;
@@ -274,8 +273,7 @@ const BlogPostCardTitle = styled.h3`
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  ${(props) =>
-    props.theme?.imageUrl && "text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"};
+  ${(props) => props.$imageUrl && "text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);"};
 
   @media (max-width: 768px) {
     font-size: 0.8rem;
@@ -707,9 +705,9 @@ const MeetupClient: React.FC = () => {
             onClick={() => handleBlogClick(post)}
           >
             <BlogPostCardContent>
-              <BlogPostCardText theme={{ imageUrl: post.featuredImage }}>
+              <BlogPostCardText $imageUrl={post.featuredImage}>
                 <BlogPostCardLabel>Blog Post</BlogPostCardLabel>
-                <BlogPostCardTitle theme={{ imageUrl: post.featuredImage }}>
+                <BlogPostCardTitle $imageUrl={post.featuredImage}>
                   {post.title}
                 </BlogPostCardTitle>
               </BlogPostCardText>

@@ -62,6 +62,11 @@
     "globals": "^15.15.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
-    "vercel": "^41.0.2"
+    "vercel": "^44.6.3"
+  },
+  "overrides": {
+    "esbuild": "^0.25.8",
+    "path-to-regexp": "^8.2.0",
+    "undici": "^7.12.0"
   }
 }

@@ -1651,6 +1651,9 @@ interface SpeakingAnalysisRequest {
   transcriptId: string;
   speakerMappings: Record<string, string>; // speaker ID -> participant UID
   transcriptContent: any[];
+  analysisType?: "simple" | "comprehensive"; // New parameter for analysis type
+  prompt?: string; // For simple analysis
+  model?: string; // For simple analysis
 }
 
 interface UserSpeakingReport {
@@ -1705,13 +1708,10 @@ export const generateSpeakingReports = onCall(
       transcriptId,
       speakerMappings,
       transcriptContent,
+      analysisType = "comprehensive",
+      prompt,
+      model = "gpt-4o-mini",
     }: SpeakingAnalysisRequest = request.data;
-
-    if (!transcriptId || !speakerMappings || !transcriptContent) {
-      throw new Error(
-        "Missing required parameters: transcriptId, speakerMappings, or transcriptContent"
-      );
-    }
 
     // Initialize OpenAI client inside the function
     const apiKey =
@@ -1723,6 +1723,77 @@ export const generateSpeakingReports = onCall(
     const openai = new OpenAI({
       apiKey: apiKey,
     });
+
+    // Handle simple analysis (replaces the old API route)
+    if (analysisType === "simple") {
+      if (!prompt) {
+        throw new Error("Prompt is required for simple analysis");
+      }
+
+      try {
+        logger.info("Starting simple speech analysis");
+
+        const completion = await openai.chat.completions.create({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an expert English language assessment AI specializing in analyzing Korean learners' speaking skills. Provide precise, professional evaluations using the specified scoring system and respond only in valid JSON format.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.3, // Lower temperature for more consistent scoring
+          max_tokens: 800,
+          response_format: { type: "json_object" },
+        });
+
+        const analysisContent = completion.choices[0]?.message?.content;
+        if (!analysisContent) {
+          throw new Error("No analysis content received from OpenAI");
+        }
+
+        // Parse the JSON response from OpenAI
+        let analysis;
+        try {
+          analysis = JSON.parse(analysisContent);
+        } catch (parseError) {
+          logger.error("Failed to parse OpenAI response:", analysisContent);
+          throw new Error("Invalid response format from OpenAI");
+        }
+
+        // Validate the analysis structure
+        if (!analysis.complexity || !analysis.accuracy || !analysis.fluency) {
+          logger.error("Invalid analysis structure:", analysis);
+          throw new Error("Invalid analysis structure received");
+        }
+
+        logger.info("Simple speech analysis completed successfully");
+        return {
+          success: true,
+          analysis,
+          model: model,
+          usage: completion.usage,
+        };
+      } catch (error) {
+        logger.error("Error in simple speech analysis:", error);
+        throw new Error(
+          `Simple analysis failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      }
+    }
+
+    // Handle comprehensive analysis (original logic)
+    if (!transcriptId || !speakerMappings || !transcriptContent) {
+      throw new Error(
+        "Missing required parameters for comprehensive analysis: transcriptId, speakerMappings, or transcriptContent"
+      );
+    }
 
     try {
       logger.info(`Starting report generation for transcript ${transcriptId}`);

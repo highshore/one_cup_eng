@@ -1813,6 +1813,17 @@ export function EventDetailClient() {
     }
 
     if (isCurrentUserParticipant) {
+      // Check if event is locked down - prevent cancellation after lockdown
+      const lockStatus = isEventLocked(event);
+      if (lockStatus.isLocked && lockStatus.reason === "lockdown") {
+        alert("모집 마감 시간이 지나 더 이상 참가를 취소할 수 없습니다.");
+        return;
+      }
+      if (lockStatus.isLocked && lockStatus.reason === "started") {
+        alert("이미 시작된 모임의 참가를 취소할 수 없습니다.");
+        return;
+      }
+
       try {
         await cancelParticipation(event.id, currentUser.uid);
         alert("밋업 참가가 취소되었습니다.");
@@ -1912,14 +1923,28 @@ export function EventDetailClient() {
     }
   };
 
-  const handleAvatarClick = (uid: string) => {
+  const handleAvatarClick = async (uid: string) => {
     // Only allow admin actions if user is admin
     if (!isAdmin) return;
 
     if (!event) return;
 
-    // Find user details from seating assignments to show in the dialog
+    // Check if the clicked user is a leader or participant
+    const isLeader = event.leaders.includes(uid);
+    const isParticipant = event.participants.includes(uid);
+
+    if (!isLeader && !isParticipant) return;
+
+    // Don't allow admin to kick themselves out
+    if (currentUser && uid === currentUser.uid) {
+      alert("관리자는 자신을 제거할 수 없습니다.");
+      return;
+    }
+
+    // Fetch user details properly
     let userDetails: UserWithDetails | null = null;
+
+    // First try to find from seating assignments if available
     for (const assignment of seatingAssignments) {
       if (assignment.leaderDetails.uid === uid) {
         userDetails = assignment.leaderDetails;
@@ -1932,16 +1957,23 @@ export function EventDetailClient() {
       }
     }
 
-    // Check if the clicked user is a leader or participant
-    const isLeader = event.leaders.includes(uid);
-    const isParticipant = event.participants.includes(uid);
-
-    if (!isLeader && !isParticipant) return;
-
-    // Don't allow admin to kick themselves out
-    if (currentUser && uid === currentUser.uid) {
-      alert("관리자는 자신을 제거할 수 없습니다.");
-      return;
+    // If not found in seating assignments, fetch directly
+    if (!userDetails) {
+      try {
+        const fetchedDetails = await fetchUserDetails([uid]);
+        if (fetchedDetails.length > 0) {
+          userDetails = fetchedDetails[0];
+        }
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+        // Fallback to basic info
+        userDetails = {
+          uid,
+          displayName: `User ${uid.substring(0, 6)}`,
+          phoneNumber: "",
+          phoneLast4: "",
+        };
+      }
     }
 
     setSelectedUserId(uid);
@@ -2381,12 +2413,16 @@ export function EventDetailClient() {
     new Date(`${event.date}T${event.time}`) < new Date();
 
   // Determine if the button should be disabled
-  // Allow enrolled users to cancel even when event is full
   const shouldDisableButton = () => {
     if (!isLocked) return false;
 
-    // If user is already enrolled, they can always cancel
-    if (isCurrentUserParticipant) return false;
+    // If user is already enrolled, check if they can still cancel
+    if (isCurrentUserParticipant) {
+      // Allow cancellation if event is only full, but not if locked down or started
+      return (
+        lockStatus.reason === "lockdown" || lockStatus.reason === "started"
+      );
+    }
 
     // For non-enrolled users, disable for any lock reason
     return true;
@@ -2406,15 +2442,28 @@ export function EventDetailClient() {
     }
 
     // Button is disabled - show appropriate locked message
-    switch (lockStatus.reason) {
-      case "started":
-        return "모집 종료";
-      case "full":
-        return "참가 인원 초과";
-      case "lockdown":
-        return "모집 종료";
-      default:
-        return "모집 종료";
+    if (isCurrentUserParticipant) {
+      // User is enrolled but can't cancel
+      switch (lockStatus.reason) {
+        case "started":
+          return "참가 확정 (시작됨)";
+        case "lockdown":
+          return "참가 확정 (마감됨)";
+        default:
+          return "참가 확정";
+      }
+    } else {
+      // User is not enrolled and can't join
+      switch (lockStatus.reason) {
+        case "started":
+          return "모집 종료";
+        case "full":
+          return "참가 인원 초과";
+        case "lockdown":
+          return "모집 종료";
+        default:
+          return "모집 종료";
+      }
     }
   };
 

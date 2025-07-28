@@ -413,67 +413,80 @@ export default function ReportClient() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "progress" | "suggestions" | "transcript"
   >("overview");
-  const [currentSession, setCurrentSession] = useState<SessionData | null>(null);
+  const [currentSession, setCurrentSession] = useState<SessionData | null>(
+    null
+  );
   const [sessionHistory, setSessionHistory] = useState<SessionData[]>([]);
-  const [languageSuggestions, setLanguageSuggestions] = useState<LanguageSuggestion[]>([]);
+  const [languageSuggestions, setLanguageSuggestions] = useState<
+    LanguageSuggestion[]
+  >([]);
 
   // Chart data for progress tracking - only create if we have data
-  const progressData = sessionHistory.length > 0 ? {
-    labels: sessionHistory.map((s) => new Date(s.date).toLocaleDateString()),
-    datasets: [
-      {
-        label: "Words per Minute",
-        data: sessionHistory.map((s) => s.wordsPerMinute),
-        borderColor: "#000",
-        backgroundColor: "rgba(0, 0, 0, 0.05)",
-        tension: 0.4,
-        fill: true,
-        borderWidth: 2,
-      },
-      {
-        label: "Overall Score",
-        data: sessionHistory.map((s) => s.overallScore),
-        borderColor: "#374151",
-        backgroundColor: "rgba(55, 65, 81, 0.05)",
-        tension: 0.4,
-        fill: true,
-        borderWidth: 2,
-      },
-    ],
-  } : null;
+  const progressData =
+    sessionHistory.length > 0
+      ? {
+          labels: sessionHistory.map((s) =>
+            new Date(s.date).toLocaleDateString()
+          ),
+          datasets: [
+            {
+              label: "Words per Minute",
+              data: sessionHistory.map((s) => s.wordsPerMinute),
+              borderColor: "#000",
+              backgroundColor: "rgba(0, 0, 0, 0.05)",
+              tension: 0.4,
+              fill: true,
+              borderWidth: 2,
+            },
+            {
+              label: "Overall Score",
+              data: sessionHistory.map((s) => s.overallScore),
+              borderColor: "#374151",
+              backgroundColor: "rgba(55, 65, 81, 0.05)",
+              tension: 0.4,
+              fill: true,
+              borderWidth: 2,
+            },
+          ],
+        }
+      : null;
 
-  const scoreBreakdownData = currentSession ? {
-    labels: ["Pronunciation", "Fluency", "Coherence"],
-    datasets: [
-      {
-        data: [
-          currentSession.pronunciationScore,
-          currentSession.fluencyScore,
-          currentSession.coherenceScore,
+  const scoreBreakdownData = currentSession
+    ? {
+        labels: ["Pronunciation", "Fluency", "Coherence"],
+        datasets: [
+          {
+            data: [
+              currentSession.pronunciationScore,
+              currentSession.fluencyScore,
+              currentSession.coherenceScore,
+            ],
+            backgroundColor: ["#000", "#374151", "#6b7280"],
+            borderWidth: 0,
+          },
         ],
-        backgroundColor: ["#000", "#374151", "#6b7280"],
-        borderWidth: 0,
-      },
-    ],
-  } : null;
+      }
+    : null;
 
-  const speakingTimeData = currentSession ? {
-    labels: [
-      "Topic 1: " + currentSession.topic1,
-      "Topic 2: " + currentSession.topic2,
-    ],
-    datasets: [
-      {
-        label: "Speaking Time (minutes)",
-        data: [
-          Math.round(currentSession.speakingTime * 0.6),
-          Math.round(currentSession.speakingTime * 0.4),
+  const speakingTimeData = currentSession
+    ? {
+        labels: [
+          "Topic 1: " + currentSession.topic1,
+          "Topic 2: " + currentSession.topic2,
         ],
-        backgroundColor: ["#000", "#374151"],
-        borderRadius: 4,
-      },
-    ],
-  } : null;
+        datasets: [
+          {
+            label: "Speaking Time (minutes)",
+            data: [
+              Math.round(currentSession.speakingTime * 0.6),
+              Math.round(currentSession.speakingTime * 0.4),
+            ],
+            backgroundColor: ["#000", "#374151"],
+            borderRadius: 4,
+          },
+        ],
+      }
+    : null;
 
   const chartOptions = {
     responsive: true,
@@ -544,7 +557,8 @@ export default function ReportClient() {
           <EmptyStateIcon>📊</EmptyStateIcon>
           <EmptyStateTitle>No Session Data Available</EmptyStateTitle>
           <EmptyStateMessage>
-            Complete a speaking session to view your performance metrics and analytics.
+            Complete a speaking session to view your performance metrics and
+            analytics.
           </EmptyStateMessage>
         </EmptyState>
       );
@@ -605,7 +619,10 @@ export default function ReportClient() {
             {scoreBreakdownData ? (
               <>
                 <ChartContainer>
-                  <Doughnut data={scoreBreakdownData} options={doughnutOptions} />
+                  <Doughnut
+                    data={scoreBreakdownData}
+                    options={doughnutOptions}
+                  />
                 </ChartContainer>
                 <ChartDescription>
                   Performance breakdown across key speaking metrics
@@ -634,7 +651,9 @@ export default function ReportClient() {
               </>
             ) : (
               <EmptyState>
-                <EmptyStateMessage>No speaking time data available</EmptyStateMessage>
+                <EmptyStateMessage>
+                  No speaking time data available
+                </EmptyStateMessage>
               </EmptyState>
             )}
           </Card>
@@ -655,8 +674,8 @@ export default function ReportClient() {
             <Line data={progressData} options={chartOptions} />
           </ProgressChart>
           <ChartDescription>
-            Track your improvement across multiple sessions. Monitor both speaking
-            pace and overall performance scores over time.
+            Track your improvement across multiple sessions. Monitor both
+            speaking pace and overall performance scores over time.
           </ChartDescription>
         </>
       ) : (
@@ -664,7 +683,8 @@ export default function ReportClient() {
           <EmptyStateIcon>📈</EmptyStateIcon>
           <EmptyStateTitle>No Progress Data</EmptyStateTitle>
           <EmptyStateMessage>
-            Complete multiple speaking sessions to view your progress trends and improvement over time.
+            Complete multiple speaking sessions to view your progress trends and
+            improvement over time.
           </EmptyStateMessage>
         </EmptyState>
       )}
@@ -672,8 +692,12 @@ export default function ReportClient() {
   );
 
   const renderSuggestions = () => {
-    const vocabularySuggestions = languageSuggestions.filter((s) => s.category === "vocabulary");
-    const expressionSuggestions = languageSuggestions.filter((s) => s.category === "expression");
+    const vocabularySuggestions = languageSuggestions.filter(
+      (s) => s.category === "vocabulary"
+    );
+    const expressionSuggestions = languageSuggestions.filter(
+      (s) => s.category === "expression"
+    );
 
     if (languageSuggestions.length === 0) {
       return (
@@ -681,7 +705,8 @@ export default function ReportClient() {
           <EmptyStateIcon>💡</EmptyStateIcon>
           <EmptyStateTitle>No Language Suggestions</EmptyStateTitle>
           <EmptyStateMessage>
-            Complete speaking sessions to receive personalized vocabulary and expression recommendations.
+            Complete speaking sessions to receive personalized vocabulary and
+            expression recommendations.
           </EmptyStateMessage>
         </EmptyState>
       );
@@ -709,7 +734,9 @@ export default function ReportClient() {
                 </SuggestionItem>
               ))
             ) : (
-              <EmptyStateMessage>No vocabulary suggestions available</EmptyStateMessage>
+              <EmptyStateMessage>
+                No vocabulary suggestions available
+              </EmptyStateMessage>
             )}
           </SuggestionList>
         </SuggestionSection>
@@ -734,7 +761,9 @@ export default function ReportClient() {
                 </SuggestionItem>
               ))
             ) : (
-              <EmptyStateMessage>No expression suggestions available</EmptyStateMessage>
+              <EmptyStateMessage>
+                No expression suggestions available
+              </EmptyStateMessage>
             )}
           </SuggestionList>
         </SuggestionSection>
@@ -743,7 +772,10 @@ export default function ReportClient() {
   };
 
   const renderTranscript = () => {
-    const hasTranscript = currentSession && currentSession.transcript && currentSession.transcript.length > 0;
+    const hasTranscript =
+      currentSession &&
+      currentSession.transcript &&
+      currentSession.transcript.length > 0;
 
     return (
       <TranscriptSection>
@@ -753,12 +785,17 @@ export default function ReportClient() {
         </SectionTitle>
         {hasTranscript ? (
           <>
-            <ChartDescription style={{ textAlign: "left", marginBottom: "2rem" }}>
-              Review your conversation with detailed analysis. Areas for improvement
-              are highlighted below.
+            <ChartDescription
+              style={{ textAlign: "left", marginBottom: "2rem" }}
+            >
+              Review your conversation with detailed analysis. Areas for
+              improvement are highlighted below.
             </ChartDescription>
             {currentSession!.transcript.map((segment, index) => (
-              <TranscriptSegment key={index} isUser={segment.speaker === "user"}>
+              <TranscriptSegment
+                key={index}
+                isUser={segment.speaker === "user"}
+              >
                 <SpeakerLabel isUser={segment.speaker === "user"}>
                   {segment.speaker === "user" ? "You" : "AI"}
                 </SpeakerLabel>
@@ -771,7 +808,8 @@ export default function ReportClient() {
             <EmptyStateIcon>💬</EmptyStateIcon>
             <EmptyStateTitle>No Transcript Available</EmptyStateTitle>
             <EmptyStateMessage>
-              Complete a speaking session to view your detailed conversation transcript and analysis.
+              Complete a speaking session to view your detailed conversation
+              transcript and analysis.
             </EmptyStateMessage>
           </EmptyState>
         )}
