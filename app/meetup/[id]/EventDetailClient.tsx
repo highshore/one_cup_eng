@@ -2446,11 +2446,11 @@ export function EventDetailClient() {
       // User is enrolled but can't cancel
       switch (lockStatus.reason) {
         case "started":
-          return "참가 확정 (시작됨)";
+          return "참가 완료";
         case "lockdown":
           return "참가 확정 (마감됨)";
         default:
-          return "참가 확정";
+          return "모집 종료";
       }
     } else {
       // User is not enrolled and can't join
