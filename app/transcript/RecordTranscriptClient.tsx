@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 import { useSpeechmatics } from './hooks/useSpeechmatics';
+import { useAssemblyAI } from './hooks/useAssemblyAI';
 
 const ConversationDetailContainer = styled.div`
   width: 100%;
@@ -180,6 +181,28 @@ const Title = styled.h1`
 const Controls = styled.div`
   display: flex;
   align-items: center;
+  gap: 1rem;
+`;
+
+const ProviderSelector = styled.select`
+  padding: 0.5rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
 `;
 
 const StatusAndLegendSection = styled.div`
@@ -478,7 +501,12 @@ const SpeedButton = styled.button<{ $active: boolean }>`
   }
 `;
 
-export default function TranscriptClient() {
+type TranscriptionProvider = 'speechmatics' | 'assemblyai';
+
+export default function RecordTranscriptClient() {
+  // Provider selection state
+  const [selectedProvider, setSelectedProvider] = useState<TranscriptionProvider>('speechmatics');
+  
   // Audio recording state
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isStarting, setIsStarting] = useState<boolean>(false);
@@ -504,13 +532,29 @@ export default function TranscriptClient() {
   
   // Speechmatics hook
   const {
-    speechmaticsResults: { activePartialSegment, finalTranscript },
+    speechmaticsResults: { activePartialSegment: speechmaticsPartial, finalTranscript: speechmaticsFinal },
     speechmaticsError,
     isSpeechmaticsSocketOpen,
     startSpeechmatics,
     stopSpeechmatics,
     sendSpeechmaticsAudio,
   } = useSpeechmatics();
+
+  // AssemblyAI hook
+  const {
+    assemblyAIResults: { activePartialSegment: assemblyAIPartial, finalTranscript: assemblyAIFinal },
+    assemblyAIError,
+    isAssemblyAISocketOpen,
+    startAssemblyAI,
+    stopAssemblyAI,
+    sendAssemblyAIAudio,
+  } = useAssemblyAI();
+
+  // Unified state for current provider
+  const activePartialSegment = selectedProvider === 'speechmatics' ? speechmaticsPartial : assemblyAIPartial;
+  const finalTranscript = selectedProvider === 'speechmatics' ? speechmaticsFinal : assemblyAIFinal;
+  const transcriptionError = selectedProvider === 'speechmatics' ? speechmaticsError : assemblyAIError;
+  const isSocketOpen = selectedProvider === 'speechmatics' ? isSpeechmaticsSocketOpen : isAssemblyAISocketOpen;
 
   // Request microphone permission on component mount
   useEffect(() => {
@@ -542,7 +586,11 @@ export default function TranscriptClient() {
       workletNode.port.onmessage = (event) => {
         const audioData = event.data;
         if (audioData && audioData.byteLength > 0) {
-          sendSpeechmaticsAudio(audioData);
+          if (selectedProvider === 'speechmatics') {
+            sendSpeechmaticsAudio(audioData);
+          } else {
+            sendAssemblyAIAudio(audioData);
+          }
         }
       };
 
@@ -579,7 +627,7 @@ export default function TranscriptClient() {
       console.error('Error setting up audio processing:', error);
       return false;
     }
-  }, [sendSpeechmaticsAudio]);
+  }, [selectedProvider, sendSpeechmaticsAudio, sendAssemblyAIAudio]);
 
   // Audio player control functions
   const toggleAudioPlayback = useCallback(() => {
@@ -655,7 +703,11 @@ export default function TranscriptClient() {
         mediaStreamRef.current = null;
       }
 
-      await stopSpeechmatics(true);
+      if (selectedProvider === 'speechmatics') {
+        await stopSpeechmatics(true);
+      } else {
+        await stopAssemblyAI(true);
+      }
     } else {
       // Start recording
       if (!hasPermission) {
@@ -671,15 +723,25 @@ export default function TranscriptClient() {
         setCurrentlyHighlightedSnippet(null);
         setIsAudioPlaying(false);
         
-        const speechmaticsStarted = await startSpeechmatics();
-        if (!speechmaticsStarted) {
+        let providerStarted = false;
+        if (selectedProvider === 'speechmatics') {
+          providerStarted = await startSpeechmatics();
+        } else {
+          providerStarted = await startAssemblyAI();
+        }
+        
+        if (!providerStarted) {
           setIsStarting(false);
           return;
         }
 
         const audioSetup = await setupAudioProcessing();
         if (!audioSetup) {
-          await stopSpeechmatics(false);
+          if (selectedProvider === 'speechmatics') {
+            await stopSpeechmatics(false);
+          } else {
+            await stopAssemblyAI(false);
+          }
           setIsStarting(false);
           return;
         }
@@ -691,7 +753,7 @@ export default function TranscriptClient() {
         setIsStarting(false);
       }
     }
-  }, [isRecording, hasPermission, startSpeechmatics, setupAudioProcessing, stopSpeechmatics]);
+  }, [isRecording, hasPermission, selectedProvider, startSpeechmatics, startAssemblyAI, setupAudioProcessing, stopSpeechmatics, stopAssemblyAI]);
 
   // Speaker colors for diarization
   const getSpeakerColor = useCallback((speaker: string) => {
@@ -866,6 +928,14 @@ export default function TranscriptClient() {
       <Header>
         <Title>AI Transcript</Title>
         <Controls>
+          <ProviderSelector
+            value={selectedProvider}
+            onChange={(e) => setSelectedProvider(e.target.value as TranscriptionProvider)}
+            disabled={isRecording}
+          >
+            <option value="speechmatics">Speechmatics</option>
+            <option value="assemblyai">AssemblyAI</option>
+          </ProviderSelector>
           <RecordButton
             $isRecording={isRecording}
             onClick={toggleRecording}
@@ -892,9 +962,9 @@ export default function TranscriptClient() {
       </Header>
 
       <Content>
-        {speechmaticsError && (
+        {transcriptionError && (
           <ErrorMessage>
-            {speechmaticsError}
+            {transcriptionError}
           </ErrorMessage>
         )}
 

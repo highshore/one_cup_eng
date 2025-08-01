@@ -1,5 +1,5 @@
-import TranscriptClient from './TranscriptClient';
+import RecordTranscriptClient from './RecordTranscriptClient';
 
 export default function TranscriptPage() {
-  return <TranscriptClient />;
+  return <RecordTranscriptClient />;
 } 

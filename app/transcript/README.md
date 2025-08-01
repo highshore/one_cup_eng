@@ -57,9 +57,33 @@ The page will automatically request microphone permissions when loaded. Users ne
 
 ### Components
 
-- `TranscriptClient.tsx` - Main client component with UI and audio handling
+- `RecordTranscriptClient.tsx` - Main client component with UI and audio handling (supports provider selection)
+- `TranscriptDetailClient.tsx` - Detailed view component for saved transcripts (supports provider selection)
 - `hooks/useSpeechmatics.ts` - Custom React hook for Speechmatics integration
+- `hooks/useAssemblyAI.ts` - Custom React hook for AssemblyAI integration
 - `page.tsx` - Next.js page wrapper
+
+### Provider Selection
+
+Both RecordTranscriptClient and TranscriptDetailClient now support choosing between two transcription providers:
+
+- **Speechmatics**: Premium real-time transcription with advanced speaker diarization
+- **AssemblyAI**: High-quality streaming speech-to-text with competitive pricing
+
+Users can select their preferred provider via a dropdown in the UI. The selection affects:
+- Which transcription service processes the audio
+- Error handling and connection status
+- Transcript format and timing accuracy
+
+### API Configuration
+
+#### Speechmatics
+- Set `NEXT_PUBLIC_SPEECHMATICS_API_KEY` in your environment
+- Uses JWT token authentication via Speechmatics API
+
+#### AssemblyAI  
+- Set `NEXT_ASSEMBLYAI_KEY` in your environment
+- Uses API key authentication via backend endpoint at `/api/assemblyai/auth`
 
 ## Error Handling
 

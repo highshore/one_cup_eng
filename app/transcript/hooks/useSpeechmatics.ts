@@ -228,6 +228,7 @@ export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
         const transcriptionConfig: any = {
           language: "en",
           diarization: "speaker",
+          // channel_diarization_labels: ["Agent", "Caller"],
           operating_point: "enhanced",
           max_delay_mode: "flexible",
           max_delay: 0.7,
@@ -238,8 +239,8 @@ export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
             remove_disfluencies: true, // Removes fillers like "um", "uh"
           },
           speaker_diarization_config: {
-            max_speakers: 5,
-            speaker_sensitivity: 0.7, // Increased from default 0.5 for better speaker detection
+            max_speakers: 10,
+            speaker_sensitivity: 0.9, // Increased from default 0.5 for better speaker detection
           },
         };
 
