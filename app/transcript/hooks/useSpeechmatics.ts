@@ -240,7 +240,7 @@ export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
           },
           speaker_diarization_config: {
             max_speakers: 10,
-            speaker_sensitivity: 0.9, // Increased from default 0.5 for better speaker detection
+            speaker_sensitivity: 0.8, // Increased from default 0.5 for better speaker detection
           },
         };
 

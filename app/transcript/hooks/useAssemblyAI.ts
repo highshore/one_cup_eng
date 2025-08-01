@@ -92,11 +92,18 @@ export const useAssemblyAI = (isPausedRef?: React.RefObject<boolean>) => {
 
   // Helper function to convert AssemblyAI Turn message to result format
   const convertAssemblyAIToResults = useCallback((message: AssemblyAIMessage): AssemblyAIResult[] => {
+    console.log(`[AssemblyAI] Converting message to results:`, {
+      has_words: !!message.words,
+      words_length: message.words?.length || 0,
+      transcript: message.transcript
+    });
+
     if (!message.words || message.words.length === 0) {
       // Fallback for messages without words array
       if (message.transcript && message.transcript.trim()) {
+        console.log(`[AssemblyAI] Using fallback conversion for: "${message.transcript}"`);
         const words = message.transcript.trim().split(/\s+/);
-        return words.map((word, index) => ({
+        const results = words.map((word, index) => ({
           alternatives: [{
             content: word,
             confidence: 0.95,
@@ -106,12 +113,15 @@ export const useAssemblyAI = (isPausedRef?: React.RefObject<boolean>) => {
           end_time: (index + 1) * 0.1,
           type: "word"
         }));
+        console.log(`[AssemblyAI] Fallback conversion created ${results.length} results`);
+        return results;
       }
+      console.log(`[AssemblyAI] No words array and no transcript text`);
       return [];
     }
 
     // Convert AssemblyAI words to our format
-    return message.words.map((word, index) => ({
+    const results = message.words.map((word, index) => ({
       alternatives: [{
         content: word.text,
         confidence: word.confidence,
@@ -121,13 +131,24 @@ export const useAssemblyAI = (isPausedRef?: React.RefObject<boolean>) => {
       end_time: word.end / 1000, // Convert ms to seconds
       type: "word"
     }));
+    
+    console.log(`[AssemblyAI] Words array conversion created ${results.length} results:`, 
+      results.slice(0, 3).map(r => r.alternatives?.[0]?.content).join(' ') + '...'
+    );
+    return results;
   }, []);
 
   // --- Internal Event Handlers for AssemblyAI WebSocket ---
   const handleWebSocketMessage = useCallback((event: MessageEvent) => {
     try {
       const data: AssemblyAIMessage = JSON.parse(event.data);
-      console.log("[AssemblyAI] Received message:", data);
+      console.log("[AssemblyAI] Received message:", {
+        type: data.type,
+        transcript: data.transcript || "N/A",
+        turn_is_formatted: data.turn_is_formatted,
+        end_of_turn: data.end_of_turn,
+        words_count: data.words?.length || 0
+      });
 
       // Drop data when paused (but keep AssemblyAI running)
       const isPaused = isPausedRef?.current;
@@ -140,27 +161,36 @@ export const useAssemblyAI = (isPausedRef?: React.RefObject<boolean>) => {
           break;
 
         case "Turn":
+          console.log(`[AssemblyAI] Processing Turn message - isPaused: ${isPaused}, transcript: "${data.transcript}"`);
+          
           if (!isPaused && data.transcript) {
             const isFormatted = data.turn_is_formatted || false;
             
             if (isFormatted || data.end_of_turn) {
               // This is a final transcript
+              console.log(`[AssemblyAI] Adding final transcript: "${data.transcript}"`);
               const results = convertAssemblyAIToResults(data);
+              console.log(`[AssemblyAI] Converted to ${results.length} results`);
+              
               if (results.length > 0) {
                 setFinalTranscript((prevFinal) => {
                   const updatedTranscript = [...prevFinal, ...results];
                   currentSessionTranscript.current = updatedTranscript
                     .map(result => result.alternatives?.[0]?.content || "")
                     .join(" ");
+                  console.log(`[AssemblyAI] Updated final transcript, total length: ${updatedTranscript.length}`);
                   return updatedTranscript;
                 });
               }
               setActivePartialSegment([]); // Clear partial segment
             } else {
               // This is a partial transcript
+              console.log(`[AssemblyAI] Adding partial transcript: "${data.transcript}"`);
               const results = convertAssemblyAIToResults(data);
               setActivePartialSegment(results);
             }
+          } else {
+            console.log(`[AssemblyAI] Skipping Turn message - isPaused: ${isPaused}, transcript: "${data.transcript}"`);
           }
           break;
 
@@ -245,6 +275,7 @@ export const useAssemblyAI = (isPausedRef?: React.RefObject<boolean>) => {
       // Connect directly to AssemblyAI with token in URL
       const wsUrl = `wss://streaming.assemblyai.com/v3/ws?${connectionParams.toString()}`;
       console.log("[AssemblyAI] Connecting to:", wsUrl);
+      console.log("[AssemblyAI] Using token:", token ? "Token received" : "No token");
       
       websocketRef.current = new WebSocket(wsUrl);
       
@@ -294,10 +325,28 @@ export const useAssemblyAI = (isPausedRef?: React.RefObject<boolean>) => {
       audioData.byteLength > 0
     ) {
       try {
-        websocketRef.current.send(audioData);
+        // Convert Float32Array to Int16Array (PCM16) for AssemblyAI
+        const float32Data = new Float32Array(audioData);
+        const int16Data = new Int16Array(float32Data.length);
+        
+        for (let i = 0; i < float32Data.length; i++) {
+          // Convert from [-1, 1] to [-32768, 32767]
+          int16Data[i] = Math.max(-32768, Math.min(32767, Math.floor(float32Data[i] * 32768)));
+        }
+        
+        websocketRef.current.send(int16Data.buffer);
+        
+        // Log every 100th audio chunk to avoid spam
+        if (Math.random() < 0.01) {
+          console.log(`[AssemblyAI] Sent audio chunk: ${int16Data.byteLength} bytes (converted from ${audioData.byteLength} bytes)`);
+        }
       } catch (error: any) {
         console.error("[AssemblyAI] Error sending audio:", error);
         setAssemblyAIError(`Error sending audio to AssemblyAI: ${error.message || "Unknown error"}`);
+      }
+    } else {
+      if (Math.random() < 0.01) { // Only log occasionally to avoid spam
+        console.warn(`[AssemblyAI] Cannot send audio - WebSocket state: ${websocketRef.current?.readyState}, data size: ${audioData.byteLength}`);
       }
     }
   }, []);
