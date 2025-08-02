@@ -98,64 +98,70 @@ export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
   }, [activePartialSegment]);
 
   // --- Internal Event Handlers for Speechmatics Client ---
-  const handleReceivedMessage = useCallback((data: SpeechmaticsMessage) => {
-    // console.log("[SpeechmaticsService] Received message:", JSON.stringify(data, null, 2));
-    
-    // Drop data when paused (but keep speechmatics running)
-    const isPaused = isPausedRef?.current;
-    
-    switch (data.message) {
-      case "RecognitionStarted":
-        setIsSpeechmaticsSocketOpen(true);
-        break;
-      case "AddPartialTranscript":
-        // Only update partial transcripts when not paused
-        if (!isPaused) {
-          setActivePartialSegment(data.results || []);
-        }
-        break;
-      case "AddTranscript": {
-        // Only add final transcripts when not paused
-        if (!isPaused) {
-          const finalizedResults = data.results || [];
-          if (finalizedResults.length > 0) {
-            setFinalTranscript((prevFinal) => {
-              const updatedFullTranscript = [...prevFinal, ...finalizedResults];
-              return updatedFullTranscript;
-            });
-          }
-          setActivePartialSegment([]); // Clear partial segment as it's now final
-        }
-        break;
-      }
-      case "EndOfTranscript":
-        setFinalTranscript((prevFinal) => {
-          const currentActivePartial = activePartialSegmentRef.current;
-          if (currentActivePartial.length > 0) {
-            const updatedFullTranscript = [
-              ...prevFinal,
-              ...currentActivePartial,
-            ];
+  const handleReceivedMessage = useCallback(
+    (data: SpeechmaticsMessage) => {
+      // console.log("[SpeechmaticsService] Received message:", JSON.stringify(data, null, 2));
 
-            setActivePartialSegment([]); // Clear partial segment
-            return updatedFullTranscript;
+      // Drop data when paused (but keep speechmatics running)
+      const isPaused = isPausedRef?.current;
+
+      switch (data.message) {
+        case "RecognitionStarted":
+          setIsSpeechmaticsSocketOpen(true);
+          break;
+        case "AddPartialTranscript":
+          // Only update partial transcripts when not paused
+          if (!isPaused) {
+            setActivePartialSegment(data.results || []);
           }
-          return prevFinal;
-        });
-        // The socket usually closes after EndOfTranscript.
-        // isSpeechmaticsSocketOpen will be updated by handleSocketStateChange.
-        break;
-      case "Error":
-        setSpeechmaticsError(
-          `Speechmatics API Error: ${data.code} - ${data.reason}`
-        );
-        setIsSpeechmaticsSocketOpen(false); // Error usually implies socket closure
-        break;
-      default:
-        // console.warn("[SpeechmaticsService] Unhandled message type:", data.message);
-        break;
-    }
-  }, [isPausedRef]); // Callbacks use refs for pause state and stable state setters.
+          break;
+        case "AddTranscript": {
+          // Only add final transcripts when not paused
+          if (!isPaused) {
+            const finalizedResults = data.results || [];
+            if (finalizedResults.length > 0) {
+              setFinalTranscript((prevFinal) => {
+                const updatedFullTranscript = [
+                  ...prevFinal,
+                  ...finalizedResults,
+                ];
+                return updatedFullTranscript;
+              });
+            }
+            setActivePartialSegment([]); // Clear partial segment as it's now final
+          }
+          break;
+        }
+        case "EndOfTranscript":
+          setFinalTranscript((prevFinal) => {
+            const currentActivePartial = activePartialSegmentRef.current;
+            if (currentActivePartial.length > 0) {
+              const updatedFullTranscript = [
+                ...prevFinal,
+                ...currentActivePartial,
+              ];
+
+              setActivePartialSegment([]); // Clear partial segment
+              return updatedFullTranscript;
+            }
+            return prevFinal;
+          });
+          // The socket usually closes after EndOfTranscript.
+          // isSpeechmaticsSocketOpen will be updated by handleSocketStateChange.
+          break;
+        case "Error":
+          setSpeechmaticsError(
+            `Speechmatics API Error: ${data.code} - ${data.reason}`
+          );
+          setIsSpeechmaticsSocketOpen(false); // Error usually implies socket closure
+          break;
+        default:
+          // console.warn("[SpeechmaticsService] Unhandled message type:", data.message);
+          break;
+      }
+    },
+    [isPausedRef]
+  ); // Callbacks use refs for pause state and stable state setters.
 
   const handleSocketStateChange = useCallback((eventData: unknown) => {
     const actualState = (
@@ -231,7 +237,6 @@ export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
           // channel_diarization_labels: ["Agent", "Caller"],
           operating_point: "enhanced",
           max_delay_mode: "flexible",
-          max_delay: 0.7,
           enable_partials: true,
           enable_entities: true, // Can be useful for context
           output_locale: "en-US",
@@ -239,7 +244,7 @@ export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
             remove_disfluencies: true, // Removes fillers like "um", "uh"
           },
           speaker_diarization_config: {
-            max_speakers: 10,
+            max_speakers: 8,
             speaker_sensitivity: 0.8, // Increased from default 0.5 for better speaker detection
           },
         };
