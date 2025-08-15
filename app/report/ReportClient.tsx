@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { styled } from "styled-components";
+import { colors as brandColors } from "../lib/features/shadow/styles/shadow_styles";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -80,7 +81,7 @@ const Container = styled.div`
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  color: #1a1a1a;
+  color: ${brandColors.text.primary};
 `;
 
 const Header = styled.div`
@@ -92,13 +93,13 @@ const Title = styled.h1`
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  color: #000;
+  color: ${brandColors.text.primary};
   letter-spacing: -0.025em;
 `;
 
 const Subtitle = styled.p`
   font-size: 1.125rem;
-  color: #6b7280;
+  color: ${brandColors.text.muted};
   margin-bottom: 2rem;
   font-weight: 400;
 `;
@@ -108,13 +109,13 @@ const SessionMetaData = styled.div`
   gap: 2rem;
   margin-bottom: 2rem;
   padding: 1.5rem 0;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid ${brandColors.border.light};
 `;
 
 const MetaItem = styled.div`
   .label {
     font-size: 0.875rem;
-    color: #6b7280;
+    color: ${brandColors.text.muted};
     text-transform: uppercase;
     font-weight: 500;
     letter-spacing: 0.05em;
@@ -124,30 +125,32 @@ const MetaItem = styled.div`
   .value {
     font-size: 1rem;
     font-weight: 600;
-    color: #000;
+    color: ${brandColors.text.primary};
   }
 `;
 
 const TabNavigation = styled.div`
   display: flex;
   margin-bottom: 2rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid ${brandColors.border.light};
 `;
 
-const Tab = styled.button<{ active: boolean }>`
+const Tab = styled.button<{ $active: boolean }>`
   padding: 1rem 0;
   margin-right: 2rem;
   border: none;
   background: none;
   font-size: 0.875rem;
   font-weight: 500;
-  color: ${(props) => (props.active ? "#000" : "#6b7280")};
-  border-bottom: 2px solid ${(props) => (props.active ? "#000" : "transparent")};
+  color: ${(props) =>
+    props.$active ? brandColors.primary : brandColors.text.muted};
+  border-bottom: 2px solid
+    ${(props) => (props.$active ? brandColors.primary : "transparent")};
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    color: #000;
+    color: ${brandColors.primary};
   }
 `;
 
@@ -160,13 +163,13 @@ const MetricsGrid = styled.div`
 
 const MetricCard = styled.div`
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid ${brandColors.border.light};
   border-radius: 8px;
   padding: 1.5rem;
   transition: border-color 0.2s ease;
 
   &:hover {
-    border-color: #d1d5db;
+    border-color: ${brandColors.border.medium};
   }
 `;
 
@@ -183,47 +186,47 @@ const MetricIcon = styled.div`
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: #f3f4f6;
+  background: ${brandColors.background};
   border-radius: 8px;
-  color: #374151;
+  color: ${brandColors.text.secondary};
 `;
 
 const MetricValue = styled.div`
   font-size: 2rem;
   font-weight: 700;
-  color: #000;
+  color: ${brandColors.text.primary};
   margin-bottom: 0.25rem;
 `;
 
 const MetricLabel = styled.div`
   font-size: 0.875rem;
-  color: #6b7280;
+  color: ${brandColors.text.muted};
   font-weight: 500;
 `;
 
 const ContentGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 2rem;
   margin-bottom: 3rem;
 `;
 
 const Card = styled.div`
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid ${brandColors.border.light};
   border-radius: 8px;
   padding: 2rem;
   transition: border-color 0.2s ease;
 
   &:hover {
-    border-color: #d1d5db;
+    border-color: ${brandColors.border.medium};
   }
 `;
 
 const SectionTitle = styled.h3`
   font-size: 1.125rem;
   font-weight: 600;
-  color: #000;
+  color: ${brandColors.text.primary};
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
@@ -249,7 +252,7 @@ const SuggestionsContainer = styled.div`
 
 const SuggestionSection = styled.div`
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid ${brandColors.border.light};
   border-radius: 8px;
   padding: 2rem;
 `;
@@ -257,7 +260,7 @@ const SuggestionSection = styled.div`
 const SuggestionTitle = styled.h3`
   font-size: 1.125rem;
   font-weight: 600;
-  color: #000;
+  color: ${brandColors.text.primary};
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
@@ -272,40 +275,40 @@ const SuggestionList = styled.div`
 
 const SuggestionItem = styled.div`
   padding: 1rem;
-  border: 1px solid #f3f4f6;
+  border: 1px solid ${brandColors.border.light};
   border-radius: 6px;
   transition: border-color 0.2s ease;
 
   &:hover {
-    border-color: #e5e7eb;
+    border-color: ${brandColors.border.medium};
   }
 `;
 
 const SuggestionWord = styled.div`
   font-weight: 600;
-  color: #000;
+  color: ${brandColors.text.primary};
   margin-bottom: 0.5rem;
   font-size: 1rem;
 `;
 
 const SuggestionDefinition = styled.div`
-  color: #374151;
+  color: ${brandColors.text.secondary};
   margin-bottom: 0.5rem;
   line-height: 1.5;
   font-size: 0.875rem;
 `;
 
 const SuggestionExample = styled.div`
-  color: #6b7280;
+  color: ${brandColors.text.muted};
   font-style: italic;
   padding: 0.75rem;
-  background: #f9fafb;
+  background: ${brandColors.background};
   border-radius: 4px;
-  border-left: 3px solid #e5e7eb;
+  border-left: 3px solid ${brandColors.border.light};
   font-size: 0.875rem;
 `;
 
-const DifficultyBadge = styled.span<{ difficulty: string }>`
+const DifficultyBadge = styled.span<{ $difficulty: string }>`
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 4px;
@@ -314,47 +317,45 @@ const DifficultyBadge = styled.span<{ difficulty: string }>`
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 0.5rem;
-  background: ${(props) =>
-    props.difficulty === "beginner"
-      ? "#f3f4f6"
-      : props.difficulty === "intermediate"
-      ? "#f3f4f6"
-      : "#f3f4f6"};
+  background: ${brandColors.background};
   color: ${(props) =>
-    props.difficulty === "beginner"
-      ? "#16a34a"
-      : props.difficulty === "intermediate"
-      ? "#ea580c"
-      : "#7c3aed"};
+    props.$difficulty === "beginner"
+      ? brandColors.success
+      : props.$difficulty === "intermediate"
+      ? brandColors.warning
+      : brandColors.primary};
   border: 1px solid
     ${(props) =>
-      props.difficulty === "beginner"
-        ? "#dcfce7"
-        : props.difficulty === "intermediate"
-        ? "#fed7aa"
-        : "#ede9fe"};
+      props.$difficulty === "beginner"
+        ? `${brandColors.success}30`
+        : props.$difficulty === "intermediate"
+        ? `${brandColors.warning}30`
+        : `${brandColors.primary}30`};
 `;
 
 const TranscriptSection = styled.div`
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid ${brandColors.border.light};
   border-radius: 8px;
   padding: 2rem;
 `;
 
-const TranscriptSegment = styled.div<{ isUser: boolean }>`
+const TranscriptSegment = styled.div<{ $isUser: boolean }>`
   display: flex;
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding: 1rem;
   border-radius: 6px;
-  background: ${(props) => (props.isUser ? "#f9fafb" : "#f3f4f6")};
-  border-left: 3px solid ${(props) => (props.isUser ? "#000" : "#6b7280")};
+  background: ${(props) => (props.$isUser ? brandColors.background : "#fff")};
+  border-left: 3px solid
+    ${(props) =>
+      props.$isUser ? brandColors.primary : brandColors.border.medium};
 `;
 
-const SpeakerLabel = styled.div<{ isUser: boolean }>`
+const SpeakerLabel = styled.div<{ $isUser: boolean }>`
   font-weight: 600;
-  color: ${(props) => (props.isUser ? "#000" : "#6b7280")};
+  color: ${(props) =>
+    props.$isUser ? brandColors.primary : brandColors.text.muted};
   min-width: 60px;
   font-size: 0.875rem;
   text-transform: uppercase;
@@ -364,11 +365,11 @@ const SpeakerLabel = styled.div<{ isUser: boolean }>`
 const TranscriptText = styled.div`
   flex: 1;
   line-height: 1.6;
-  color: #374151;
+  color: ${brandColors.text.secondary};
 `;
 
 const ChartDescription = styled.p`
-  color: #6b7280;
+  color: ${brandColors.text.muted};
   font-size: 0.875rem;
   text-align: center;
   margin-top: 1rem;
@@ -383,7 +384,7 @@ const EmptyState = styled.div`
   justify-content: center;
   padding: 3rem 2rem;
   text-align: center;
-  color: #6b7280;
+  color: ${brandColors.text.muted};
 `;
 
 const EmptyStateIcon = styled.div`
@@ -395,13 +396,13 @@ const EmptyStateIcon = styled.div`
 const EmptyStateTitle = styled.h3`
   font-size: 1.125rem;
   font-weight: 600;
-  color: #374151;
+  color: ${brandColors.text.secondary};
   margin-bottom: 0.5rem;
 `;
 
 const EmptyStateMessage = styled.p`
   font-size: 0.875rem;
-  color: #6b7280;
+  color: ${brandColors.text.muted};
   max-width: 300px;
   line-height: 1.5;
 `;
@@ -421,6 +422,18 @@ export default function ReportClient() {
     LanguageSuggestion[]
   >([]);
 
+  // Coaching insights (Ringle-style): identify top strength and focus area
+  const strengthsAndFocus = useMemo(() => {
+    if (!currentSession) return null;
+    const scorePairs = [
+      { label: "Pronunciation", value: currentSession.pronunciationScore },
+      { label: "Fluency", value: currentSession.fluencyScore },
+      { label: "Coherence", value: currentSession.coherenceScore },
+    ];
+    const sorted = [...scorePairs].sort((a, b) => b.value - a.value);
+    return { top: sorted[0], focus: sorted[sorted.length - 1] };
+  }, [currentSession]);
+
   // Chart data for progress tracking - only create if we have data
   const progressData =
     sessionHistory.length > 0
@@ -432,8 +445,8 @@ export default function ReportClient() {
             {
               label: "Words per Minute",
               data: sessionHistory.map((s) => s.wordsPerMinute),
-              borderColor: "#000",
-              backgroundColor: "rgba(0, 0, 0, 0.05)",
+              borderColor: brandColors.primary,
+              backgroundColor: "rgba(60, 46, 38, 0.08)",
               tension: 0.4,
               fill: true,
               borderWidth: 2,
@@ -441,8 +454,8 @@ export default function ReportClient() {
             {
               label: "Overall Score",
               data: sessionHistory.map((s) => s.overallScore),
-              borderColor: "#374151",
-              backgroundColor: "rgba(55, 65, 81, 0.05)",
+              borderColor: brandColors.accent,
+              backgroundColor: "rgba(212, 165, 116, 0.15)",
               tension: 0.4,
               fill: true,
               borderWidth: 2,
@@ -461,7 +474,11 @@ export default function ReportClient() {
               currentSession.fluencyScore,
               currentSession.coherenceScore,
             ],
-            backgroundColor: ["#000", "#374151", "#6b7280"],
+            backgroundColor: [
+              brandColors.primary,
+              brandColors.accent,
+              brandColors.secondary,
+            ],
             borderWidth: 0,
           },
         ],
@@ -481,7 +498,7 @@ export default function ReportClient() {
               Math.round(currentSession.speakingTime * 0.6),
               Math.round(currentSession.speakingTime * 0.4),
             ],
-            backgroundColor: ["#000", "#374151"],
+            backgroundColor: [brandColors.primary, brandColors.secondary],
             borderRadius: 4,
           },
         ],
@@ -495,7 +512,7 @@ export default function ReportClient() {
       legend: {
         position: "top" as const,
         labels: {
-          color: "#374151",
+          color: brandColors.text.secondary,
           font: {
             family: "-apple-system, BlinkMacSystemFont, sans-serif",
             size: 12,
@@ -506,10 +523,10 @@ export default function ReportClient() {
     scales: {
       x: {
         grid: {
-          color: "#f3f4f6",
+          color: brandColors.border.light,
         },
         ticks: {
-          color: "#6b7280",
+          color: brandColors.text.muted,
           font: {
             family: "-apple-system, BlinkMacSystemFont, sans-serif",
             size: 11,
@@ -519,10 +536,10 @@ export default function ReportClient() {
       y: {
         beginAtZero: true,
         grid: {
-          color: "#f3f4f6",
+          color: brandColors.border.light,
         },
         ticks: {
-          color: "#6b7280",
+          color: brandColors.text.muted,
           font: {
             family: "-apple-system, BlinkMacSystemFont, sans-serif",
             size: 11,
@@ -539,7 +556,7 @@ export default function ReportClient() {
       legend: {
         position: "bottom" as const,
         labels: {
-          color: "#374151",
+          color: brandColors.text.secondary,
           font: {
             family: "-apple-system, BlinkMacSystemFont, sans-serif",
             size: 12,
@@ -657,6 +674,41 @@ export default function ReportClient() {
               </EmptyState>
             )}
           </Card>
+
+          <Card>
+            <SectionTitle>
+              <FiTrendingUp /> Highlights & Focus
+            </SectionTitle>
+            {strengthsAndFocus ? (
+              <>
+                <ul
+                  style={{
+                    paddingLeft: "1rem",
+                    color: brandColors.text.secondary,
+                  }}
+                >
+                  <li>
+                    Top strength: {strengthsAndFocus.top.label} (
+                    {strengthsAndFocus.top.value}%)
+                  </li>
+                  <li>
+                    Focus area: {strengthsAndFocus.focus.label} (
+                    {strengthsAndFocus.focus.value}%)
+                  </li>
+                </ul>
+                <ChartDescription>
+                  Double down on your strength and allocate extra practice to
+                  your focus area.
+                </ChartDescription>
+              </>
+            ) : (
+              <EmptyState>
+                <EmptyStateMessage>
+                  Highlights will appear once session scores are available
+                </EmptyStateMessage>
+              </EmptyState>
+            )}
+          </Card>
         </ContentGrid>
       </>
     );
@@ -728,7 +780,7 @@ export default function ReportClient() {
                     {suggestion.definition}
                   </SuggestionDefinition>
                   <SuggestionExample>"{suggestion.example}"</SuggestionExample>
-                  <DifficultyBadge difficulty={suggestion.difficulty}>
+                  <DifficultyBadge $difficulty={suggestion.difficulty}>
                     {suggestion.difficulty}
                   </DifficultyBadge>
                 </SuggestionItem>
@@ -755,7 +807,7 @@ export default function ReportClient() {
                     {suggestion.definition}
                   </SuggestionDefinition>
                   <SuggestionExample>"{suggestion.example}"</SuggestionExample>
-                  <DifficultyBadge difficulty={suggestion.difficulty}>
+                  <DifficultyBadge $difficulty={suggestion.difficulty}>
                     {suggestion.difficulty}
                   </DifficultyBadge>
                 </SuggestionItem>
@@ -794,9 +846,9 @@ export default function ReportClient() {
             {currentSession!.transcript.map((segment, index) => (
               <TranscriptSegment
                 key={index}
-                isUser={segment.speaker === "user"}
+                $isUser={segment.speaker === "user"}
               >
-                <SpeakerLabel isUser={segment.speaker === "user"}>
+                <SpeakerLabel $isUser={segment.speaker === "user"}>
                   {segment.speaker === "user" ? "You" : "AI"}
                 </SpeakerLabel>
                 <TranscriptText>{segment.text}</TranscriptText>
@@ -843,25 +895,25 @@ export default function ReportClient() {
 
       <TabNavigation>
         <Tab
-          active={activeTab === "overview"}
+          $active={activeTab === "overview"}
           onClick={() => setActiveTab("overview")}
         >
           Overview
         </Tab>
         <Tab
-          active={activeTab === "progress"}
+          $active={activeTab === "progress"}
           onClick={() => setActiveTab("progress")}
         >
           Progress
         </Tab>
         <Tab
-          active={activeTab === "suggestions"}
+          $active={activeTab === "suggestions"}
           onClick={() => setActiveTab("suggestions")}
         >
           Language Tips
         </Tab>
         <Tab
-          active={activeTab === "transcript"}
+          $active={activeTab === "transcript"}
           onClick={() => setActiveTab("transcript")}
         >
           Transcript

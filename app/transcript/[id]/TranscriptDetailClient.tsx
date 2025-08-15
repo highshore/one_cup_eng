@@ -89,17 +89,17 @@ const ProviderSelector = styled.select`
   cursor: pointer;
   transition: all 0.2s ease;
   margin-bottom: 1rem;
-  
+
   &:hover {
     border-color: #cbd5e1;
   }
-  
+
   &:focus {
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
-  
+
   &:disabled {
     background-color: #f8fafc;
     color: #94a3b8;
@@ -1625,7 +1625,7 @@ interface UserSpeakingReport {
   };
 }
 
-type TranscriptionProvider = 'speechmatics' | 'assemblyai';
+type TranscriptionProvider = "speechmatics" | "assemblyai";
 
 export default function TranscriptDetailClient() {
   const params = useParams();
@@ -1633,7 +1633,8 @@ export default function TranscriptDetailClient() {
   const transcriptId = params?.id as string;
 
   // Provider selection state
-  const [selectedProvider, setSelectedProvider] = useState<TranscriptionProvider>('speechmatics');
+  const [selectedProvider, setSelectedProvider] =
+    useState<TranscriptionProvider>("speechmatics");
 
   const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(
     null
@@ -1671,10 +1672,20 @@ export default function TranscriptDetailClient() {
   } = useAssemblyAI(isPausedRef);
 
   // Unified transcript states based on selected provider
-  const activePartialSegment = selectedProvider === 'speechmatics' ? speechmaticsResults.activePartialSegment : assemblyAIResults.activePartialSegment;
-  const finalTranscript = selectedProvider === 'speechmatics' ? speechmaticsResults.finalTranscript : assemblyAIResults.finalTranscript;
-  const transcriptionError = selectedProvider === 'speechmatics' ? speechmaticsError : assemblyAIError;
-  const isSocketOpen = selectedProvider === 'speechmatics' ? isSpeechmaticsSocketOpen : isAssemblyAISocketOpen;
+  const activePartialSegment =
+    selectedProvider === "speechmatics"
+      ? speechmaticsResults.activePartialSegment
+      : assemblyAIResults.activePartialSegment;
+  const finalTranscript =
+    selectedProvider === "speechmatics"
+      ? speechmaticsResults.finalTranscript
+      : assemblyAIResults.finalTranscript;
+  const transcriptionError =
+    selectedProvider === "speechmatics" ? speechmaticsError : assemblyAIError;
+  const isSocketOpen =
+    selectedProvider === "speechmatics"
+      ? isSpeechmaticsSocketOpen
+      : isAssemblyAISocketOpen;
 
   // Firestore transcript data (source of truth for saved transcript)
   const [savedTranscriptData, setSavedTranscriptData] = useState<any[]>([]);
@@ -2660,7 +2671,7 @@ Respond in JSON format:
         if (audioData && audioData.byteLength > 0) {
           // Only send audio when not paused
           if (!isPausedRef.current) {
-            if (selectedProvider === 'speechmatics') {
+            if (selectedProvider === "speechmatics") {
               sendSpeechmaticsAudio(audioData);
             } else {
               sendAssemblyAIAudio(audioData);
@@ -2715,7 +2726,7 @@ Respond in JSON format:
         );
 
         // Clear the hook's saved transcript data
-        if (selectedProvider === 'speechmatics') {
+        if (selectedProvider === "speechmatics") {
           setSavedSpeechmaticsTranscript([]);
         } else {
           setSavedAssemblyAITranscript([]);
@@ -2814,15 +2825,15 @@ Respond in JSON format:
         customDictionary.length
       );
       console.log("[Recording] Custom dictionary entries:", customDictionary);
-      
+
       // Start the selected provider
       let providerStarted = false;
-      if (selectedProvider === 'speechmatics') {
+      if (selectedProvider === "speechmatics") {
         providerStarted = await startSpeechmatics(customDictionary);
       } else {
         providerStarted = await startAssemblyAI();
       }
-      
+
       if (!providerStarted) {
         setIsStarting(false);
         return;
@@ -2830,7 +2841,7 @@ Respond in JSON format:
 
       const audioSetup = await setupAudioProcessing();
       if (!audioSetup) {
-        if (selectedProvider === 'speechmatics') {
+        if (selectedProvider === "speechmatics") {
           await stopSpeechmatics(false);
         } else {
           await stopAssemblyAI(false);
@@ -2921,7 +2932,7 @@ Respond in JSON format:
     }
 
     // Stop the selected provider
-    if (selectedProvider === 'speechmatics') {
+    if (selectedProvider === "speechmatics") {
       await stopSpeechmatics(true);
     } else {
       await stopAssemblyAI(true);
@@ -3117,18 +3128,20 @@ Respond in JSON format:
     setShowCreateReportDialog(false);
 
     try {
+      // Capture current eventId before local variable shadowing below
+      const currentEventId = transcriptData?.eventId;
       const generateSpeakingReports = httpsCallable(
         functions,
         "generateSpeakingReports"
       );
 
       // Use saved Firestore transcript data (source of truth)
-      const transcriptData = filterPausedResults(savedTranscriptData);
+      const filteredTranscriptData = filterPausedResults(savedTranscriptData);
 
       const result = await generateSpeakingReports({
         transcriptId,
         speakerMappings,
-        transcriptContent: transcriptData,
+        transcriptContent: filteredTranscriptData,
       });
 
       const data = result.data as {
@@ -3147,6 +3160,19 @@ Respond in JSON format:
         setReportsGenerated(true);
         // Load the generated reports
         await loadReports();
+
+        // Also aggregate reports across all transcripts for this meetup event
+        if (currentEventId) {
+          try {
+            const aggregateMeetupReports = httpsCallable(
+              functions,
+              "aggregateMeetupReports"
+            );
+            await aggregateMeetupReports({ eventId: currentEventId });
+          } catch (aggErr) {
+            console.error("Error aggregating meetup reports:", aggErr);
+          }
+        }
       } else {
         alert("Failed to generate reports. Please try again.");
       }
@@ -3249,7 +3275,7 @@ Respond in JSON format:
               "saved transcript items"
             );
             setSavedTranscriptData(data.transcriptContent);
-            if (selectedProvider === 'speechmatics') {
+            if (selectedProvider === "speechmatics") {
               setSavedSpeechmaticsTranscript(data.transcriptContent);
             } else {
               setSavedAssemblyAITranscript(data.transcriptContent);
@@ -4131,10 +4157,12 @@ Respond in JSON format:
 
       <Content>
         {/* Provider Selection */}
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{ marginBottom: "1rem" }}>
           <ProviderSelector
             value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value as TranscriptionProvider)}
+            onChange={(e) =>
+              setSelectedProvider(e.target.value as TranscriptionProvider)
+            }
             disabled={isRecording}
           >
             <option value="speechmatics">Speechmatics</option>
@@ -4142,7 +4170,9 @@ Respond in JSON format:
           </ProviderSelector>
         </div>
 
-        {transcriptionError && <ErrorMessage>{transcriptionError}</ErrorMessage>}
+        {transcriptionError && (
+          <ErrorMessage>{transcriptionError}</ErrorMessage>
+        )}
 
         <SessionInfo>
           <SessionTitle>Session {transcriptData.sessionNumber}</SessionTitle>

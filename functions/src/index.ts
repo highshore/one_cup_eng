@@ -1811,26 +1811,54 @@ export const generateSpeakingReports = onCall(
 
       const reports: UserSpeakingReport[] = [];
 
-      // Process each mapped speaker
-      for (const [speakerId, userId] of Object.entries(speakerMappings)) {
-        logger.info(`Processing speaker ${speakerId} -> user ${userId}`);
+      // Group speakerIds by userId to merge multiple speaker labels for the same person
+      const userIdToSpeakerIds: Record<string, string[]> = {};
+      Object.entries(speakerMappings).forEach(([speakerId, userId]) => {
+        if (!userIdToSpeakerIds[userId]) userIdToSpeakerIds[userId] = [];
+        userIdToSpeakerIds[userId].push(speakerId);
+      });
 
-        // Extract user's script from transcript
-        const userScript = extractUserScript(transcriptContent, speakerId);
+      // Process each user (merged across all mapped speakerIds)
+      for (const [userId, speakerIds] of Object.entries(userIdToSpeakerIds)) {
+        logger.info(
+          `Processing merged speakers [${speakerIds.join(
+            ", "
+          )}] -> user ${userId}`
+        );
+
+        // Extract user's script across all mapped speakerIds
+        const userScript = extractUserScriptForSpeakers(
+          transcriptContent,
+          speakerIds
+        );
 
         if (!userScript || userScript.trim().length === 0) {
-          logger.warn(`No script found for speaker ${speakerId}, skipping`);
+          logger.warn(
+            `No script found for speakers [${speakerIds.join(", ")}], skipping`
+          );
           continue;
         }
 
-        // Calculate speaking metrics
-        const wordCount = userScript.split(/\s+/).length;
-        const speakingDuration = calculateSpeakingDuration(
+        // Calculate speaking metrics (merged across speakerIds)
+        const wordCount = userScript
+          .split(/\s+/)
+          .filter((w) => w.length > 0).length;
+        const speakingDuration = calculateSpeakingDurationForSpeakers(
           transcriptContent,
-          speakerId
+          speakerIds
         );
         const averageWordsPerMinute =
           speakingDuration > 0 ? wordCount / (speakingDuration / 60) : 0;
+
+        // Compute richer local metrics for metadata
+        const allSegments = extractSegments(transcriptContent);
+        const merged = computeMergedUserSegments(allSegments, speakerIds);
+        const turnStats = computeTurnMetrics(merged.userSegments);
+        const interactionStats = computeInteractionMetrics(
+          allSegments,
+          merged.userSegments
+        );
+        const lexical = computeLexicalMetrics(userScript);
 
         // Generate AI analysis
         const analysis = await generateAIAnalysis(
@@ -1844,7 +1872,7 @@ export const generateSpeakingReports = onCall(
         const report: UserSpeakingReport = {
           userId,
           transcriptId,
-          speakerId,
+          speakerId: speakerIds.join("+"),
           userScript,
           analysis,
           metadata: {
@@ -1854,7 +1882,30 @@ export const generateSpeakingReports = onCall(
             createdAt: admin.firestore.Timestamp.now(),
             articleId: transcriptData.articleId,
             sessionNumber: transcriptData.sessionNumber,
-          },
+            // Extended metrics
+            ...(turnStats && {
+              speakingTurns: turnStats.turns,
+              avgTurnDuration: round2(turnStats.avgTurnSec),
+              longestTurn: round2(turnStats.longestTurnSec),
+            }),
+            ...(lexical && {
+              uniqueWords: lexical.uniqueWords,
+              lexicalDiversity: round2(lexical.lexicalDiversityPct),
+            }),
+            ...(interactionStats && {
+              avgResponseLatency: round2(
+                interactionStats.avgResponseLatencySec
+              ),
+              interruptions: interactionStats.interruptions,
+              talkTimeShare: round2(
+                interactionStats.userTalkTimeSec > 0
+                  ? (interactionStats.userTalkTimeSec /
+                      interactionStats.totalTalkTimeSec) *
+                      100
+                  : 0
+              ),
+            }),
+          } as any,
         };
 
         reports.push(report);
@@ -1866,7 +1917,7 @@ export const generateSpeakingReports = onCall(
         logger.info(
           `Report generated and saved for user ${userId}: ${wordCount} words, ${speakingDuration.toFixed(
             1
-          )}s`
+          )}s (merged speakers)`
         );
       }
 
@@ -1901,72 +1952,212 @@ export const generateSpeakingReports = onCall(
   }
 );
 
-function extractUserScript(
-  transcriptContent: any[],
-  speakerId: string
-): string {
-  const userWords: string[] = [];
+// Deprecated single-speaker helpers kept for reference
 
+// New: extract script for multiple speakers
+function extractUserScriptForSpeakers(
+  transcriptContent: any[],
+  speakerIds: string[]
+): string {
+  const set = new Set(speakerIds);
+  const userWords: string[] = [];
   transcriptContent.forEach((item) => {
     if (item.alternatives && item.alternatives[0]) {
       const word = item.alternatives[0];
-      if (word.speaker === speakerId && word.content) {
+      if (set.has(word.speaker) && word.content) {
         userWords.push(word.content);
       }
     }
   });
-
   return userWords.join(" ");
 }
 
-function calculateSpeakingDuration(
-  transcriptContent: any[],
-  speakerId: string
-): number {
-  let totalDuration = 0;
-  let speakerSegments: { start: number; end: number }[] = [];
+// Deprecated single-speaker helpers kept for reference
 
+// New: duration across multiple speakers (merge overlapping)
+function calculateSpeakingDurationForSpeakers(
+  transcriptContent: any[],
+  speakerIds: string[]
+): number {
+  const set = new Set(speakerIds);
+  let totalDuration = 0;
+  const segments: { start: number; end: number }[] = [];
   transcriptContent.forEach((item) => {
     if (item.alternatives && item.alternatives[0]) {
       const word = item.alternatives[0];
       if (
-        word.speaker === speakerId &&
+        set.has(word.speaker) &&
         item.start_time !== undefined &&
         item.end_time !== undefined
       ) {
-        speakerSegments.push({
-          start: item.start_time,
-          end: item.end_time,
-        });
+        segments.push({ start: item.start_time, end: item.end_time });
       }
     }
   });
+  if (segments.length === 0) return 0;
+  segments.sort((a, b) => a.start - b.start);
+  let currentStart = segments[0].start;
+  let currentEnd = segments[0].end;
+  for (let i = 1; i < segments.length; i++) {
+    const s = segments[i];
+    if (s.start <= currentEnd) {
+      currentEnd = Math.max(currentEnd, s.end);
+    } else {
+      totalDuration += currentEnd - currentStart;
+      currentStart = s.start;
+      currentEnd = s.end;
+    }
+  }
+  totalDuration += currentEnd - currentStart;
+  return totalDuration;
+}
 
-  // Merge overlapping segments and calculate total duration
-  if (speakerSegments.length > 0) {
-    speakerSegments.sort((a, b) => a.start - b.start);
+// Helper to round to 2 decimals
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
-    let currentStart = speakerSegments[0].start;
-    let currentEnd = speakerSegments[0].end;
+// Extract flat segments from transcript
+function extractSegments(transcriptContent: any[]) {
+  type Segment = { speaker: string; start: number; end: number };
+  const segments: Segment[] = [];
+  transcriptContent.forEach((item) => {
+    if (
+      item?.alternatives &&
+      item.alternatives[0] &&
+      item.start_time !== undefined &&
+      item.end_time !== undefined
+    ) {
+      segments.push({
+        speaker: item.alternatives[0].speaker,
+        start: item.start_time,
+        end: item.end_time,
+      });
+    }
+  });
+  return segments;
+}
 
-    for (let i = 1; i < speakerSegments.length; i++) {
-      const segment = speakerSegments[i];
-      if (segment.start <= currentEnd) {
-        // Overlapping or adjacent segments, merge them
-        currentEnd = Math.max(currentEnd, segment.end);
-      } else {
-        // Non-overlapping segment, add duration and start new segment
-        totalDuration += currentEnd - currentStart;
-        currentStart = segment.start;
-        currentEnd = segment.end;
+// Merge all segments of given speakerIds, and non-user segments
+function computeMergedUserSegments(
+  allSegments: { speaker: string; start: number; end: number }[],
+  speakerIds: string[]
+) {
+  const set = new Set(speakerIds);
+  const userSegments = allSegments
+    .filter((s) => set.has(s.speaker))
+    .sort((a, b) => a.start - b.start);
+  const otherSegments = allSegments
+    .filter((s) => !set.has(s.speaker))
+    .sort((a, b) => a.start - b.start);
+
+  return { userSegments, otherSegments };
+}
+
+// Compute turn metrics
+function computeTurnMetrics(
+  segments: { speaker: string; start: number; end: number }[]
+) {
+  if (segments.length === 0)
+    return { turns: 0, avgTurnSec: 0, longestTurnSec: 0 };
+  const durations = segments.map((s) => s.end - s.start);
+  const turns = segments.length;
+  const avgTurnSec = durations.reduce((a, b) => a + b, 0) / turns;
+  const longestTurnSec = Math.max(...durations);
+  return { turns, avgTurnSec, longestTurnSec };
+}
+
+// Interaction metrics: response latency, interruptions, talk time share
+function computeInteractionMetrics(
+  allSegments: { speaker: string; start: number; end: number }[],
+  userSegments: { speaker: string; start: number; end: number }[]
+) {
+  if (allSegments.length === 0) {
+    return {
+      avgResponseLatencySec: 0,
+      interruptions: 0,
+      totalTalkTimeSec: 0,
+      userTalkTimeSec: 0,
+    };
+  }
+
+  const sorted = [...allSegments].sort((a, b) => a.start - b.start);
+  // const userSet = new Set(userSegments.map((s) => s.start + ":" + s.end));
+
+  let responseLatencies: number[] = [];
+  let interruptions = 0;
+  let totalTalkTimeSec = 0;
+  let userTalkTimeSec = 0;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const seg = sorted[i];
+    const isUser = userSegments.some(
+      (u) =>
+        Math.abs(u.start - seg.start) < 1e-6 && Math.abs(u.end - seg.end) < 1e-6
+    );
+    const duration = Math.max(0, seg.end - seg.start);
+    totalTalkTimeSec += duration;
+    if (isUser) userTalkTimeSec += duration;
+
+    // Response latency: time between a non-user seg end and the next user seg start
+    if (!isUser) {
+      // find next user segment
+      for (let j = i + 1; j < sorted.length; j++) {
+        const next = sorted[j];
+        const nextIsUser = userSegments.some(
+          (u) =>
+            Math.abs(u.start - next.start) < 1e-6 &&
+            Math.abs(u.end - next.end) < 1e-6
+        );
+        if (nextIsUser) {
+          const gap = next.start - seg.end;
+          if (gap >= 0 && gap < 10) {
+            // cap at 10s to avoid long silences biasing too much
+            responseLatencies.push(gap);
+          }
+          break;
+        }
       }
     }
 
-    // Add the last segment
-    totalDuration += currentEnd - currentStart;
+    // Interruption heuristic: user segment starts before previous non-user ended
+    if (i > 0) {
+      const prev = sorted[i - 1];
+      const prevIsUser = userSegments.some(
+        (u) =>
+          Math.abs(u.start - prev.start) < 1e-6 &&
+          Math.abs(u.end - prev.end) < 1e-6
+      );
+      if (!prevIsUser && isUser && seg.start < prev.end) {
+        interruptions += 1;
+      }
+    }
   }
 
-  return totalDuration;
+  const avgResponseLatencySec =
+    responseLatencies.length > 0
+      ? responseLatencies.reduce((a, b) => a + b, 0) / responseLatencies.length
+      : 0;
+
+  return {
+    avgResponseLatencySec,
+    interruptions,
+    totalTalkTimeSec,
+    userTalkTimeSec,
+  };
+}
+
+// Lexical metrics from script text
+function computeLexicalMetrics(script: string) {
+  const words = script
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-z0-9'-]/g, ""))
+    .filter((w) => w.length > 0);
+  const total = words.length;
+  const unique = new Set(words).size;
+  const lexicalDiversityPct = total > 0 ? (unique / total) * 100 : 0;
+  return { uniqueWords: unique, lexicalDiversityPct };
 }
 
 async function generateAIAnalysis(
@@ -2102,3 +2293,239 @@ Format your response as a JSON object with this exact structure:
     };
   }
 }
+
+// Aggregate reports for a meetup event across all transcripts, merging by userId
+export const aggregateMeetupReports = onCall(
+  { region: "asia-northeast3", timeoutSeconds: 300, memory: "1GiB" },
+  async (request) => {
+    const { eventId } = request.data as { eventId: string };
+    if (!eventId || typeof eventId !== "string") {
+      throw new Error("Invalid or missing eventId");
+    }
+
+    const db = admin.firestore();
+    logger.info(`Aggregating meetup reports for event ${eventId}`);
+
+    // 1) Load transcripts for this event
+    const transcriptsSnap = await db
+      .collection("transcripts")
+      .where("eventId", "==", eventId)
+      .get();
+    if (transcriptsSnap.empty) {
+      logger.warn(`No transcripts found for event ${eventId}`);
+      return { success: true, message: "No transcripts for event", eventId };
+    }
+
+    const transcriptIds = transcriptsSnap.docs.map((d) => d.id);
+    logger.info(
+      `Found ${transcriptIds.length} transcripts for event ${eventId}`
+    );
+
+    // 2) Load reports for these transcripts (chunk in batches of 10 for "in" query)
+    const chunks: string[][] = [];
+    for (let i = 0; i < transcriptIds.length; i += 10) {
+      chunks.push(transcriptIds.slice(i, i + 10));
+    }
+
+    type ReportDoc = {
+      userId: string;
+      transcriptId: string;
+      analysis: {
+        overallScore: number;
+        fluency: { score: number; feedback: string };
+        vocabulary: { score: number; feedback: string };
+        grammar: { score: number; feedback: string };
+        pronunciation: { score: number; feedback: string };
+        engagement: { score: number; feedback: string };
+        strengths: string[];
+        areasForImprovement: string[];
+        specificSuggestions: string[];
+      };
+      metadata: any;
+    };
+
+    const reports: ReportDoc[] = [];
+    for (const chunk of chunks) {
+      const snap = await db
+        .collection("reports")
+        .where("transcriptId", "in", chunk)
+        .get();
+      snap.forEach((doc) => reports.push(doc.data() as ReportDoc));
+    }
+
+    if (reports.length === 0) {
+      logger.warn(`No reports found for event ${eventId}`);
+      return { success: true, message: "No reports for event", eventId };
+    }
+
+    // 3) Aggregate per user
+    interface Agg {
+      userId: string;
+      transcripts: string[];
+      totalWords: number;
+      totalSpeakingDuration: number;
+      averageWPM: number;
+      sessionsCount: number;
+      // Turns aggregation
+      totalTurns: number;
+      weightedAvgTurnSec: number;
+      longestTurnSec: number;
+      // Interaction
+      weightedAvgResponseLatencySec: number;
+      interruptions: number;
+      // Lexical (approximate)
+      weightedLexicalDiversityPct: number;
+      // Talk share (approximate, weighted by speaking duration)
+      weightedTalkTimeSharePct: number;
+      // Scores (avg of overall)
+      avgOverallScore: number;
+    }
+
+    const byUser: Record<string, Agg> = {};
+
+    for (const r of reports) {
+      const userId = r.userId;
+      const m = r.metadata || {};
+      const words = Number(m.wordCount) || 0;
+      const dur = Number(m.speakingDuration) || 0;
+      const turns = Number(m.speakingTurns) || 0;
+      const avgTurn = Number(m.avgTurnDuration) || Number(m.avgTurnSec) || 0;
+      const longestTurn =
+        Number(m.longestTurn) || Number(m.longestTurnSec) || 0;
+      const respLatency =
+        Number(m.avgResponseLatency) || Number(m.avgResponseLatencySec) || 0;
+      const interruptions = Number(m.interruptions) || 0;
+      const lexDiv =
+        Number(m.lexicalDiversity) || Number(m.lexicalDiversityPct) || 0;
+      const talkShare = Number(m.talkTimeShare) || 0;
+      const overall = Number(r.analysis?.overallScore) || 0;
+
+      if (!byUser[userId]) {
+        byUser[userId] = {
+          userId,
+          transcripts: [],
+          totalWords: 0,
+          totalSpeakingDuration: 0,
+          averageWPM: 0,
+          sessionsCount: 0,
+          totalTurns: 0,
+          weightedAvgTurnSec: 0,
+          longestTurnSec: 0,
+          weightedAvgResponseLatencySec: 0,
+          interruptions: 0,
+          weightedLexicalDiversityPct: 0,
+          weightedTalkTimeSharePct: 0,
+          avgOverallScore: 0,
+        };
+      }
+
+      const a = byUser[userId];
+      a.transcripts.push(r.transcriptId);
+      a.totalWords += words;
+      a.totalSpeakingDuration += dur;
+      a.sessionsCount += 1;
+      a.totalTurns += turns;
+      a.longestTurnSec = Math.max(a.longestTurnSec, longestTurn);
+      a.interruptions += interruptions;
+
+      // Weighted averages: use sensible weights
+      // avgTurn: weight by number of turns
+      if (turns > 0) {
+        a.weightedAvgTurnSec =
+          (a.weightedAvgTurnSec * (a.totalTurns - turns) + avgTurn * turns) /
+          (a.totalTurns || 1);
+      }
+
+      // response latency: weight by turns
+      if (turns > 0) {
+        const prevTurns = a.totalTurns - turns;
+        a.weightedAvgResponseLatencySec =
+          (a.weightedAvgResponseLatencySec * prevTurns + respLatency * turns) /
+          (a.totalTurns || 1);
+      }
+
+      // lexical diversity: weight by words
+      if (words > 0) {
+        const prevWords = a.totalWords - words;
+        a.weightedLexicalDiversityPct =
+          (a.weightedLexicalDiversityPct * prevWords + lexDiv * words) /
+          (a.totalWords || 1);
+      }
+
+      // talk time share: weight by speaking duration
+      if (dur > 0) {
+        const prevDur = a.totalSpeakingDuration - dur;
+        a.weightedTalkTimeSharePct =
+          (a.weightedTalkTimeSharePct * prevDur + talkShare * dur) /
+          (a.totalSpeakingDuration || 1);
+      }
+
+      // overall score: simple running average (weight each session equally)
+      a.avgOverallScore =
+        (a.avgOverallScore * (a.sessionsCount - 1) + overall) / a.sessionsCount;
+    }
+
+    // Finalize WPM per user
+    Object.values(byUser).forEach((a) => {
+      a.averageWPM =
+        a.totalSpeakingDuration > 0
+          ? a.totalWords / (a.totalSpeakingDuration / 60)
+          : 0;
+    });
+
+    // Compute event-level shares (optional)
+    const eventTotals = Object.values(byUser).reduce(
+      (acc, a) => {
+        acc.words += a.totalWords;
+        acc.duration += a.totalSpeakingDuration;
+        return acc;
+      },
+      { words: 0, duration: 0 }
+    );
+
+    // 4) Save aggregated docs under meetup_reports/{eventId}/users/{userId}
+    const batch = db.batch();
+    const baseRef = db.collection("meetup_reports").doc(eventId);
+    batch.set(
+      baseRef,
+      {
+        eventId,
+        transcripts: transcriptIds,
+        updatedAt: admin.firestore.Timestamp.now(),
+        totals: eventTotals,
+      },
+      { merge: true }
+    );
+
+    for (const agg of Object.values(byUser)) {
+      const ref = baseRef.collection("users").doc(agg.userId);
+      batch.set(ref, {
+        ...agg,
+        eventId,
+        wordSharePct:
+          eventTotals.words > 0
+            ? (agg.totalWords / eventTotals.words) * 100
+            : 0,
+        durationSharePct:
+          eventTotals.duration > 0
+            ? (agg.totalSpeakingDuration / eventTotals.duration) * 100
+            : 0,
+        updatedAt: admin.firestore.Timestamp.now(),
+      });
+    }
+
+    await batch.commit();
+
+    logger.info(
+      `Aggregated ${
+        Object.keys(byUser).length
+      } user reports for event ${eventId}`
+    );
+
+    return {
+      success: true,
+      eventId,
+      users: Object.keys(byUser).length,
+    };
+  }
+);
