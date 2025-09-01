@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import styled, { createGlobalStyle, css, keyframes } from "styled-components";
+import { colors } from "../../../constants/colors";
 import React from "react";
 // GNB and Footer are now handled by the layout
 import { useGnb } from "../../../contexts/gnb_context";
@@ -32,34 +33,10 @@ import { UserAvatarStack } from "../../meetup/components/user_avatar";
 //   pulseOffset: number;
 // }
 
-// Add global style for Noto Sans KR font
-const GlobalStyle = createGlobalStyle`
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap');
-  
-  body, html {
-    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  }
-  
-  /* Ensure Korean text uses Noto Sans KR */
-  :lang(ko) {
-    font-family: 'Noto Sans KR', sans-serif;
-  }
-`;
+// Local global style removed; fonts are injected via <head>
+const GlobalStyle = createGlobalStyle``;
 
-// Define colors object since it's not exported from layout.tsx
-const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
-  text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
-  },
-};
+// Use shared colors
 
 // Common section styles
 const SectionBase = css`

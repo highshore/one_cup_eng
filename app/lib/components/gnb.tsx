@@ -6,25 +6,10 @@ import styled from "styled-components";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/auth_context";
 import { useGnb } from "../contexts/gnb_context";
+import { colors } from "../constants/colors";
 
-// Define colors for consistency
-const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
-  text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
-  },
-  subscription: {
-    active: "#00a000",
-    inactive: "#808080",
-  },
-};
+// Extend with component-local tokens
+const subscription = { active: "#00a000", inactive: "#808080" } as const;
 
 const NavbarContainer = styled.nav<{ $isTransparent?: boolean }>`
   background-color: ${(props) =>
@@ -174,9 +159,9 @@ const ProfileButton = styled(Link)<{ $isActiveSubscription: boolean | null }>`
   border: 2px solid
     ${(props) =>
       props.$isActiveSubscription === true
-        ? colors.subscription.active
+        ? subscription.active
         : props.$isActiveSubscription === false
-        ? colors.subscription.inactive
+        ? subscription.inactive
         : colors.accent};
   transition: all 0.2s ease;
 
@@ -202,9 +187,7 @@ const StatusIndicator = styled.div<{ $isActive: boolean }>`
   height: 10px;
   border-radius: 50%;
   background-color: ${(props) =>
-    props.$isActive
-      ? colors.subscription.active
-      : colors.subscription.inactive};
+    props.$isActive ? subscription.active : subscription.inactive};
   border: 1.5px solid white;
   box-sizing: border-box;
   z-index: 1;
@@ -241,7 +224,7 @@ const MobileMenuContainer = styled.div<{
     gap: 1rem;
 
     // Transform based on $isOpen for smooth slide animation
-    transform: ${({ $isOpen }) => 
+    transform: ${({ $isOpen }) =>
       $isOpen ? "translateY(0)" : "translateY(-100%)"};
 
     // Background transparency based on $isOpen
@@ -254,7 +237,7 @@ const MobileMenuContainer = styled.div<{
 
     /* Control visibility of menu items */
     visibility: ${({ $isOpen }) => ($isOpen ? "visible" : "hidden")};
-    
+
     & > * {
       opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
       transition: opacity 0.2s ease-in-out;
@@ -335,7 +318,6 @@ export default function GNB({ variant = "default" }: GNBProps) {
 
     const handleScroll = () => {
       const scrollTop = window.scrollY;
-      console.log('Homepage scroll:', scrollTop, 'isHomePage:', isHomePage); // Debug log
       if (scrollTop > 50) {
         setIsTransparent(false);
       } else {
@@ -345,7 +327,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
 
     // Set initial state
     setIsTransparent(true);
-    
+
     window.addEventListener("scroll", handleScroll);
     handleScroll(); // Call once to set initial state
 
@@ -358,9 +340,11 @@ export default function GNB({ variant = "default" }: GNBProps) {
     e.preventDefault();
     if (typeof window !== "undefined") {
       // Get the full URL path including hash for client-side routing
-      const currentPath = window.location.pathname + window.location.search + window.location.hash;
+      const currentPath =
+        window.location.pathname +
+        window.location.search +
+        window.location.hash;
       const authUrl = `/auth?redirect=${encodeURIComponent(currentPath)}`;
-      console.log('Redirect - Current path:', currentPath, 'Auth URL:', authUrl); // Debug log
       window.location.href = authUrl;
     }
   };
@@ -500,7 +484,9 @@ export default function GNB({ variant = "default" }: GNBProps) {
                 )}
               </ProfileWrapper>
             ) : (
-              <AuthButton href="/auth" onClick={handleAuthClick}>로그인 · 가입</AuthButton>
+              <AuthButton href="/auth" onClick={handleAuthClick}>
+                로그인 · 가입
+              </AuthButton>
             )}
           </div>
         </NavbarContent>
@@ -537,12 +523,21 @@ export default function GNB({ variant = "default" }: GNBProps) {
               >
                 마이페이지
               </MobileMenuItem>
-              <MobileMenuItem onClick={handleLogout} $isMenuOpen={isMobileMenuOpen}>
+              <MobileMenuItem
+                onClick={handleLogout}
+                $isMenuOpen={isMobileMenuOpen}
+              >
                 로그아웃
               </MobileMenuItem>
             </>
           ) : (
-            <MobileAuthButton href="/auth" onClick={(e) => { handleAuthClick(e); closeMobileMenu(); }}>
+            <MobileAuthButton
+              href="/auth"
+              onClick={(e) => {
+                handleAuthClick(e);
+                closeMobileMenu();
+              }}
+            >
               로그인 · 가입
             </MobileAuthButton>
           )}

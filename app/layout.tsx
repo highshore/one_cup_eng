@@ -5,6 +5,7 @@ import StyledComponentsRegistry from "./lib/styled-components/registry";
 import AuthProvider from "./lib/contexts/auth_context";
 import GlobalStyles from "./lib/components/GlobalStyles";
 import ConditionalLayoutWrapper from "./lib/components/ConditionalLayoutWrapper";
+// removed duplicate React import
 
 export const metadata = {
   title: "영어 한잔 - 1 Cup English",
@@ -42,6 +43,17 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Fonts: prefer link tags over @import */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body suppressHydrationWarning={true}>
         <StyledComponentsRegistry>

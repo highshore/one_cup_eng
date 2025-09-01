@@ -1,6 +1,7 @@
 "use client";
 
 import { createGlobalStyle } from "styled-components";
+import { colors } from "../constants/colors";
 import reset from "styled-reset";
 
 const GlobalStyles = createGlobalStyle`
@@ -12,9 +13,9 @@ const GlobalStyles = createGlobalStyle`
     -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape */
   }
   body {
-    background-color: white;
-    color: black;
-    font-family: 'Avenir', 'Avenir Next', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    background-color: ${colors.primaryBg};
+    color: ${colors.text.dark};
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     overflow-x: hidden; /* Prevent horizontal scrolling at the page level */
     position: relative; /* Establish a stacking context */
     width: 100%;
@@ -23,6 +24,11 @@ const GlobalStyles = createGlobalStyle`
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Prefer Noto Sans KR for Korean text */
+  :lang(ko) {
+    font-family: 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
   
   #root {
@@ -37,17 +43,23 @@ const GlobalStyles = createGlobalStyle`
     z-index: auto;
   }
   
-  /* Add standard heading styles with Avenir */
+  /* Heading styles */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Avenir', 'Avenir Next', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-weight: 600;
+    color: ${colors.text.dark};
+    letter-spacing: -0.02em;
   }
   
   /* Quick reading highlight style */
-  .highlighted {
-    color: #1A0F0A;
-    font-weight: 800;
-  }
+  .highlighted { color: ${colors.primaryDark}; font-weight: 800; }
+
+  a { color: ${colors.primary}; text-decoration: none; }
+  a:hover { color: ${colors.primaryDark}; text-decoration: underline; }
+
+  /* Containers */
+  .container { max-width: 960px; margin: 0 auto; padding: 0 1.5rem; }
+  @media (max-width: 768px) { .container { padding: 0 1rem; } }
   
   /* Additional mobile optimizations */
   @media (max-width: 768px) {

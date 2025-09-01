@@ -1,26 +1,9 @@
 import React from "react";
 import styled from "styled-components";
+import { colors } from "../../../constants/colors";
 import { BlogPost } from "../types/blog_types";
 
-// Define colors for YC-style design
-const colors = {
-  primary: "#000000",
-  primaryLight: "#333333",
-  primaryDark: "#000000",
-  primaryPale: "#f8f9fa",
-  primaryBg: "#ffffff",
-  accent: "#FF6600", // YC Orange
-  accentHover: "#E55A00",
-  accentLight: "#FFF4E6",
-  text: {
-    dark: "#000000",
-    medium: "#666666",
-    light: "#999999",
-  },
-  border: "#e1e5e9",
-  shadow: "rgba(0, 0, 0, 0.1)",
-  backgroundGray: "#f6f6f6",
-};
+// Using shared colors
 
 const CardContainer = styled.article`
   background: white;
@@ -60,7 +43,7 @@ const FeaturedImage = styled.div<{ $hasImage: boolean; $imageUrl?: string }>`
   background: ${(props) =>
     props.$hasImage && props.$imageUrl
       ? `url(${props.$imageUrl}) center/cover`
-      : `${colors.backgroundGray}`};
+      : `${colors.gray.light}`};
   position: relative;
   display: flex;
   align-items: center;
@@ -214,7 +197,7 @@ const TagsContainer = styled.div`
 `;
 
 const Tag = styled.span`
-  background: ${colors.accentLight};
+  background: ${colors.primaryPale};
   color: ${colors.accent};
   padding: 0.25rem 0.75rem;
   border-radius: 4px;

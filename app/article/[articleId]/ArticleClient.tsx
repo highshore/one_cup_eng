@@ -74,8 +74,8 @@ const ArticleContainer = styled.div`
   margin: 0 auto;
   padding: 1rem 1.5rem;
   min-height: 100vh;
-  font-family: "Avenir", "Avenir Next", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", "Roboto", "Oxygen", "Ubuntu", sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Helvetica Neue", Arial, sans-serif;
   position: relative;
   padding-top: 90px; /* Add space for the fixed GNB */
   padding-bottom: 70px; /* Add space for audio player */
@@ -103,8 +103,8 @@ const Title = styled.h1`
   font-weight: 700;
   line-height: 1.2;
   cursor: pointer;
-  font-family: "Avenir", "Avenir Next", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Helvetica Neue", Arial, sans-serif;
 
   @media (max-width: 768px) {
     font-size: 1.7rem;

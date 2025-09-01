@@ -6,31 +6,14 @@ import { useSearchParams } from "next/navigation";
 import { Timestamp, addDoc, collection } from "firebase/firestore";
 import { db } from "../lib/firebase/firebase";
 import { useRouter } from "next/navigation";
+import { colors } from "../lib/constants/colors";
 
-// Define colors for consistency with the main app
-const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#FDF9F6",
-  accent: "#C8A27A",
-  text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
-  },
-  gray: {
-    light: "#F8F9FA",
-    medium: "#E9ECEF",
-    dark: "#6C757D",
-  },
-  star: {
-    active: "#FFD700",
-    inactive: "#E0E0E0",
-    hover: "#FFC107",
-  },
-};
+// Using shared colors; extend locally for star rating
+const star = {
+  active: "#FFD700",
+  inactive: "#E0E0E0",
+  hover: "#FFC107",
+} as const;
 
 const Container = styled.div`
   min-height: 100vh;
@@ -129,11 +112,7 @@ const Star = styled.span.withConfig({
   font-size: 3.5rem;
   cursor: pointer;
   color: ${({ selected, $hover }) =>
-    selected
-      ? colors.star.active
-      : $hover
-      ? colors.star.hover
-      : colors.star.inactive};
+    selected ? star.active : $hover ? star.hover : star.inactive};
   transition: all 0.3s ease;
   user-select: none;
 

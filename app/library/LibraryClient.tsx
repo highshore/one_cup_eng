@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import styled, { css } from "styled-components";
+import { colors } from "../lib/constants/colors";
 import Link from "next/link";
 import {
   FaChevronLeft,
@@ -23,20 +24,7 @@ type RowData = {
   videos: VideoItem[];
 };
 
-// Define colors matching the layout.tsx palette
-const colors = {
-  primary: "#2C1810",
-  primaryLight: "#4A2F23",
-  primaryDark: "#1A0F0A",
-  primaryPale: "#F5EBE6",
-  primaryBg: "#fafafa",
-  accent: "#C8A27A",
-  text: {
-    dark: "#2C1810",
-    medium: "#4A2F23",
-    light: "#8B6B4F",
-  },
-};
+// Using shared colors
 
 // Define your styled components here if needed, or import from a shared file
 // For example:

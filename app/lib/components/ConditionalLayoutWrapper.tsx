@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import MainLayoutWrapper from "./MainLayoutWrapper";
 import DisplayNamePrompt from "./DisplayNamePrompt";
 import { useDisplayNamePrompt } from "../hooks/useDisplayNamePrompt";
+import { I18nProvider } from "../i18n/I18nProvider";
 
 interface ConditionalLayoutWrapperProps {
   children: React.ReactNode;
@@ -22,16 +23,13 @@ export default function ConditionalLayoutWrapper({
   const shouldUseMainLayout = !authPages.includes(pathname);
 
   return (
-    <>
+    <I18nProvider>
       {shouldUseMainLayout ? (
         <MainLayoutWrapper>{children}</MainLayoutWrapper>
       ) : (
-        // For auth pages, render children directly without main layout
         children
       )}
-
-      {/* Global display name prompt */}
       {shouldShowPrompt && <DisplayNamePrompt onComplete={hidePrompt} />}
-    </>
+    </I18nProvider>
   );
 }

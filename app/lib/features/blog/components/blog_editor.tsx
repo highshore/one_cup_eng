@@ -1,30 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
+import { colors } from "../../../constants/colors";
 import { BlogPost } from "../types/blog_types";
 import {
   uploadBlogImage,
   validateBlogImageFiles,
 } from "../services/blog_image_service";
 
-// Define colors for YC-style design
-const colors = {
-  primary: "#000000",
-  primaryLight: "#333333",
-  primaryDark: "#000000",
-  primaryPale: "#f8f9fa",
-  primaryBg: "#ffffff",
-  accent: "#FF6600", // YC Orange
-  accentHover: "#E55A00",
-  accentLight: "#FFF4E6",
-  text: {
-    dark: "#000000",
-    medium: "#666666",
-    light: "#999999",
-  },
-  border: "#e1e5e9",
-  shadow: "rgba(0, 0, 0, 0.1)",
-  backgroundGray: "#f6f6f6",
-};
+// Using shared colors
 
 const EditorOverlay = styled.div`
   position: fixed;
@@ -475,6 +458,8 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     status: "draft" as "draft" | "published",
     featuredImage: "",
     tags: "",
+    featured: false,
+    category: "info" as "announcement" | "review" | "info",
   });
 
   const [saving, setSaving] = useState(false);
@@ -495,6 +480,9 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
         status: (post.status as "draft" | "published") || "draft",
         featuredImage: post.featuredImage || "",
         tags: post.tags?.join(", ") || "",
+        featured: !!post.featured,
+        category:
+          (post.category as "announcement" | "review" | "info") || "info",
       });
     }
   }, [post]);
@@ -509,6 +497,11 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleCheckbox = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -551,6 +544,9 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
           postData.tags = tags;
         }
       }
+
+      postData.featured = !!formData.featured;
+      postData.category = formData.category;
 
       console.log("Submitting blog post data:", postData);
       await onSave(postData);
@@ -894,6 +890,38 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                 <option value="draft">초안</option>
                 <option value="published">발행</option>
               </Select>
+            </FormGroup>
+
+            <FormGroup>
+              <Label htmlFor="category">카테고리</Label>
+              <Select
+                id="category"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+              >
+                <option value="announcement">announcement</option>
+                <option value="review">review</option>
+                <option value="info">info</option>
+              </Select>
+            </FormGroup>
+
+            <FormGroup>
+              <Label htmlFor="featured">Featured</Label>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <input
+                  id="featured"
+                  name="featured"
+                  type="checkbox"
+                  checked={formData.featured}
+                  onChange={handleCheckbox}
+                />
+                <span style={{ color: colors.text.medium, fontSize: "0.9rem" }}>
+                  상단 Featured 섹션에 노출
+                </span>
+              </div>
             </FormGroup>
 
             <FormGroup>

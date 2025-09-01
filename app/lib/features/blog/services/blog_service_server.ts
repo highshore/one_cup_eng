@@ -18,6 +18,8 @@ const docToBlogPost = (doc: any): BlogPost => {
     slug: data.slug || "",
     featuredImage: data.featuredImage || "",
     tags: data.tags || [],
+    featured: data.featured ?? false,
+    category: data.category || undefined,
     views: data.views || 0,
     likes: data.likes || 0,
     likedBy: data.likedBy || [],
@@ -36,9 +38,9 @@ export const fetchPublishedBlogPostsServer = async (): Promise<BlogPost[]> => {
     }
 
     const blogRef = db.collection(COLLECTION_NAME);
-    
+
     // Check if the collection reference has the get method
-    if (!blogRef || typeof blogRef.get !== 'function') {
+    if (!blogRef || typeof blogRef.get !== "function") {
       console.warn(
         "Firebase collection reference not properly initialized, returning empty blog posts"
       );
@@ -77,9 +79,9 @@ export const fetchPublishedBlogPostByIdServer = async (
     }
 
     const docRef = db.collection(COLLECTION_NAME).doc(id);
-    
+
     // Check if the document reference has the get method
-    if (!docRef || typeof docRef.get !== 'function') {
+    if (!docRef || typeof docRef.get !== "function") {
       console.warn(
         "Firebase document reference not properly initialized, returning null for blog post"
       );
@@ -114,9 +116,9 @@ export const getPublishedBlogPostIdsServer = async (): Promise<string[]> => {
     }
 
     const blogRef = db.collection(COLLECTION_NAME);
-    
+
     // Check if the collection reference has the get method
-    if (!blogRef || typeof blogRef.get !== 'function') {
+    if (!blogRef || typeof blogRef.get !== "function") {
       console.warn(
         "Firebase collection reference not properly initialized, returning empty blog post IDs"
       );

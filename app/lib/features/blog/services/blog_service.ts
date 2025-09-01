@@ -37,6 +37,8 @@ const docToBlogPost = (doc: any): BlogPost => {
     slug: data.slug || "",
     featuredImage: data.featuredImage || "",
     tags: data.tags || [],
+    featured: data.featured ?? false,
+    category: data.category || undefined,
     views: data.views || 0,
     likes: data.likes || 0,
     likedBy: data.likedBy || [],
@@ -201,6 +203,14 @@ export const createBlogPost = async (
       blogPost.tags = postData.tags;
     }
 
+    if (postData.featured !== undefined) {
+      blogPost.featured = !!postData.featured;
+    }
+
+    if (postData.category) {
+      blogPost.category = postData.category;
+    }
+
     console.log("Final blog post object:", blogPost);
 
     const blogRef = collection(db, COLLECTION_NAME);
@@ -261,6 +271,14 @@ export const updateBlogPost = async (
 
     if (postData.tags !== undefined) {
       updateData.tags = postData.tags;
+    }
+
+    if (postData.featured !== undefined) {
+      updateData.featured = !!postData.featured;
+    }
+
+    if (postData.category !== undefined) {
+      updateData.category = postData.category;
     }
 
     // If publishing for the first time, set publishedAt
