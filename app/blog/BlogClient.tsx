@@ -93,23 +93,6 @@ const AdminButton = styled.button`
   }
 `;
 
-const ListSection = styled.section`
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 0 2rem 0;
-
-  @media (max-width: 768px) {
-    padding: 0 0 1.5rem 0;
-  }
-`;
-
-const BlogGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.25rem;
-  align-items: start;
-`;
-
 const LoadingState = styled.div`
   display: flex;
   align-items: center;
@@ -180,14 +163,16 @@ const SectionRow = styled.section`
 `;
 
 const SectionDivider = styled.div`
-  width: 100%;
+  width: calc(100% - 2rem);
   height: 1px;
   background: ${blog.border};
   margin: 2.5rem auto;
-  max-width: 960px;
+  max-width: 920px;
 
   @media (max-width: 768px) {
     margin: 2rem auto;
+    width: calc(100% - 1.5rem);
+    max-width: 700px;
   }
 `;
 

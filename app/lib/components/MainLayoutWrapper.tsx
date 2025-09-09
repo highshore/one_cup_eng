@@ -22,10 +22,6 @@ const PageContainer = styled.div<{
   max-width: ${(props) =>
     props.$isHomePage || props.$isArticlePage ? "100%" : "960px"};
   margin: 0 auto;
-  padding-left: ${(props) =>
-    props.$isHomePage || props.$isArticlePage ? "0" : "1.5rem"};
-  padding-right: ${(props) =>
-    props.$isHomePage || props.$isArticlePage ? "0" : "1.5rem"};
   padding-bottom: 2rem;
   font-family: "Noto Sans KR", sans-serif;
   width: 100%;
