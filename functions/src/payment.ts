@@ -4,6 +4,7 @@ import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import axios from "axios";
 import { Timestamp } from "firebase-admin/firestore";
+import { createHash } from "crypto";
 import { format } from "date-fns";
 import { sendKakaoMessages } from "./index";
 
@@ -35,6 +36,35 @@ logger.info("Payple configuration:", {
   remote_hostname: PAYPLE_REMOTE_HOSTNAME,
   refund_key_exists: !!PAYPLE_REFUND_KEY,
 });
+
+// Generate a stable numeric-only payer number from a string source (e.g., userId)
+// Payple requires PCD_PAYER_NO to be numeric-only. We derive a deterministic
+// digits string using SHA-256 and taking byte mod 10 to form digits.
+function generateNumericPayerNo(
+  source: string,
+  desiredLength: number = 12
+): string {
+  try {
+    const hash = createHash("sha256").update(source).digest();
+    let digits = "";
+    // Use index-based loop for compatibility with TS target without downlevelIteration
+    for (let i = 0; i < hash.length && digits.length < desiredLength; i++) {
+      const byte = hash[i];
+      digits += (byte % 10).toString();
+    }
+    // Fallback padding with current time digits if needed (should be rare)
+    if (digits.length < desiredLength) {
+      const fallback = Date.now().toString();
+      digits += fallback
+        .slice(-(desiredLength - digits.length))
+        .padStart(desiredLength - digits.length, "0");
+    }
+    return digits;
+  } catch (e) {
+    // Absolute fallback: last digits of timestamp
+    return Date.now().toString().slice(-desiredLength);
+  }
+}
 
 // Check if required credentials are available
 if (!PAYPLE_CST_ID || !PAYPLE_CUST_KEY || !PAYPLE_CLIENT_KEY) {
@@ -830,7 +860,7 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
 // Function to process monthly recurring payments
 export const processRecurringPayments = onSchedule(
   {
-    schedule: "0 * * * *",
+    schedule: "0 20 * * *",
     timeZone: "Asia/Seoul",
     secrets: [
       "PAYPLE_CST_ID",
@@ -842,19 +872,42 @@ export const processRecurringPayments = onSchedule(
   },
   async (event) => {
     const db = admin.firestore();
-    const today = new Date();
+    const nowUtc = new Date();
+    logger.info(
+      `Running recurring payments job (UTC now): ${nowUtc.toISOString()}`
+    );
 
-    logger.info(`Running recurring payments job for ${today.toISOString()}`);
+    // Compute KST (UTC+09:00) day window robustly from UTC
+    const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+    const kstNow = new Date(nowUtc.getTime() + KST_OFFSET_MS);
+    const kstYear = kstNow.getUTCFullYear();
+    const kstMonth = kstNow.getUTCMonth();
+    const kstDate = kstNow.getUTCDate();
+
+    // Midnight KST expressed in UTC = KST midnight minus 9 hours
+    const startOfKstDayUtcMs =
+      Date.UTC(kstYear, kstMonth, kstDate, 0, 0, 0, 0) - KST_OFFSET_MS;
+    const kstStartOfDay = new Date(startOfKstDayUtcMs);
+    const kstEndOfDay = new Date(startOfKstDayUtcMs + 24 * 60 * 60 * 1000 - 1);
+
+    logger.info(
+      `KST day window computed: start=${kstStartOfDay.toISOString()}, end=${kstEndOfDay.toISOString()}`
+    );
 
     try {
-      // Find users whose subscriptions need to be renewed today
+      // Find users whose subscriptionEndDate is exactly today (KST day window)
       const usersToRenew = await db
         .collection("users")
         .where("hasActiveSubscription", "==", true)
         .where(
           "subscriptionEndDate",
+          ">=",
+          admin.firestore.Timestamp.fromDate(kstStartOfDay)
+        )
+        .where(
+          "subscriptionEndDate",
           "<=",
-          admin.firestore.Timestamp.fromDate(today)
+          admin.firestore.Timestamp.fromDate(kstEndOfDay)
         )
         .get();
 
@@ -864,38 +917,44 @@ export const processRecurringPayments = onSchedule(
         const userData = userDoc.data();
         const userId = userDoc.id;
 
-        // Skip if no billing key
+        // Renewal gating rules:
+        // - If account_status === 'admin' => always bill
+        // - Else if account_status === 'leader' OR gdg_member === true => skip billing
+        // - Else (others or missing account_status) => bill
+        const accountStatus: string | undefined = userData.account_status;
+        const isGdgMember: boolean = Boolean(userData.gdg_member);
+
+        if (accountStatus === "admin") {
+          logger.info(
+            `User ${userId} is admin - proceeding with renewal billing.`
+          );
+        } else if (accountStatus === "leader" || isGdgMember === true) {
+          logger.info(
+            `Skipping renewal for user ${userId} - account_status='${
+              accountStatus || "undefined"
+            }', gdg_member=${isGdgMember}`
+          );
+          continue;
+        } else {
+          logger.info(
+            `User ${userId} meets renewal criteria (account_status='${
+              accountStatus || "undefined"
+            }', gdg_member=${isGdgMember}). Proceeding.`
+          );
+        }
+
+        // Skip if no billing key (do not alter state for non-billable condition)
         if (!userData.billingKey) {
           logger.warn(
-            `User ${userId} has no billing key, expiring subscription`
-          );
-
-          // Set hasActiveSubscription to false since billing cannot continue
-          await db.doc(`users/${userId}`).update({
-            hasActiveSubscription: false,
-            subscriptionExpiredAt: Timestamp.now(),
-          });
-
-          logger.info(
-            `Set hasActiveSubscription to false for user ${userId} (no billing key)`
+            `User ${userId} has no billing key. Skipping renewal attempt.`
           );
           continue;
         }
 
-        // Skip if billing is cancelled by user
+        // Skip if billing is cancelled by user (do not alter state here)
         if (userData.billingCancelled) {
           logger.warn(
-            `User ${userId} has billing cancelled, expiring subscription but keeping billing key`
-          );
-
-          // Set hasActiveSubscription to false but keep billing key for easy reactivation
-          await db.doc(`users/${userId}`).update({
-            hasActiveSubscription: false,
-            subscriptionExpiredAt: Timestamp.now(),
-          });
-
-          logger.info(
-            `Set hasActiveSubscription to false for user ${userId} (billing cancelled)`
+            `User ${userId} has billingCancelled=true. Skipping renewal attempt.`
           );
           continue;
         }
@@ -916,43 +975,22 @@ export const processRecurringPayments = onSchedule(
             .toString()
             .padStart(6, "0")}`;
 
-          // --- Calculate user-specific price and product name ---
-          let userSpecificPrice = 0;
-          let nameParts: string[] = [];
-          const techPrice = 4700;
-          const businessPrice = 4700;
-
-          if (userData.cat_tech) {
-            userSpecificPrice += techPrice;
-            nameParts.push("Tech");
-          }
-          if (userData.cat_business) {
-            userSpecificPrice += businessPrice;
-            nameParts.push("Business");
-          }
-
-          // Apply 20% discount if both are selected
-          if (userData.cat_tech && userData.cat_business) {
-            userSpecificPrice = Math.round(userSpecificPrice * 0.8);
-            logger.info(
-              `Applying 20% discount for user ${userId}, price: ${userSpecificPrice}`
-            );
-          }
-
-          // Fallback if price calculation fails (shouldn't happen for active sub)
-          if (userSpecificPrice <= 0) {
-            logger.warn(
-              `Calculated price for user ${userId} is ${userSpecificPrice}. Falling back to default price ${SUBSCRIPTION_PRICE}. Check cat_tech/cat_business flags.`
-            );
-            userSpecificPrice = SUBSCRIPTION_PRICE; // Fallback to default
-            nameParts = ["프리미엄 멤버십"]; // Default name part
-          }
-
-          const productName = `One Cup English (${nameParts.join(
-            " + "
-          )}) 멤버십 (정기결제)`;
+          // --- Calculate price and product name based on plan only ---
+          const planNameRaw =
+            userData.plan ||
+            userData.subscriptionPlan ||
+            userData.membership_plan ||
+            userData.plan_name ||
+            "Standard";
+          const planName = String(planNameRaw);
+          const planPriceRaw = Number(userData.plan_price);
+          const userSpecificPrice =
+            Number.isFinite(planPriceRaw) && planPriceRaw > 0
+              ? planPriceRaw
+              : 4700;
+          const productName = `One Cup English (${planName}) 멤버십 (정기결제)`;
           logger.info(
-            `Calculated recurring payment for user ${userId}: Price=${userSpecificPrice}, Name=${productName}`
+            `Renewal (plan-based) for user ${userId}: Plan='${planName}', Price=${userSpecificPrice}`
           );
           // --- End Calculation ---
 
@@ -971,8 +1009,8 @@ export const processRecurringPayments = onSchedule(
             PCD_PAY_TOTAL: userSpecificPrice, // << USE DYNAMIC PRICE
             PCD_PAY_OID: orderNumber, // 주문번호
 
-            // Optional parameters for better tracking - use consistent user ID
-            PCD_PAYER_NO: userId, // Use consistent user ID
+            // Optional parameters for better tracking - must be numeric-only
+            PCD_PAYER_NO: generateNumericPayerNo(userId),
             PCD_PAY_YEAR: new Date().getFullYear().toString(), // 결제 년도
             PCD_PAY_MONTH: (new Date().getMonth() + 1)
               .toString()

@@ -521,8 +521,6 @@ function AuthContent() {
         const ancientDate = new Date(1000, 0, 1); // Month is 0-based
 
         const newUserFirestoreData: {
-          cat_business: boolean;
-          cat_tech: boolean;
           last_received: Date;
           left_count: number;
           received_articles: unknown[];
@@ -530,8 +528,6 @@ function AuthContent() {
           createdAt: ReturnType<typeof serverTimestamp>;
           photoURL?: string;
         } = {
-          cat_business: false,
-          cat_tech: false,
           last_received: ancientDate,
           left_count: 0,
           received_articles: [],

@@ -9,6 +9,7 @@ export interface UserProfile {
   email?: string; // Keep email if you might need it, but it's often not public
   account_status?: string; // Add account_status field
   hasActiveSubscription?: boolean; // Add subscription status field
+  gdg_member?: boolean; // GDG membership flag
 }
 
 // Cache for user profiles to avoid repeated fetches
@@ -45,6 +46,7 @@ export const fetchUserProfile = async (
         email: userData.email, // Only if you store and need it
         account_status: userData.account_status,
         hasActiveSubscription: userData.hasActiveSubscription === true,
+        gdg_member: userData.gdg_member === true,
       };
       userCache.set(uid, profile);
       return profile;

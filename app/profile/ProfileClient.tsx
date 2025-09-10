@@ -495,8 +495,6 @@ interface SubscriptionData {
 }
 
 interface UserData {
-  cat_business: boolean;
-  cat_tech: boolean;
   last_received: Date;
   received_articles: string[];
   saved_words: string[];
@@ -507,6 +505,8 @@ interface UserData {
   billingKey?: string;
   paymentMethod?: string;
   billingCancelled?: boolean;
+  account_status?: string;
+  gdg_member?: boolean;
 }
 
 const defaultUserImage = "/images/default_user.jpg"; // Using public folder
@@ -801,8 +801,6 @@ export default function ProfileClient() {
         if (userDoc.exists()) {
           const data = userDoc.data();
           const userDataObj = {
-            cat_business: data.cat_business || false,
-            cat_tech: data.cat_tech || false,
             last_received: data.last_received?.toDate() || new Date(0),
             received_articles: data.received_articles || [],
             saved_words: data.saved_words || [],
@@ -813,6 +811,8 @@ export default function ProfileClient() {
             billingKey: data.billingKey,
             paymentMethod: data.paymentMethod,
             billingCancelled: data.billingCancelled || false,
+            account_status: data.account_status,
+            gdg_member: data.gdg_member || false,
           };
 
           setUserData(userDataObj);
@@ -1382,38 +1382,48 @@ export default function ProfileClient() {
           <SubscriptionInfo>
             <SectionTitle>
               구독 정보
-              <StatusBadge active={subscriptionData.status === "active"}>
-                {subscriptionData.status === "active"
-                  ? subscriptionData.billingCancelled
-                    ? "상태: 이용 중 (결제 중단됨)"
-                    : "상태: 이용 중"
-                  : "상태: 비활성화"}
-              </StatusBadge>
+              {userData?.account_status !== "admin" &&
+                userData?.account_status === "leader" && (
+                  <StatusBadge active>상태: 영어 한잔 리더</StatusBadge>
+                )}
+              {userData?.account_status !== "admin" && userData?.gdg_member && (
+                <StatusBadge active>상태: GDG 멤버</StatusBadge>
+              )}
+              {((!userData?.gdg_member &&
+                userData?.account_status !== "leader") ||
+                userData?.account_status === "admin") && (
+                <StatusBadge active={subscriptionData.status === "active"}>
+                  {subscriptionData.status === "active"
+                    ? subscriptionData.billingCancelled
+                      ? "상태: 이용 중 (결제 중단됨)"
+                      : "상태: 이용 중"
+                    : "상태: 비활성화"}
+                </StatusBadge>
+              )}
             </SectionTitle>
 
             <SectionContent>
               <InfoRow>
-                <InfoLabel>카테고리</InfoLabel>
-                <InfoValue>
-                  {!userData?.cat_business && !userData?.cat_tech
-                    ? "선택 없음"
-                    : `${userData?.cat_business ? "Business" : ""}${
-                        userData?.cat_business && userData?.cat_tech ? ", " : ""
-                      }${userData?.cat_tech ? "Tech" : ""}`}
-                </InfoValue>
-              </InfoRow>
-
-              <InfoRow>
                 <InfoLabel>최근 결제일</InfoLabel>
-                <InfoValue>{formatDate(subscriptionData.startDate)}</InfoValue>
+                <InfoValue>
+                  {userData?.account_status !== "admin" &&
+                  (userData?.gdg_member ||
+                    userData?.account_status === "leader")
+                    ? "해당 없음"
+                    : formatDate(subscriptionData.startDate)}
+                </InfoValue>
               </InfoRow>
 
               <InfoRow>
                 <InfoLabel>다음 결제일</InfoLabel>
                 <InfoValue>
-                  {subscriptionData.status === "active" &&
-                  !subscriptionData.billingCancelled &&
-                  subscriptionData.nextBillingDate
+                  {userData?.account_status !== "admin" &&
+                  (userData?.gdg_member ||
+                    userData?.account_status === "leader")
+                    ? "해당 없음"
+                    : subscriptionData.status === "active" &&
+                      !subscriptionData.billingCancelled &&
+                      subscriptionData.nextBillingDate
                     ? formatDate(subscriptionData.nextBillingDate)
                     : subscriptionData.billingCancelled
                     ? "결제 중단됨"
@@ -1428,7 +1438,12 @@ export default function ProfileClient() {
                   justifyContent: "flex-end",
                 }}
               >
-                {subscriptionData.status === "active" &&
+                {!(
+                  userData?.account_status !== "admin" &&
+                  (userData?.gdg_member ||
+                    userData?.account_status === "leader")
+                ) &&
+                  subscriptionData.status === "active" &&
                   !subscriptionData.billingCancelled && (
                     <CancelLinkButton
                       onClick={() => setShowCancellationOptions(true)}

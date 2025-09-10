@@ -20,16 +20,30 @@ const AvatarContainer = styled.div<{
   $index?: number;
   $isPast?: boolean;
   $isClickable: boolean;
+  $isGdgMember?: boolean;
 }>`
   width: ${(props) => props.$size}px;
   height: ${(props) => props.$size}px;
   border-radius: 50%;
-  background-color: ${(props) => props.$bgColor || "#e0e0e0"};
+  ${(props) =>
+    props.$isGdgMember
+      ? `
+    background: conic-gradient(from 90deg,
+      #1a73e8 0deg 45deg,
+      #ea4335 45deg 150deg,
+      #fbbc05 150deg 210deg,
+      #34a853 210deg 315deg,
+      #1a73e8 315deg 360deg
+    );
+    padding: 2px;
+  `
+      : `background-color: ${props.$bgColor || "#e0e0e0"};`}
   position: ${(props) =>
     props.$index !== undefined ? "absolute" : "relative"};
   left: ${(props) =>
     props.$index !== undefined ? props.$index * (props.$size * 0.6) : 0}px;
-  border: 2px solid white;
+  ${(props) =>
+    props.$isGdgMember ? "border: none;" : "border: 2px solid white;"}
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,7 +76,6 @@ const AvatarImage = styled.img`
   -khtml-user-drag: none;
   -moz-user-drag: none;
   -o-user-drag: none;
-  user-drag: none;
 `;
 
 const AvatarPlaceholder = styled.div<{ $size: number }>`
@@ -141,6 +154,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   const displayName =
     userProfile?.displayName || `User ${uid ? uid.substring(0, 8) : ""}`;
   const avatarColor = getAvatarColor(uid || "", isLeader);
+  const isGdgMember = userProfile?.gdg_member === true;
 
   // Determine the image source: use default if user's photoURL is empty, null, or if there was an error
   const hasValidPhotoURL =
@@ -155,6 +169,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       $index={index}
       $isPast={isPast}
       $isClickable={!!onClick}
+      $isGdgMember={isGdgMember}
       className={className}
       onClick={onClick}
     >
@@ -195,7 +210,9 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
   onAvatarClick,
 }) => {
   // Filter out duplicates and invalid UIDs to prevent React key errors
-  const uniqueUids = Array.from(new Set(uids.filter(uid => uid && uid.trim() !== '')));
+  const uniqueUids = Array.from(
+    new Set(uids.filter((uid) => uid && uid.trim() !== ""))
+  );
   const displayedUids = uniqueUids.slice(0, maxAvatars);
   const hasMore = uniqueUids.length > maxAvatars;
   const moreCount = uniqueUids.length - maxAvatars;

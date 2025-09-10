@@ -77,12 +77,12 @@ const ArticleContainer = styled.div`
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Helvetica Neue", Arial, sans-serif;
   position: relative;
-  padding-top: 90px; /* Add space for the fixed GNB */
+  padding-top: 56px; /* Minimal space for fixed GNB */
   padding-bottom: 70px; /* Add space for audio player */
 
   @media (max-width: 768px) {
     padding: 1.5rem 1rem;
-    padding-top: 80px; /* Adjust for smaller mobile navbar */
+    padding-top: 48px; /* Minimized mobile navbar space */
     width: 100%;
     min-height: auto; /* Fix for mobile height issues */
     overflow-x: hidden;
@@ -91,7 +91,7 @@ const ArticleContainer = styled.div`
 
   @media (max-width: 480px) {
     padding: 1.2rem 0.8rem;
-    padding-top: 70px; /* Further adjust for very small screens */
+    padding-top: 44px; /* Minimal on very small screens */
     padding-bottom: 70px; /* Add space for audio player */
   }
 `;

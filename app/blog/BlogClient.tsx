@@ -197,7 +197,9 @@ const ScrollerWrapper = styled.div`
 const Scroller = styled.div`
   display: flex;
   gap: 1rem;
-  overflow-x: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
   position: relative;
   width: 100%;
@@ -242,20 +244,7 @@ const ScrollButton = styled.button.withConfig({
   ${(props) => (props.direction === "left" ? `left: -15px;` : `right: -15px;`)}
 `;
 
-const EdgeFade = styled.div.withConfig({
-  shouldForwardProp: (prop) => prop !== "side",
-})<{ side: "left" | "right" }>`
-  position: absolute;
-  top: 0;
-  ${(p) => (p.side === "left" ? "left: 0;" : "right: 0;")}
-  width: 40px;
-  height: 100%;
-  pointer-events: none;
-  background: ${(p) =>
-    p.side === "left"
-      ? "linear-gradient(90deg, rgba(0,0,0,0.08), rgba(0,0,0,0.0))"
-      : "linear-gradient(270deg, rgba(0,0,0,0.08), rgba(0,0,0,0.0))"};
-`;
+// EdgeFade removed per design (no shades)
 
 // List card
 const Card = styled.article`
@@ -553,13 +542,15 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
   const [scrollDisabled, setScrollDisabled] = useState<
     Record<SectionKey, ArrowState>
   >({
-    announcements: { left: true, right: false },
-    information: { left: true, right: false },
-    reviews: { left: true, right: false },
+    announcements: { left: true, right: true },
+    information: { left: true, right: true },
+    reviews: { left: true, right: true },
   });
 
   const computeArrowState = (el: HTMLDivElement | null): ArrowState => {
-    if (!el) return { left: true, right: false };
+    if (!el) return { left: true, right: true };
+    const isScrollable = el.scrollWidth > el.clientWidth + 1;
+    if (!isScrollable) return { left: true, right: true };
     const left = el.scrollLeft <= 0;
     const right = Math.ceil(el.scrollLeft + el.clientWidth) >= el.scrollWidth;
     return { left, right };
@@ -616,10 +607,22 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
   }, [isAdmin]);
 
   useEffect(() => {
-    // Initialize arrow states after lists render
+    // Initialize and watch for size changes to compute overflow
+    const ro = new ResizeObserver(() => {
+      updateArrows("announcements");
+      updateArrows("information");
+      updateArrows("reviews");
+    });
+    if (announcementsRef.current) ro.observe(announcementsRef.current);
+    if (informationRef.current) ro.observe(informationRef.current);
+    if (reviewsRef.current) ro.observe(reviewsRef.current);
+
+    // Initial run
     updateArrows("announcements");
     updateArrows("information");
     updateArrows("reviews");
+
+    return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [announcements.length, information.length, reviews.length]);
 
@@ -835,20 +838,17 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
           <SectionTitle>{dict.blog.announcements}</SectionTitle>
           <ScrollerWrapper>
             {showAnnouncementsScroll && (
-              <>
-                <ScrollButton
-                  direction="left"
-                  disabled={scrollDisabled.announcements.left}
-                  onClick={() => {
-                    const el = announcementsRef.current;
-                    if (el) el.scrollBy({ left: -400, behavior: "smooth" });
-                  }}
-                  aria-label="Scroll announcements left"
-                >
-                  <FaChevronLeft />
-                </ScrollButton>
-                <EdgeFade side="left" />
-              </>
+              <ScrollButton
+                direction="left"
+                disabled={scrollDisabled.announcements.left}
+                onClick={() => {
+                  const el = announcementsRef.current;
+                  if (el) el.scrollBy({ left: -400, behavior: "smooth" });
+                }}
+                aria-label="Scroll announcements left"
+              >
+                <FaChevronLeft />
+              </ScrollButton>
             )}
             <Scroller
               id="announcements-scroller"
@@ -890,20 +890,17 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
               ))}
             </Scroller>
             {showAnnouncementsScroll && (
-              <>
-                <EdgeFade side="right" />
-                <ScrollButton
-                  direction="right"
-                  disabled={scrollDisabled.announcements.right}
-                  onClick={() => {
-                    const el = announcementsRef.current;
-                    if (el) el.scrollBy({ left: 400, behavior: "smooth" });
-                  }}
-                  aria-label="Scroll announcements right"
-                >
-                  <FaChevronRight />
-                </ScrollButton>
-              </>
+              <ScrollButton
+                direction="right"
+                disabled={scrollDisabled.announcements.right}
+                onClick={() => {
+                  const el = announcementsRef.current;
+                  if (el) el.scrollBy({ left: 400, behavior: "smooth" });
+                }}
+                aria-label="Scroll announcements right"
+              >
+                <FaChevronRight />
+              </ScrollButton>
             )}
           </ScrollerWrapper>
         </SectionRow>
@@ -918,20 +915,17 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
           <SectionTitle>{dict.blog.information}</SectionTitle>
           <ScrollerWrapper>
             {showInformationScroll && (
-              <>
-                <ScrollButton
-                  direction="left"
-                  disabled={scrollDisabled.information.left}
-                  onClick={() => {
-                    const el = informationRef.current;
-                    if (el) el.scrollBy({ left: -400, behavior: "smooth" });
-                  }}
-                  aria-label="Scroll information left"
-                >
-                  <FaChevronLeft />
-                </ScrollButton>
-                <EdgeFade side="left" />
-              </>
+              <ScrollButton
+                direction="left"
+                disabled={scrollDisabled.information.left}
+                onClick={() => {
+                  const el = informationRef.current;
+                  if (el) el.scrollBy({ left: -400, behavior: "smooth" });
+                }}
+                aria-label="Scroll information left"
+              >
+                <FaChevronLeft />
+              </ScrollButton>
             )}
             <Scroller
               id="info-scroller"
@@ -973,20 +967,17 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
               ))}
             </Scroller>
             {showInformationScroll && (
-              <>
-                <EdgeFade side="right" />
-                <ScrollButton
-                  direction="right"
-                  disabled={scrollDisabled.information.right}
-                  onClick={() => {
-                    const el = informationRef.current;
-                    if (el) el.scrollBy({ left: 400, behavior: "smooth" });
-                  }}
-                  aria-label="Scroll information right"
-                >
-                  <FaChevronRight />
-                </ScrollButton>
-              </>
+              <ScrollButton
+                direction="right"
+                disabled={scrollDisabled.information.right}
+                onClick={() => {
+                  const el = informationRef.current;
+                  if (el) el.scrollBy({ left: 400, behavior: "smooth" });
+                }}
+                aria-label="Scroll information right"
+              >
+                <FaChevronRight />
+              </ScrollButton>
             )}
           </ScrollerWrapper>
         </SectionRow>
@@ -1001,20 +992,17 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
           <SectionTitle>{dict.blog.reviews}</SectionTitle>
           <ScrollerWrapper>
             {showReviewsScroll && (
-              <>
-                <ScrollButton
-                  direction="left"
-                  disabled={scrollDisabled.reviews.left}
-                  onClick={() => {
-                    const el = reviewsRef.current;
-                    if (el) el.scrollBy({ left: -400, behavior: "smooth" });
-                  }}
-                  aria-label="Scroll reviews left"
-                >
-                  <FaChevronLeft />
-                </ScrollButton>
-                <EdgeFade side="left" />
-              </>
+              <ScrollButton
+                direction="left"
+                disabled={scrollDisabled.reviews.left}
+                onClick={() => {
+                  const el = reviewsRef.current;
+                  if (el) el.scrollBy({ left: -400, behavior: "smooth" });
+                }}
+                aria-label="Scroll reviews left"
+              >
+                <FaChevronLeft />
+              </ScrollButton>
             )}
             <Scroller
               id="reviews-scroller"
@@ -1056,20 +1044,17 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
               ))}
             </Scroller>
             {showReviewsScroll && (
-              <>
-                <EdgeFade side="right" />
-                <ScrollButton
-                  direction="right"
-                  disabled={scrollDisabled.reviews.right}
-                  onClick={() => {
-                    const el = reviewsRef.current;
-                    if (el) el.scrollBy({ left: 400, behavior: "smooth" });
-                  }}
-                  aria-label="Scroll reviews right"
-                >
-                  <FaChevronRight />
-                </ScrollButton>
-              </>
+              <ScrollButton
+                direction="right"
+                disabled={scrollDisabled.reviews.right}
+                onClick={() => {
+                  const el = reviewsRef.current;
+                  if (el) el.scrollBy({ left: 400, behavior: "smooth" });
+                }}
+                aria-label="Scroll reviews right"
+              >
+                <FaChevronRight />
+              </ScrollButton>
             )}
           </ScrollerWrapper>
         </SectionRow>

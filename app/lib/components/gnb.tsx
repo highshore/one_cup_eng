@@ -145,7 +145,10 @@ const ProfileWrapper = styled.div`
   vertical-align: middle; // Align with other GNB items if needed
 `;
 
-const ProfileButton = styled(Link)<{ $isActiveSubscription: boolean | null }>`
+const ProfileButton = styled(Link)<{
+  $isActiveSubscription: boolean | null;
+  $isGdgMember?: boolean;
+}>`
   // position: relative; // Removed: Wrapper now handles relative positioning
   color: ${colors.primary};
   border: none;
@@ -156,13 +159,27 @@ const ProfileButton = styled(Link)<{ $isActiveSubscription: boolean | null }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid
-    ${(props) =>
+  ${(props) =>
+    props.$isGdgMember
+      ? `
+    background: conic-gradient(from 90deg,
+      #1a73e8 0deg 45deg,
+      #ea4335 45deg 150deg,
+      #fbbc05 150deg 210deg,
+      #34a853 210deg 315deg,
+      #1a73e8 315deg 360deg
+    );
+    padding: 2px;
+  `
+      : `
+    border: 2px solid ${
       props.$isActiveSubscription === true
         ? subscription.active
         : props.$isActiveSubscription === false
         ? subscription.inactive
-        : colors.accent};
+        : colors.accent
+    };
+  `}
   transition: all 0.2s ease;
 
   &:hover {
@@ -299,7 +316,8 @@ interface GNBProps {
 }
 
 export default function GNB({ variant = "default" }: GNBProps) {
-  const { currentUser, isLoading, logout, hasActiveSubscription } = useAuth();
+  const { currentUser, isLoading, logout, hasActiveSubscription, isGdgMember } =
+    useAuth();
   const { isTransparent, setIsTransparent } = useGnb();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -470,6 +488,7 @@ export default function GNB({ variant = "default" }: GNBProps) {
                 <ProfileButton
                   href="/profile"
                   $isActiveSubscription={hasActiveSubscription}
+                  $isGdgMember={isGdgMember === true}
                 >
                   <ProfileImage
                     src={currentUser.photoURL || "/images/default_user.jpg"}

@@ -1427,6 +1427,84 @@ const AdminEventDialog: React.FC<AdminEventDialogProps> = ({
             </ArticleSelection>
           </FormGroup>
 
+          <FormGroup>
+            <Label>GDG Topic (Optional, selects 3rd article)</Label>
+            <ArticleSelection>
+              {loadingArticles ? (
+                <LoadingText>Loading articles...</LoadingText>
+              ) : (
+                <>
+                  <ArticleList
+                    ref={articleListRef}
+                    onScroll={handleArticleListScroll}
+                  >
+                    {availableArticles.map((article) => (
+                      <ArticleItem
+                        key={article.id}
+                        $selected={formData.articles[2] === article.id}
+                        onClick={() => {
+                          const next = [...formData.articles];
+                          next[2] = article.id;
+                          setFormData((prev) => ({ ...prev, articles: next }));
+                        }}
+                      >
+                        <ArticleTitle>{article.title.english}</ArticleTitle>
+                        <ArticleId>ID: {article.id}</ArticleId>
+                      </ArticleItem>
+                    ))}
+                    {loadingMoreArticles && (
+                      <LoadingText>Loading more articles...</LoadingText>
+                    )}
+                    {!hasMoreArticles && availableArticles.length > 0 && (
+                      <LoadingText
+                        style={{
+                          fontSize: "12px",
+                          padding: "0.5rem",
+                          color: "#999",
+                        }}
+                      >
+                        No more articles to load
+                      </LoadingText>
+                    )}
+                  </ArticleList>
+
+                  {formData.articles[2] && (
+                    <SelectedArticlesDisplay>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "#666",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        Selected GDG Topic:
+                      </div>
+                      {(() => {
+                        const article = availableArticles.find(
+                          (a) => a.id === formData.articles[2]
+                        );
+                        return article ? (
+                          <SelectedArticleTag
+                            onClick={() => {
+                              const next = [...formData.articles];
+                              next[2] = undefined as any;
+                              setFormData((prev) => ({
+                                ...prev,
+                                articles: next.filter(Boolean),
+                              }));
+                            }}
+                          >
+                            {article.title.english} ✕
+                          </SelectedArticleTag>
+                        ) : null;
+                      })()}
+                    </SelectedArticlesDisplay>
+                  )}
+                </>
+              )}
+            </ArticleSelection>
+          </FormGroup>
+
           <ButtonRow>
             <ActionButton type="button" $variant="secondary" onClick={onClose}>
               Cancel

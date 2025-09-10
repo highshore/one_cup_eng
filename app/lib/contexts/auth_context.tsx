@@ -16,6 +16,7 @@ interface AuthContextProps {
   isLoading: boolean;
   hasActiveSubscription: boolean | null;
   accountStatus: string | null;
+  isGdgMember: boolean | null;
   logout: () => Promise<void>;
 }
 
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextProps>({
   isLoading: true,
   hasActiveSubscription: null,
   accountStatus: null,
+  isGdgMember: null,
   logout: async () => {},
 });
 
@@ -40,6 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     boolean | null
   >(null);
   const [accountStatus, setAccountStatus] = useState<string | null>(null);
+  const [isGdgMember, setIsGdgMember] = useState<boolean | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -52,18 +55,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userData = userDoc.data();
             setHasActiveSubscription(userData.hasActiveSubscription || false);
             setAccountStatus(userData.account_status || "user");
+            setIsGdgMember(userData.gdg_member === true);
           } else {
             setHasActiveSubscription(false);
             setAccountStatus("user");
+            setIsGdgMember(false);
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
           setHasActiveSubscription(false);
           setAccountStatus("user");
+          setIsGdgMember(false);
         }
       } else {
         setHasActiveSubscription(null);
         setAccountStatus(null);
+        setIsGdgMember(null);
       }
       setIsLoading(false);
     });
@@ -80,6 +87,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading,
     hasActiveSubscription,
     accountStatus,
+    isGdgMember,
     logout,
   };
 

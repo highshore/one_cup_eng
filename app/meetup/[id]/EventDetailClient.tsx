@@ -493,7 +493,7 @@ const DiscussionPoint = styled.div`
 const ActionButtons = styled.div<{ $isFloating: boolean }>`
   display: flex;
   gap: 16px;
-  max-width: 920px;
+  max-width: 960px;
   transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
   z-index: 1000;
 
@@ -1287,7 +1287,7 @@ export function EventDetailClient() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const { currentUser, accountStatus } = useAuth();
+  const { currentUser, accountStatus, isGdgMember } = useAuth();
   const [event, setEvent] = useState<MeetupEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1606,6 +1606,17 @@ export function EventDetailClient() {
         return;
       }
 
+      // Exempt admin/leader/GDG users from needing a subscription
+      if (
+        accountStatus === "admin" ||
+        accountStatus === "leader" ||
+        isGdgMember === true
+      ) {
+        setUserHasSubscription(true);
+        setSubscriptionLoading(false);
+        return;
+      }
+
       try {
         const hasSubscription = await hasActiveSubscription(currentUser.uid);
         setUserHasSubscription(hasSubscription);
@@ -1618,7 +1629,7 @@ export function EventDetailClient() {
     };
 
     checkSubscriptionStatus();
-  }, [currentUser]);
+  }, [currentUser, accountStatus, isGdgMember]);
 
   useEffect(() => {
     if (!eventId) {
@@ -1835,19 +1846,26 @@ export function EventDetailClient() {
         alert(`오류: 참가 취소에 실패했습니다. (${message})`);
       }
     } else {
-      try {
-        const userHasActiveSubscription = await hasActiveSubscription(
-          currentUser.uid
-        );
-        if (!userHasActiveSubscription) {
-          setShowSubscriptionDialog(true);
+      const isExempt =
+        accountStatus === "admin" ||
+        accountStatus === "leader" ||
+        isGdgMember === true;
+
+      if (!isExempt) {
+        try {
+          const userHasActiveSubscription = await hasActiveSubscription(
+            currentUser.uid
+          );
+          if (!userHasActiveSubscription) {
+            setShowSubscriptionDialog(true);
+            return;
+          }
+        } catch (err) {
+          alert(
+            "구독 상태를 확인하는 중 오류가 발생했습니다. 다시 시도해주세요."
+          );
           return;
         }
-      } catch (err) {
-        alert(
-          "구독 상태를 확인하는 중 오류가 발생했습니다. 다시 시도해주세요."
-        );
-        return;
       }
 
       if (accountStatus === "admin" || accountStatus === "leader") {
@@ -1875,12 +1893,18 @@ export function EventDetailClient() {
     }
 
     try {
-      const userHasActiveSubscription = await hasActiveSubscription(
-        currentUser.uid
-      );
-      if (!userHasActiveSubscription) {
-        setShowSubscriptionDialog(true);
-        return;
+      const isExempt =
+        accountStatus === "admin" ||
+        accountStatus === "leader" ||
+        isGdgMember === true;
+      if (!isExempt) {
+        const userHasActiveSubscription = await hasActiveSubscription(
+          currentUser.uid
+        );
+        if (!userHasActiveSubscription) {
+          setShowSubscriptionDialog(true);
+          return;
+        }
       }
     } catch (err) {
       alert("구독 상태를 확인하는 중 오류가 발생했습니다. 다시 시도해주세요.");
@@ -2210,7 +2234,12 @@ export function EventDetailClient() {
       return;
     }
 
-    if (userHasSubscription === false) {
+    const isExempt =
+      accountStatus === "admin" ||
+      accountStatus === "leader" ||
+      isGdgMember === true;
+
+    if (userHasSubscription === false && !isExempt) {
       setShowSubscriptionDialog(true);
       return;
     }
@@ -2435,7 +2464,11 @@ export function EventDetailClient() {
       if (!currentUser) {
         return "로그인하고 참가하기";
       }
-      if (userHasSubscription === false) {
+      const isExempt =
+        accountStatus === "admin" ||
+        accountStatus === "leader" ||
+        isGdgMember === true;
+      if (userHasSubscription === false && !isExempt) {
         return "구독하고 참가하기";
       }
       return isCurrentUserParticipant ? "취소" : "참가 신청하기";
@@ -2502,7 +2535,7 @@ export function EventDetailClient() {
         {articleTopics.length > 0 && isCurrentUserParticipant && (
           <ArticleTopicsSection>
             <SectionTitle>밋업 토픽</SectionTitle>
-            {articleTopics.map((topic, index) => (
+            {articleTopics.slice(0, 2).map((topic, index) => (
               <ArticleTopicCard
                 key={topic.id}
                 onClick={() => handleArticleTopicClick(topic.id)}
@@ -2511,6 +2544,39 @@ export function EventDetailClient() {
                 <ArticleTopicTitle>{topic.title.english}</ArticleTopicTitle>
               </ArticleTopicCard>
             ))}
+          </ArticleTopicsSection>
+        )}
+
+        {isGdgMember && articleTopics.length >= 3 && (
+          <ArticleTopicsSection>
+            <SectionTitle>
+              <span style={{ display: "inline-flex", alignItems: "center" }}>
+                <span
+                  style={{
+                    background:
+                      "linear-gradient(90deg, #4285F4 0%, #DB4437 100%)",
+                    color: "white",
+                    borderRadius: 12,
+                    padding: "4px 10px",
+                    fontWeight: 800,
+                    fontSize: 14,
+                    letterSpacing: 0.4,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  GDG Topic
+                </span>
+              </span>
+              - GDG 멤버는 첫 세션에서 1번 토픽 대신 아래 토픽으로 진행합니다
+            </SectionTitle>
+            <ArticleTopicCard
+              onClick={() => handleArticleTopicClick(articleTopics[2].id)}
+            >
+              <ArticleTopicNumber>G</ArticleTopicNumber>
+              <ArticleTopicTitle>
+                {articleTopics[2].title.english}
+              </ArticleTopicTitle>
+            </ArticleTopicCard>
           </ArticleTopicsSection>
         )}
 
