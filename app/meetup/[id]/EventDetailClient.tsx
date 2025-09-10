@@ -2557,17 +2557,16 @@ export function EventDetailClient() {
                       "linear-gradient(90deg, #4285F4 0%, #DB4437 100%)",
                     color: "white",
                     borderRadius: 12,
-                    padding: "4px 10px",
-                    fontWeight: 800,
+                    padding: "8px 12px",
+                    fontWeight: 600,
                     fontSize: 14,
                     letterSpacing: 0.4,
                     boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   }}
                 >
-                  GDG Topic
+                  Topic 1 for GDG
                 </span>
               </span>
-              - GDG 멤버는 첫 세션에서 1번 토픽 대신 아래 토픽으로 진행합니다
             </SectionTitle>
             <ArticleTopicCard
               onClick={() => handleArticleTopicClick(articleTopics[2].id)}
