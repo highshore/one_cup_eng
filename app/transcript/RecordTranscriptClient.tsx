@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 import { useSpeechmatics } from './hooks/useSpeechmatics';
-import { useAssemblyAI } from './hooks/useAssemblyAI';
+import { colors } from '../lib/constants/colors';
 
 const ConversationDetailContainer = styled.div`
   width: 100%;
@@ -143,7 +143,7 @@ const WordSpan = styled.span<{ $lowConfidence?: boolean; $isPartial?: boolean }>
   text-underline-offset: 2px;
   transition: background-color 0.2s ease;
   border-radius: 3px;
-  margin-right: 0.25rem;
+  margin-right: 0; /* spacing handled programmatically to avoid gaps before punctuation */
   word-break: break-word;
   opacity: ${props => props.$isPartial ? '0.7' : '1'};
   
@@ -159,22 +159,12 @@ const Container = styled.div`
   padding-bottom: 80px; /* Add space for audio player */
 `;
 
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 0rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-`;
+// Removed sticky header bar in favor of inline top controls
 
 const Title = styled.h1`
   font-size: 1.75rem;
   font-weight: 700;
-  color: #1e293b;
+  color: ${colors.text.dark};
   margin: 0;
 `;
 
@@ -184,26 +174,7 @@ const Controls = styled.div`
   gap: 1rem;
 `;
 
-const ProviderSelector = styled.select`
-  padding: 0.5rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background-color: #ffffff;
-  color: #475569;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #cbd5e1;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-`;
+// Removed ProviderSelector (Speechmatics-only)
 
 const StatusAndLegendSection = styled.div`
   padding: 1rem 2rem;
@@ -255,10 +226,10 @@ const RecordButton = styled.button<{ $isRecording: boolean }>`
       background: #dc2626;
     }
   ` : `
-    background: #000080;
+    background: ${colors.primary};
     color: white;
     &:hover {
-      background: #2563eb;
+      background: ${colors.primaryLight};
     }
   `}
   
@@ -274,6 +245,8 @@ const Content = styled.div`
   margin: 0 auto;
   background: transparent;
 `;
+
+// Removed page title row for a cleaner look
 
 const ErrorMessage = styled.div`
   margin-bottom: 2rem;
@@ -378,7 +351,7 @@ const AudioPlayerContainer = styled.div<{ $isVisible: boolean }>`
   transform: translateX(-50%) translateY(${props => props.$isVisible ? '0' : '100%'});
   width: 100%;
   max-width: 850px;
-  background: #1e293b;
+  background: ${colors.primaryDark};
   color: white;
   padding: 1rem;
   display: flex;
@@ -460,7 +433,7 @@ const AudioProgressFill = styled.div<{ $progress: number }>`
   left: 0;
   height: 100%;
   width: ${props => props.$progress}%;
-  background: #3b82f6;
+  background: ${colors.accent};
   border-radius: 3px;
 `;
 
@@ -501,11 +474,8 @@ const SpeedButton = styled.button<{ $active: boolean }>`
   }
 `;
 
-type TranscriptionProvider = 'speechmatics' | 'assemblyai';
-
 export default function RecordTranscriptClient() {
-  // Provider selection state
-  const [selectedProvider, setSelectedProvider] = useState<TranscriptionProvider>('speechmatics');
+  // Speechmatics-only
   
   // Audio recording state
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -529,6 +499,8 @@ export default function RecordTranscriptClient() {
   const recordingStartTimeRef = useRef<number | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const recordedAudioChunksRef = useRef<Blob[]>([]);
+  const lastAudioSentAtRef = useRef<number>(0);
+  const keepAliveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Speechmatics hook
   const {
@@ -540,21 +512,11 @@ export default function RecordTranscriptClient() {
     sendSpeechmaticsAudio,
   } = useSpeechmatics();
 
-  // AssemblyAI hook
-  const {
-    assemblyAIResults: { activePartialSegment: assemblyAIPartial, finalTranscript: assemblyAIFinal },
-    assemblyAIError,
-    isAssemblyAISocketOpen,
-    startAssemblyAI,
-    stopAssemblyAI,
-    sendAssemblyAIAudio,
-  } = useAssemblyAI();
-
-  // Unified state for current provider
-  const activePartialSegment = selectedProvider === 'speechmatics' ? speechmaticsPartial : assemblyAIPartial;
-  const finalTranscript = selectedProvider === 'speechmatics' ? speechmaticsFinal : assemblyAIFinal;
-  const transcriptionError = selectedProvider === 'speechmatics' ? speechmaticsError : assemblyAIError;
-  const isSocketOpen = selectedProvider === 'speechmatics' ? isSpeechmaticsSocketOpen : isAssemblyAISocketOpen;
+  // Unified state (Speechmatics)
+  const activePartialSegment = speechmaticsPartial;
+  const finalTranscript = speechmaticsFinal;
+  const transcriptionError = speechmaticsError;
+  const isSocketOpen = isSpeechmaticsSocketOpen;
 
   // Request microphone permission on component mount
   useEffect(() => {
@@ -586,15 +548,36 @@ export default function RecordTranscriptClient() {
       workletNode.port.onmessage = (event) => {
         const audioData = event.data;
         if (audioData && audioData.byteLength > 0) {
-          if (selectedProvider === 'speechmatics') {
-            sendSpeechmaticsAudio(audioData);
-          } else {
-            sendAssemblyAIAudio(audioData);
-          }
+          lastAudioSentAtRef.current = Date.now();
+          sendSpeechmaticsAudio(audioData);
         }
       };
 
       source.connect(workletNode);
+
+      // Reacquire mic if track ends (e.g., device switch)
+      const [track] = stream.getAudioTracks();
+      if (track) {
+        track.onended = async () => {
+          if (!isRecording) return;
+          try {
+            const newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = newStream;
+            const newSource = audioContext.createMediaStreamSource(newStream);
+            newSource.connect(workletNode);
+
+            // Recreate MediaRecorder for local recording
+            const newRecorder = new MediaRecorder(newStream, { mimeType: 'audio/webm;codecs=opus' });
+            mediaRecorderRef.current = newRecorder;
+            newRecorder.ondataavailable = (e) => {
+              if (e.data.size > 0) recordedAudioChunksRef.current.push(e.data);
+            };
+            newRecorder.start();
+          } catch (reErr) {
+            console.error('Failed to reacquire microphone after track ended:', reErr);
+          }
+        };
+      }
 
       // Set up MediaRecorder for continuous audio recording
       const mediaRecorder = new MediaRecorder(stream, {
@@ -627,7 +610,7 @@ export default function RecordTranscriptClient() {
       console.error('Error setting up audio processing:', error);
       return false;
     }
-  }, [selectedProvider, sendSpeechmaticsAudio, sendAssemblyAIAudio]);
+  }, [sendSpeechmaticsAudio, isRecording]);
 
   // Audio player control functions
   const toggleAudioPlayback = useCallback(() => {
@@ -664,6 +647,14 @@ export default function RecordTranscriptClient() {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+  };
+
+  // Determine if a token is punctuation or should be attached to previous word
+  const isPunctuationOrAttached = (word: { content: string; confidence?: number } | any): boolean => {
+    if (!word || !word.content) return false;
+    const punctuationPattern = /^[.,!?;:'")\]}>-]+$/;
+    const contractionPattern = /^'[a-z]+$/i; // 's, 't, 'll, etc.
+    return punctuationPattern.test(word.content) || contractionPattern.test(word.content);
   };
 
   // Jump to specific timestamp
@@ -703,10 +694,10 @@ export default function RecordTranscriptClient() {
         mediaStreamRef.current = null;
       }
 
-      if (selectedProvider === 'speechmatics') {
-        await stopSpeechmatics(true);
-      } else {
-        await stopAssemblyAI(true);
+      await stopSpeechmatics(true);
+      if (keepAliveIntervalRef.current) {
+        clearInterval(keepAliveIntervalRef.current);
+        keepAliveIntervalRef.current = null;
       }
     } else {
       // Start recording
@@ -723,12 +714,7 @@ export default function RecordTranscriptClient() {
         setCurrentlyHighlightedSnippet(null);
         setIsAudioPlaying(false);
         
-        let providerStarted = false;
-        if (selectedProvider === 'speechmatics') {
-          providerStarted = await startSpeechmatics();
-        } else {
-          providerStarted = await startAssemblyAI();
-        }
+        let providerStarted = await startSpeechmatics();
         
         if (!providerStarted) {
           setIsStarting(false);
@@ -737,23 +723,51 @@ export default function RecordTranscriptClient() {
 
         const audioSetup = await setupAudioProcessing();
         if (!audioSetup) {
-          if (selectedProvider === 'speechmatics') {
-            await stopSpeechmatics(false);
-          } else {
-            await stopAssemblyAI(false);
-          }
+          await stopSpeechmatics(false);
           setIsStarting(false);
           return;
         }
 
         setIsRecording(true);
         setIsStarting(false);
+
+        // Start keepalive to avoid provider timeout when tab is backgrounded
+        lastAudioSentAtRef.current = Date.now();
+        if (keepAliveIntervalRef.current) {
+          clearInterval(keepAliveIntervalRef.current);
+        }
+        keepAliveIntervalRef.current = setInterval(() => {
+          if (!isSpeechmaticsSocketOpen) return;
+          const now = Date.now();
+          if (now - lastAudioSentAtRef.current > 1500) {
+            // Send ~256ms of silence
+            const silent = new Float32Array(4096); // 4096 samples at 16kHz ≈ 256ms
+            try {
+              sendSpeechmaticsAudio(silent.buffer);
+              lastAudioSentAtRef.current = now;
+            } catch (e) {
+              // noop
+            }
+          }
+        }, 800);
       } catch (error) {
         console.error('Error starting recording:', error);
         setIsStarting(false);
       }
     }
-  }, [isRecording, hasPermission, selectedProvider, startSpeechmatics, startAssemblyAI, setupAudioProcessing, stopSpeechmatics, stopAssemblyAI]);
+  }, [isRecording, hasPermission, startSpeechmatics, setupAudioProcessing, stopSpeechmatics, isSpeechmaticsSocketOpen, sendSpeechmaticsAudio]);
+
+  // Resume AudioContext when tab becomes visible
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+        lastAudioSentAtRef.current = Date.now();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   // Speaker colors for diarization
   const getSpeakerColor = useCallback((speaker: string) => {
@@ -925,43 +939,8 @@ export default function RecordTranscriptClient() {
 
   return (
     <Container>
-      <Header>
-        <Title>AI Transcript</Title>
-        <Controls>
-          <ProviderSelector
-            value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value as TranscriptionProvider)}
-            disabled={isRecording}
-          >
-            <option value="speechmatics">Speechmatics</option>
-            <option value="assemblyai">AssemblyAI</option>
-          </ProviderSelector>
-          <RecordButton
-            $isRecording={isRecording}
-            onClick={toggleRecording}
-            disabled={hasPermission === false || isStarting}
-          >
-            {isStarting ? (
-              <>
-                <PulseIcon />
-                Starting...
-              </>
-            ) : isRecording ? (
-              <>
-                <PulseIcon />
-                Stop Recording
-              </>
-            ) : (
-              <>
-                <RecordIcon />
-                Start Recording
-              </>
-            )}
-          </RecordButton>
-        </Controls>
-      </Header>
-
       <Content>
+        
         {transcriptionError && (
           <ErrorMessage>
             {transcriptionError}
@@ -978,7 +957,33 @@ export default function RecordTranscriptClient() {
             </AppSpeechDetails>
             
             <AppSpeechDetails>
-              <SectionHeader>Speakers</SectionHeader>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'1rem'}}>
+                <SectionHeader style={{margin:0,borderBottom:'none',paddingBottom:0}}>Speakers</SectionHeader>
+                <Controls>
+                  <RecordButton
+                    $isRecording={isRecording}
+                    onClick={toggleRecording}
+                    disabled={hasPermission === false || isStarting}
+                  >
+                    {isStarting ? (
+                      <>
+                        <PulseIcon />
+                        Starting...
+                      </>
+                    ) : isRecording ? (
+                      <>
+                        <PulseIcon />
+                        Stop Recording
+                      </>
+                    ) : (
+                      <>
+                        <RecordIcon />
+                        Start Recording
+                      </>
+                    )}
+                  </RecordButton>
+                </Controls>
+              </div>
               <LegendContent>
                 <LegendSpeakers>
                   <LegendItem>
@@ -1049,6 +1054,7 @@ export default function RecordTranscriptClient() {
                           $isPartial={(word as any).isPartial}
                         >
                           {word.content}
+                          {!isPunctuationOrAttached(word) ? ' ' : ''}
                         </WordSpan>
                       ))}
                     </TranscriptBody>

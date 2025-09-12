@@ -1645,6 +1645,62 @@ export const getUserDisplayNames = onCall(
   }
 );
 
+// List all users with gdg_member === true
+export const listGdgMembers = onCall(
+  { region: "asia-northeast3" },
+  async (_request) => {
+    try {
+      const db = admin.firestore();
+      const snap = await db
+        .collection("users")
+        .where("gdg_member", "==", true)
+        .get();
+
+      if (snap.empty) {
+        return { members: [] };
+      }
+
+      const members: Array<{
+        uid: string;
+        displayName: string;
+        phoneLast4: string;
+        account_status?: string;
+        hasActiveSubscription?: boolean;
+      }> = [];
+
+      for (const doc of snap.docs) {
+        const uid = doc.id;
+        const data = doc.data() || {} as any;
+        let displayName = "";
+        let phoneNumber = "";
+
+        try {
+          const userRecord = await admin.auth().getUser(uid);
+          displayName = userRecord.displayName || "";
+          phoneNumber = userRecord.phoneNumber || "";
+        } catch (err) {
+          // If user is missing in Auth, fall back to Firestore name field
+          displayName = data.displayName || data.name || "";
+        }
+
+        const phoneLast4 = phoneNumber.replace(/\D/g, "").slice(-4) || "";
+
+        members.push({
+          uid,
+          displayName,
+          phoneLast4,
+          account_status: data.account_status,
+          hasActiveSubscription: data.hasActiveSubscription === true,
+        });
+      }
+
+      return { members };
+    } catch (error: any) {
+      throw new Error(`Failed to list GDG members: ${error.message || String(error)}`);
+    }
+  }
+);
+
 // OpenAI client will be initialized inside functions when needed
 
 interface SpeakingAnalysisRequest {

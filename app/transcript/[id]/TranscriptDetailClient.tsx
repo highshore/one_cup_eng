@@ -23,7 +23,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { useSpeechmatics } from "../hooks/useSpeechmatics";
-import { useAssemblyAI } from "../hooks/useAssemblyAI";
+import { colors } from "../../lib/constants/colors";
 import { UserAvatar } from "../../lib/features/meetup/components/user_avatar";
 import {
   fetchUserProfiles,
@@ -31,6 +31,10 @@ import {
 } from "../../lib/features/meetup/services/user_service";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../lib/firebase/firebase";
+import { Pie } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 // Styled components matching the original RecordTranscriptClient
 const ConversationDetailContainer = styled.div`
@@ -79,33 +83,7 @@ const KeywordTag = styled.span`
   font-weight: 500;
 `;
 
-const ProviderSelector = styled.select`
-  padding: 0.5rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background-color: #ffffff;
-  color: #475569;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 1rem;
-
-  &:hover {
-    border-color: #cbd5e1;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  &:disabled {
-    background-color: #f8fafc;
-    color: #94a3b8;
-    cursor: not-allowed;
-  }
-`;
+// Removed ProviderSelector (Speechmatics-only)
 
 const SpeakersContainer = styled.div`
   display: flex;
@@ -240,24 +218,7 @@ const Container = styled.div`
   padding-bottom: 80px;
 `;
 
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 0rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-`;
-
-const Title = styled.h1`
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0;
-`;
+// Removed sticky header and page title for a cleaner detail view
 
 const Controls = styled.div`
   display: flex;
@@ -325,10 +286,36 @@ const Content = styled.div`
 
 const SessionInfo = styled.div`
   padding: 1.5rem;
-  background: #f8fafc;
+  background: #ffffff;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   margin-bottom: 2rem;
+`;
+
+const SessionInfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 360px);
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 2rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ChartPanel = styled.div`
+  padding: 1.5rem;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+`;
+
+const ChartTitle = styled.h3`
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
 `;
 
 const SessionTitle = styled.h2`
@@ -1625,16 +1612,12 @@ interface UserSpeakingReport {
   };
 }
 
-type TranscriptionProvider = "speechmatics" | "assemblyai";
-
 export default function TranscriptDetailClient() {
   const params = useParams();
   const router = useRouter();
   const transcriptId = params?.id as string;
 
-  // Provider selection state
-  const [selectedProvider, setSelectedProvider] =
-    useState<TranscriptionProvider>("speechmatics");
+  // Speechmatics-only
 
   const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(
     null
@@ -1660,32 +1643,11 @@ export default function TranscriptDetailClient() {
     setSavedTranscript: setSavedSpeechmaticsTranscript,
   } = useSpeechmatics(isPausedRef);
 
-  // AssemblyAI hook
-  const {
-    assemblyAIResults,
-    assemblyAIError,
-    isAssemblyAISocketOpen,
-    startAssemblyAI,
-    stopAssemblyAI,
-    sendAssemblyAIAudio,
-    setSavedTranscript: setSavedAssemblyAITranscript,
-  } = useAssemblyAI(isPausedRef);
-
-  // Unified transcript states based on selected provider
-  const activePartialSegment =
-    selectedProvider === "speechmatics"
-      ? speechmaticsResults.activePartialSegment
-      : assemblyAIResults.activePartialSegment;
-  const finalTranscript =
-    selectedProvider === "speechmatics"
-      ? speechmaticsResults.finalTranscript
-      : assemblyAIResults.finalTranscript;
-  const transcriptionError =
-    selectedProvider === "speechmatics" ? speechmaticsError : assemblyAIError;
-  const isSocketOpen =
-    selectedProvider === "speechmatics"
-      ? isSpeechmaticsSocketOpen
-      : isAssemblyAISocketOpen;
+  // Unified transcript states (Speechmatics-only)
+  const activePartialSegment = speechmaticsResults.activePartialSegment;
+  const finalTranscript = speechmaticsResults.finalTranscript;
+  const transcriptionError = speechmaticsError;
+  const isSocketOpen = isSpeechmaticsSocketOpen;
 
   // Firestore transcript data (source of truth for saved transcript)
   const [savedTranscriptData, setSavedTranscriptData] = useState<any[]>([]);
@@ -1732,6 +1694,8 @@ export default function TranscriptDetailClient() {
   const recordingStartTimeRef = useRef<number | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const recordedAudioChunksRef = useRef<Blob[]>([]);
+  const lastAudioSentAtRef = useRef<number>(0);
+  const keepAliveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Speaker assignment state
   const [speakerMappings, setSpeakerMappings] = useState<
@@ -2076,6 +2040,19 @@ export default function TranscriptDetailClient() {
     return colors[speaker as keyof typeof colors] || { avatar: "#6b7280" };
   };
 
+  // Label resolver combining mapped users and unmapped speakers
+  const displayLabelForSpeaker = useCallback(
+    (speakerId: string): string => {
+      const participantUid = speakerMappings[speakerId];
+      if (participantUid) {
+        const participant = participants.find((p) => p.uid === participantUid);
+        if (participant) return formatParticipantDisplay(participant);
+      }
+      return speakerId === "UU" ? "Unknown" : `Speaker ${speakerId.slice(1)}`;
+    },
+    [speakerMappings, participants]
+  );
+
   // Speaking Metrics Calculation Functions
   const calculateSpeakingMetrics = useMemo(() => {
     if (filteredFinalTranscript.length === 0) return {};
@@ -2215,6 +2192,39 @@ export default function TranscriptDetailClient() {
 
     return speakerMetrics;
   }, [filteredFinalTranscript]);
+
+  // Aggregate total speaking time by display label (merging mapped speakers)
+  const pieChartData = useMemo(() => {
+    const metrics = (calculateSpeakingMetrics || {}) as Record<string, any>;
+    const labelToTime: Record<string, number> = {};
+    const labelToColor: Record<string, string> = {};
+
+    Object.keys(metrics).forEach((speakerId) => {
+      const label = displayLabelForSpeaker(speakerId);
+      const time = metrics[speakerId]?.totalSpeakingTime || 0;
+      labelToTime[label] = (labelToTime[label] || 0) + time;
+
+      if (!labelToColor[label]) {
+        labelToColor[label] = getSpeakerColor(speakerId).avatar;
+      }
+    });
+
+    const labels = Object.keys(labelToTime);
+    const data = labels.map((l) => Math.round(labelToTime[l] * 10) / 10);
+    const backgroundColor = labels.map((l) => labelToColor[l] || "#6b7280");
+
+    return {
+      labels,
+      datasets: [
+        {
+          data,
+          backgroundColor,
+          borderColor: "#ffffff",
+          borderWidth: 2,
+        },
+      ],
+    };
+  }, [calculateSpeakingMetrics, displayLabelForSpeaker]);
 
   // Analysis helper functions (defined before the useMemo to avoid hoisting issues)
   const getComplexityLevel = (score: number) => {
@@ -2671,11 +2681,8 @@ Respond in JSON format:
         if (audioData && audioData.byteLength > 0) {
           // Only send audio when not paused
           if (!isPausedRef.current) {
-            if (selectedProvider === "speechmatics") {
-              sendSpeechmaticsAudio(audioData);
-            } else {
-              sendAssemblyAIAudio(audioData);
-            }
+            lastAudioSentAtRef.current = Date.now();
+            sendSpeechmaticsAudio(audioData);
           }
         }
       };
@@ -2708,12 +2715,35 @@ Respond in JSON format:
         `[Audio] Started recording session with ${recordedAudioChunksRef.current.length} existing chunks`
       );
 
+      // Reacquire mic if track ends
+      const [track] = stream.getAudioTracks();
+      if (track) {
+        track.onended = async () => {
+          if (!isRecording) return;
+          try {
+            const newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = newStream;
+            const newSource = audioContext.createMediaStreamSource(newStream);
+            newSource.connect(workletNode);
+
+            const newRecorder = new MediaRecorder(newStream, { mimeType: "audio/webm;codecs=opus" });
+            mediaRecorderRef.current = newRecorder;
+            newRecorder.ondataavailable = (e) => {
+              if (e.data.size > 0) recordedAudioChunksRef.current.push(e.data);
+            };
+            newRecorder.start();
+          } catch (reErr) {
+            console.error("Failed to reacquire microphone after track ended:", reErr);
+          }
+        };
+      }
+
       return true;
     } catch (error) {
       console.error("Error setting up audio processing:", error);
       return false;
     }
-  }, [selectedProvider, sendSpeechmaticsAudio, sendAssemblyAIAudio]);
+  }, [sendSpeechmaticsAudio]);
 
   const handleStartRecording = async () => {
     try {
@@ -2726,11 +2756,7 @@ Respond in JSON format:
         );
 
         // Clear the hook's saved transcript data
-        if (selectedProvider === "speechmatics") {
-          setSavedSpeechmaticsTranscript([]);
-        } else {
-          setSavedAssemblyAITranscript([]);
-        }
+        setSavedSpeechmaticsTranscript([]);
 
         // Clear pause periods and duration tracking
         pausePeriodsRef.current = [];
@@ -2826,13 +2852,8 @@ Respond in JSON format:
       );
       console.log("[Recording] Custom dictionary entries:", customDictionary);
 
-      // Start the selected provider
-      let providerStarted = false;
-      if (selectedProvider === "speechmatics") {
-        providerStarted = await startSpeechmatics(customDictionary);
-      } else {
-        providerStarted = await startAssemblyAI();
-      }
+      // Start provider (Speechmatics)
+      let providerStarted = await startSpeechmatics(customDictionary);
 
       if (!providerStarted) {
         setIsStarting(false);
@@ -2841,11 +2862,7 @@ Respond in JSON format:
 
       const audioSetup = await setupAudioProcessing();
       if (!audioSetup) {
-        if (selectedProvider === "speechmatics") {
-          await stopSpeechmatics(false);
-        } else {
-          await stopAssemblyAI(false);
-        }
+        await stopSpeechmatics(false);
         setIsStarting(false);
         return;
       }
@@ -2853,6 +2870,20 @@ Respond in JSON format:
       setIsRecording(true);
       setIsStarting(false);
       setRecordingStartTime(Date.now());
+      // Start keepalive to avoid provider timeout
+      lastAudioSentAtRef.current = Date.now();
+      if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
+      keepAliveIntervalRef.current = setInterval(() => {
+        if (!isSpeechmaticsSocketOpen) return;
+        const now = Date.now();
+        if (now - lastAudioSentAtRef.current > 1500) {
+          const silent = new Float32Array(4096);
+          try {
+            sendSpeechmaticsAudio(silent.buffer);
+            lastAudioSentAtRef.current = now;
+          } catch {}
+        }
+      }, 800);
     } catch (error) {
       console.error("Error starting recording:", error);
       setIsStarting(false);
@@ -2931,11 +2962,11 @@ Respond in JSON format:
       mediaStreamRef.current = null;
     }
 
-    // Stop the selected provider
-    if (selectedProvider === "speechmatics") {
-      await stopSpeechmatics(true);
-    } else {
-      await stopAssemblyAI(true);
+    // Stop provider (Speechmatics)
+    await stopSpeechmatics(true);
+    if (keepAliveIntervalRef.current) {
+      clearInterval(keepAliveIntervalRef.current);
+      keepAliveIntervalRef.current = null;
     }
 
     // Immediately save transcript when recording stops
@@ -3275,11 +3306,7 @@ Respond in JSON format:
               "saved transcript items"
             );
             setSavedTranscriptData(data.transcriptContent);
-            if (selectedProvider === "speechmatics") {
-              setSavedSpeechmaticsTranscript(data.transcriptContent);
-            } else {
-              setSavedAssemblyAITranscript(data.transcriptContent);
-            }
+            setSavedSpeechmaticsTranscript(data.transcriptContent);
           } else {
             setSavedTranscriptData([]);
           }
@@ -3790,459 +3817,103 @@ Respond in JSON format:
 
   return (
     <Container>
-      <Header>
-        <Title>AI Transcript</Title>
-        <Controls>
-          <BackButton onClick={() => router.back()}>← Back</BackButton>
-
-          <RecordButtonContainer data-dropdown-container>
-            {isRecording ? (
-              <SplitRecordButton $isRecording={isRecording && !isPaused}>
-                <RecordButtonMain
-                  $isRecording={isRecording && !isPaused}
-                  onClick={toggleRecording}
-                  disabled={isStarting}
-                >
-                  {isPaused ? (
-                    <>
-                      <RecordIcon />
-                      Resume Recording
-                    </>
-                  ) : (
-                    <>
-                      <PulseIcon />
-                      Pause Recording
-                    </>
-                  )}
-                </RecordButtonMain>
-                <RecordButtonDropdown
-                  $isRecording={isRecording && !isPaused}
-                  onClick={() =>
-                    setShowRecordingDropdown(!showRecordingDropdown)
-                  }
-                  disabled={isStarting}
-                >
-                  ▼
-                </RecordButtonDropdown>
-              </SplitRecordButton>
-            ) : (
-              <RecordButton
-                $isRecording={false}
-                onClick={toggleRecording}
-                disabled={isStarting || !keywordsLoaded}
-              >
-                {isStarting ? (
-                  <>
-                    <PulseIcon />
-                    Starting...
-                  </>
-                ) : !keywordsLoaded ? (
-                  <>
-                    <PulseIcon />
-                    Loading Keywords...
-                  </>
-                ) : (
-                  <>
-                    <RecordIcon />
-                    Start Recording
-                  </>
-                )}
-              </RecordButton>
-            )}
-
-            <DropdownMenu
-              $isOpen={showRecordingDropdown && isRecording}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <DropdownItem onClick={handleStopRecording}>
-                ⏹️ Stop Recording
-              </DropdownItem>
-            </DropdownMenu>
-          </RecordButtonContainer>
-        </Controls>
-      </Header>
-
-      {/* Speaking Metrics Display */}
-      {Object.keys(calculateSpeakingMetrics).length > 0 && (
-        <MetricsContainer>
-          <MetricsHeader onClick={() => setShowMetrics(!showMetrics)}>
-            <MetricsTitle>
-              📊 Speaking Metrics
-              <span
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 400,
-                  color: "#64748b",
-                }}
-              >
-                ({Object.keys(calculateSpeakingMetrics).length} speakers)
-              </span>
-            </MetricsTitle>
-            <MetricsToggle $isOpen={showMetrics}>▼</MetricsToggle>
-          </MetricsHeader>
-          <MetricsContent $isVisible={showMetrics}>
-            <MetricsGrid>
-              {Object.entries(calculateSpeakingMetrics).map(
-                ([speakerId, metrics]) => {
-                  const speakerInfo = getSpeakerDisplayInfo(speakerId);
-                  const speakerColor = getSpeakerColor(speakerId);
-
-                  return (
-                    <SpeakerMetricsCard key={speakerId}>
-                      <SpeakerMetricsHeader>
-                        {speakerInfo.isAssigned && speakerInfo.avatar ? (
-                          <UserAvatar
-                            uid={speakerInfo.avatar}
-                            size={32}
-                            isLeader={speakerInfo.isLeader}
-                          />
-                        ) : (
-                          <SpeakerAvatar
-                            $bgColor={speakerColor.avatar}
-                            $textColor="#ffffff"
-                            style={{
-                              width: "32px",
-                              height: "32px",
-                              fontSize: "0.875rem",
-                            }}
-                          >
-                            {speakerId === "UU" ? "U" : speakerId.slice(1)}
-                          </SpeakerAvatar>
-                        )}
-                        <MetricsSpeakerName>
-                          {speakerInfo.name}
-                        </MetricsSpeakerName>
-                      </SpeakerMetricsHeader>
-
-                      <MetricsRow>
-                        <MetricItem>
-                          <MetricLabel>Total Speaking Time</MetricLabel>
-                          <MetricValue>
-                            {metrics.totalSpeakingTime}
-                            <MetricUnit>sec</MetricUnit>
-                          </MetricValue>
-                        </MetricItem>
-                        <MetricItem>
-                          <MetricLabel>Speaking Time Share</MetricLabel>
-                          <MetricValue>
-                            {metrics.speakingTimeShare}
-                            <MetricUnit>%</MetricUnit>
-                          </MetricValue>
-                        </MetricItem>
-                        <MetricItem>
-                          <MetricLabel>Speaking Turns</MetricLabel>
-                          <MetricValue>{metrics.speakingTurns}</MetricValue>
-                        </MetricItem>
-                        <MetricItem>
-                          <MetricLabel>Avg. Turn Duration</MetricLabel>
-                          <MetricValue>
-                            {metrics.avgSpeakingDuration}
-                            <MetricUnit>sec</MetricUnit>
-                          </MetricValue>
-                        </MetricItem>
-                      </MetricsRow>
-
-                      <MetricsRow>
-                        <MetricItem>
-                          <MetricLabel>Longest Turn</MetricLabel>
-                          <MetricValue>
-                            {metrics.longestSpeakingTurn}
-                            <MetricUnit>sec</MetricUnit>
-                          </MetricValue>
-                        </MetricItem>
-                        <MetricItem>
-                          <MetricLabel>Total Words</MetricLabel>
-                          <MetricValue>{metrics.totalWords}</MetricValue>
-                        </MetricItem>
-                        <MetricItem>
-                          <MetricLabel>Unique Words</MetricLabel>
-                          <MetricValue>
-                            {metrics.uniqueWords}
-                            <MetricUnit>
-                              ({metrics.lexicalDiversity}% diversity)
-                            </MetricUnit>
-                          </MetricValue>
-                        </MetricItem>
-                        <MetricItem>
-                          <MetricLabel>Questions Asked</MetricLabel>
-                          <MetricValue>{metrics.questionsAsked}</MetricValue>
-                        </MetricItem>
-                      </MetricsRow>
-
-                      {/* Qualitative Analysis Section */}
-                      <QualitativeSection>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginBottom: "1.5rem",
-                          }}
-                        >
-                          <QualitativeSectionTitle style={{ marginBottom: 0 }}>
-                            🎯 AI-Powered Qualitative Analysis
-                            {isLoadingQualitativeAnalysis && (
-                              <span
-                                style={{
-                                  fontSize: "0.8rem",
-                                  fontWeight: 400,
-                                  color: "#6b7280",
-                                  marginLeft: "0.5rem",
-                                }}
-                              >
-                                (Analyzing with GPT-4o-mini...)
-                              </span>
-                            )}
-                          </QualitativeSectionTitle>
-                          {!isLoadingQualitativeAnalysis &&
-                            filteredFinalTranscript.length > 0 && (
-                              <ToggleButton
-                                $active={false}
-                                onClick={generateQualitativeAnalysis}
-                                title="Regenerate AI analysis"
-                                style={{
-                                  fontSize: "0.8rem",
-                                  padding: "0.5rem 1rem",
-                                }}
-                              >
-                                🔄 Refresh Analysis
-                              </ToggleButton>
-                            )}
-                        </div>
-
-                        {isLoadingQualitativeAnalysis ? (
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              padding: "3rem",
-                              color: "#6b7280",
-                            }}
-                          >
-                            <div style={{ textAlign: "center" }}>
-                              <div
-                                style={{
-                                  fontSize: "2rem",
-                                  marginBottom: "1rem",
-                                }}
-                              >
-                                🤖
-                              </div>
-                              <div>AI is analyzing speaking patterns...</div>
-                              <div
-                                style={{
-                                  fontSize: "0.875rem",
-                                  marginTop: "0.5rem",
-                                }}
-                              >
-                                This may take a few moments
-                              </div>
-                            </div>
-                          </div>
-                        ) : qualitativeAnalysis[speakerId] ? (
-                          <QualitativeGrid>
-                            {/* Complexity */}
-                            <QualitativeCard>
-                              <QualitativeHeader>
-                                <QualitativeTitle>
-                                  Complexity | 복잡성
-                                </QualitativeTitle>
-                                <QualitativeLevel
-                                  $level={
-                                    qualitativeAnalysis[speakerId].complexity
-                                      .level
-                                  }
-                                >
-                                  {
-                                    qualitativeAnalysis[speakerId].complexity
-                                      .level
-                                  }
-                                </QualitativeLevel>
-                              </QualitativeHeader>
-                              <QualitativeScore>
-                                {
-                                  qualitativeAnalysis[speakerId].complexity
-                                    .score
-                                }
-                                /100
-                              </QualitativeScore>
-                              <QualitativeDescription>
-                                {
-                                  qualitativeAnalysis[speakerId].complexity
-                                    .description
-                                }
-                              </QualitativeDescription>
-                            </QualitativeCard>
-
-                            {/* Accuracy */}
-                            <QualitativeCard>
-                              <QualitativeHeader>
-                                <QualitativeTitle>
-                                  Accuracy | 정확성
-                                </QualitativeTitle>
-                                <QualitativeLevel
-                                  $level={
-                                    qualitativeAnalysis[speakerId].accuracy
-                                      .level
-                                  }
-                                >
-                                  {
-                                    qualitativeAnalysis[speakerId].accuracy
-                                      .level
-                                  }
-                                </QualitativeLevel>
-                              </QualitativeHeader>
-                              <QualitativeScore>
-                                {qualitativeAnalysis[speakerId].accuracy.score}
-                                /100
-                              </QualitativeScore>
-                              <QualitativeDescription>
-                                {
-                                  qualitativeAnalysis[speakerId].accuracy
-                                    .description
-                                }
-                              </QualitativeDescription>
-                            </QualitativeCard>
-
-                            {/* Fluency */}
-                            <QualitativeCard>
-                              <QualitativeHeader>
-                                <QualitativeTitle>
-                                  Fluency | 유창성
-                                </QualitativeTitle>
-                                <QualitativeLevel
-                                  $level={
-                                    qualitativeAnalysis[speakerId].fluency.level
-                                  }
-                                >
-                                  {qualitativeAnalysis[speakerId].fluency.level}
-                                </QualitativeLevel>
-                              </QualitativeHeader>
-                              <QualitativeScore>
-                                {qualitativeAnalysis[speakerId].fluency.score}
-                                /100
-                              </QualitativeScore>
-                              <QualitativeDescription>
-                                {
-                                  qualitativeAnalysis[speakerId].fluency
-                                    .description
-                                }
-                              </QualitativeDescription>
-                            </QualitativeCard>
-                          </QualitativeGrid>
-                        ) : (
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              padding: "2rem",
-                              color: "#9ca3af",
-                              fontStyle: "italic",
-                            }}
-                          >
-                            Complete recording to generate AI analysis
-                          </div>
-                        )}
-                      </QualitativeSection>
-                    </SpeakerMetricsCard>
-                  );
-                }
-              )}
-            </MetricsGrid>
-          </MetricsContent>
-        </MetricsContainer>
-      )}
-
       <Content>
-        {/* Provider Selection */}
-        <div style={{ marginBottom: "1rem" }}>
-          <ProviderSelector
-            value={selectedProvider}
-            onChange={(e) =>
-              setSelectedProvider(e.target.value as TranscriptionProvider)
-            }
-            disabled={isRecording}
-          >
-            <option value="speechmatics">Speechmatics</option>
-            <option value="assemblyai">AssemblyAI</option>
-          </ProviderSelector>
-        </div>
+        {/* Provider Selection removed (Speechmatics-only) */}
 
         {transcriptionError && (
           <ErrorMessage>{transcriptionError}</ErrorMessage>
         )}
 
-        <SessionInfo>
-          <SessionTitle>Session {transcriptData.sessionNumber}</SessionTitle>
-          <SessionDetail>
-            <strong>Article:</strong>{" "}
-            {articleData?.title?.english ? (
-              <ArticleLink
-                href={`/article/${transcriptData.articleId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {articleData.title.english}
-              </ArticleLink>
-            ) : (
-              <ArticleLink
-                href={`/article/${transcriptData.articleId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {transcriptData.articleId}
-              </ArticleLink>
-            )}
-          </SessionDetail>
-          <SessionDetail>
-            <strong>Leaders:</strong>
-            <ParticipantsList>
-              {participants
-                .filter((participant) => participant.isLeader)
-                .map((leader) => (
-                  <ParticipantChip key={leader.uid} $isLeader>
-                    <UserAvatar uid={leader.uid} size={24} isLeader={true} />
-                    <span>{formatLeaderDisplay(leader)}</span>
-                  </ParticipantChip>
-                ))}
-              {/* Fallback for UIDs that haven't loaded yet */}
-              {participants.filter((p) => p.isLeader).length === 0 &&
-                transcriptData.leaderUids.map((uid) => (
-                  <ParticipantChip key={uid} $isLeader>
-                    <UserAvatar uid={uid} size={24} isLeader={true} />
-                    <span>Loading...</span>
-                  </ParticipantChip>
-                ))}
-            </ParticipantsList>
-          </SessionDetail>
-          <SessionDetail>
-            <strong>Participants:</strong>
-            <ParticipantsList>
-              {participants
-                .filter((participant) => !participant.isLeader)
-                .map((participant) => (
-                  <ParticipantChip key={participant.uid}>
-                    <UserAvatar
-                      uid={participant.uid}
-                      size={24}
-                      isLeader={false}
-                    />
-                    <span>{formatParticipantDisplay(participant)}</span>
-                  </ParticipantChip>
-                ))}
-              {/* Fallback for UIDs that haven't loaded yet */}
-              {participants.filter((p) => !p.isLeader).length === 0 &&
-                transcriptData.participantUids.map((uid) => (
-                  <ParticipantChip key={uid}>
-                    <UserAvatar uid={uid} size={24} isLeader={false} />
-                    <span>Loading...</span>
-                  </ParticipantChip>
-                ))}
-            </ParticipantsList>
-          </SessionDetail>
-        </SessionInfo>
+        <SessionInfoGrid>
+          <SessionInfo>
+            <SessionTitle>Session {transcriptData.sessionNumber}</SessionTitle>
+            <SessionDetail>
+              <strong>Article:</strong>{" "}
+              {articleData?.title?.english ? (
+                <ArticleLink
+                  href={`/article/${transcriptData.articleId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {articleData.title.english}
+                </ArticleLink>
+              ) : (
+                <ArticleLink
+                  href={`/article/${transcriptData.articleId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {transcriptData.articleId}
+                </ArticleLink>
+              )}
+            </SessionDetail>
+            <SessionDetail>
+              <strong>Leaders:</strong>
+              <ParticipantsList>
+                {participants
+                  .filter((participant) => participant.isLeader)
+                  .map((leader) => (
+                    <ParticipantChip key={leader.uid} $isLeader>
+                      <UserAvatar uid={leader.uid} size={24} isLeader={true} />
+                      <span>{formatLeaderDisplay(leader)}</span>
+                    </ParticipantChip>
+                  ))}
+                {participants.filter((p) => p.isLeader).length === 0 &&
+                  transcriptData.leaderUids.map((uid) => (
+                    <ParticipantChip key={uid} $isLeader>
+                      <UserAvatar uid={uid} size={24} isLeader={true} />
+                      <span>Loading...</span>
+                    </ParticipantChip>
+                  ))}
+              </ParticipantsList>
+            </SessionDetail>
+            <SessionDetail>
+              <strong>Participants:</strong>
+              <ParticipantsList>
+                {participants
+                  .filter((participant) => !participant.isLeader)
+                  .map((participant) => (
+                    <ParticipantChip key={participant.uid}>
+                      <UserAvatar
+                        uid={participant.uid}
+                        size={24}
+                        isLeader={false}
+                      />
+                      <span>{formatParticipantDisplay(participant)}</span>
+                    </ParticipantChip>
+                  ))}
+                {participants.filter((p) => !p.isLeader).length === 0 &&
+                  transcriptData.participantUids.map((uid) => (
+                    <ParticipantChip key={uid}>
+                      <UserAvatar uid={uid} size={24} isLeader={false} />
+                      <span>Loading...</span>
+                    </ParticipantChip>
+                  ))}
+              </ParticipantsList>
+            </SessionDetail>
+          </SessionInfo>
+
+          <ChartPanel>
+            <ChartTitle>Speaking Time Share</ChartTitle>
+            <Pie
+              data={pieChartData}
+              options={{
+                plugins: {
+                  legend: { position: "bottom" },
+                  tooltip: {
+                    callbacks: {
+                      label: (ctx: any) => {
+                        const label = ctx.label || "";
+                        const value = ctx.parsed || 0;
+                        return `${label}: ${value}s`;
+                      },
+                    },
+                  },
+                },
+              }}
+            />
+          </ChartPanel>
+        </SessionInfoGrid>
 
         <ConversationDetailContainer>
           <ConversationDetailLeft>
@@ -4283,30 +3954,68 @@ Respond in JSON format:
             <AppSpeechDetails>
               <SectionHeader>
                 <span>Speakers</span>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  {Object.keys(speakerMappings).filter(
-                    (id) => speakerMappings[id]
-                  ).length > 0 &&
-                    !isRecording && (
-                      <ToggleButton
-                        $active={false}
-                        onClick={() => setShowCreateReportDialog(true)}
-                        title="Generate speaking analysis reports"
-                      >
-                        📊 Create & Show Reports
-                      </ToggleButton>
-                    )}
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                   <ToggleButton
                     $active={hideUnidentifiedSpeakers}
-                    onClick={toggleHideUnidentifiedSpeakers}
-                    title={
-                      hideUnidentifiedSpeakers
-                        ? "Show unidentified speakers"
-                        : "Hide unidentified speakers"
-                    }
+                    onClick={() => setHideUnidentifiedSpeakers(!hideUnidentifiedSpeakers)}
                   >
                     {hideUnidentifiedSpeakers ? "Show All" : "Hide Unknown"}
                   </ToggleButton>
+
+                  {/* Moved recording controls here from the removed header */}
+                  <div data-dropdown-container>
+                    {isRecording ? (
+                      <SplitRecordButton $isRecording={isRecording && !isPaused}>
+                        <RecordButtonMain
+                          $isRecording={isRecording && !isPaused}
+                          onClick={toggleRecording}
+                          disabled={isStarting}
+                        >
+                          {isPaused ? (
+                            <>
+                              <RecordIcon />
+                              Resume Recording
+                            </>
+                          ) : (
+                            <>
+                              <PulseIcon />
+                              Pause Recording
+                            </>
+                          )}
+                        </RecordButtonMain>
+                        <RecordButtonDropdown
+                          $isRecording={isRecording && !isPaused}
+                          onClick={() => setShowRecordingDropdown(!showRecordingDropdown)}
+                          disabled={isStarting}
+                        >
+                          ▼
+                        </RecordButtonDropdown>
+                      </SplitRecordButton>
+                    ) : (
+                      <RecordButton
+                        $isRecording={false}
+                        onClick={toggleRecording}
+                        disabled={isStarting || !keywordsLoaded}
+                      >
+                        {isStarting ? (
+                          <>
+                            <PulseIcon />
+                            Starting...
+                          </>
+                        ) : !keywordsLoaded ? (
+                          <>
+                            <PulseIcon />
+                            Loading Keywords...
+                          </>
+                        ) : (
+                          <>
+                            <RecordIcon />
+                            Start Recording
+                          </>
+                        )}
+                      </RecordButton>
+                    )}
+                  </div>
                 </div>
               </SectionHeader>
               <LegendContent>

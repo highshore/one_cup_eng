@@ -382,7 +382,7 @@ const ArticleTopicsSection = styled.div`
   }
 `;
 
-const ArticleTopicCard = styled.div`
+const ArticleTopicCard = styled.div<{ $gdg?: boolean }>`
   background-color: white;
   border: 1px solid #e0e0e0;
   border-radius: 12px;
@@ -390,6 +390,9 @@ const ArticleTopicCard = styled.div`
   margin: 0.5rem 0;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -401,25 +404,51 @@ const ArticleTopicCard = styled.div`
     margin: 0.375rem 0;
     border-radius: 8px;
   }
+
+  ${(props) =>
+    props.$gdg &&
+    css`
+      background:
+        linear-gradient(#ffffff, #ffffff) padding-box,
+        linear-gradient(45deg, #4285f4, #db4437) border-box;
+      border: 2px solid transparent;
+    `}
 `;
 
-const ArticleTopicNumber = styled.span`
+const ArticleTopicNumber = styled.span<{ $isGdg?: boolean }>`
   display: inline-block;
   background-color: #333;
   color: white;
   border-radius: 50%;
   width: 24px;
   height: 24px;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
   text-align: center;
   line-height: 24px;
   font-size: 12px;
   font-weight: 600;
   margin-right: 0.5rem;
 
+  ${(props) =>
+    props.$isGdg &&
+    css`
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: normal;
+    `}
+
   @media (max-width: 768px) {
     width: 20px;
     height: 20px;
+    aspect-ratio: 1 / 1;
     line-height: 20px;
+    ${(props) =>
+      props.$isGdg &&
+      css`
+        line-height: normal;
+      `}
     font-size: 11px;
   }
 `;
@@ -433,6 +462,37 @@ const ArticleTopicTitle = styled.span`
     font-size: 14px;
   }
 `;
+
+// Google "G" icon for GDG topic
+const GoogleGIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg
+    version="1.1"
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 48 48"
+    width={size}
+    height={size}
+    xmlnsXlink="http://www.w3.org/1999/xlink"
+    style={{ display: "block" }}
+  >
+    <path
+      fill="#EA4335"
+      d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+    ></path>
+    <path
+      fill="#4285F4"
+      d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+    ></path>
+    <path
+      fill="#FBBC05"
+      d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+    ></path>
+    <path
+      fill="#34A853"
+      d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+    ></path>
+    <path fill="none" d="M0 0h48v48H0z"></path>
+  </svg>
+);
 
 const TopicCard = styled.div`
   background-color: white;
@@ -2535,6 +2595,19 @@ export function EventDetailClient() {
         {articleTopics.length > 0 && isCurrentUserParticipant && (
           <ArticleTopicsSection>
             <SectionTitle>밋업 토픽</SectionTitle>
+            {articleTopics.length >= 3 && (
+              <ArticleTopicCard
+                $gdg
+                onClick={() => handleArticleTopicClick(articleTopics[2].id)}
+              >
+                <ArticleTopicNumber $isGdg>
+                  <GoogleGIcon size={14} />
+                </ArticleTopicNumber>
+                <ArticleTopicTitle>
+                  {articleTopics[2].title.english}
+                </ArticleTopicTitle>
+              </ArticleTopicCard>
+            )}
             {articleTopics.slice(0, 2).map((topic, index) => (
               <ArticleTopicCard
                 key={topic.id}
@@ -2544,38 +2617,6 @@ export function EventDetailClient() {
                 <ArticleTopicTitle>{topic.title.english}</ArticleTopicTitle>
               </ArticleTopicCard>
             ))}
-          </ArticleTopicsSection>
-        )}
-
-        {isGdgMember && articleTopics.length >= 3 && (
-          <ArticleTopicsSection>
-            <SectionTitle>
-              <span style={{ display: "inline-flex", alignItems: "center" }}>
-                <span
-                  style={{
-                    background:
-                      "linear-gradient(90deg, #4285F4 0%, #DB4437 100%)",
-                    color: "white",
-                    borderRadius: 12,
-                    padding: "8px 12px",
-                    fontWeight: 600,
-                    fontSize: 14,
-                    letterSpacing: 0.4,
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  }}
-                >
-                  Topic 1 for GDG
-                </span>
-              </span>
-            </SectionTitle>
-            <ArticleTopicCard
-              onClick={() => handleArticleTopicClick(articleTopics[2].id)}
-            >
-              <ArticleTopicNumber>G</ArticleTopicNumber>
-              <ArticleTopicTitle>
-                {articleTopics[2].title.english}
-              </ArticleTopicTitle>
-            </ArticleTopicCard>
           </ArticleTopicsSection>
         )}
 

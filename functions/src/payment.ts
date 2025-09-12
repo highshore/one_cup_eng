@@ -1169,6 +1169,39 @@ export const processRecurringPayments = onSchedule(
         }
       }
 
+      // After attempting renewals, deactivate any users whose subscription has already expired (past now KST)
+      try {
+        const expiredSnap = await db
+          .collection("users")
+          .where("hasActiveSubscription", "==", true)
+          .where(
+            "subscriptionEndDate",
+            "<",
+            admin.firestore.Timestamp.fromDate(kstNow)
+          )
+          .get();
+
+        if (!expiredSnap.empty) {
+          logger.info(
+            `Deactivating ${expiredSnap.size} expired subscriptions (subscriptionEndDate < now KST)`
+          );
+          const batch = db.batch();
+          expiredSnap.docs.forEach((doc) => {
+            batch.update(doc.ref, {
+              hasActiveSubscription: false,
+            });
+          });
+          await batch.commit();
+        } else {
+          logger.info("No expired subscriptions to deactivate at this run");
+        }
+      } catch (deactivateError) {
+        logger.error(
+          "Error deactivating expired subscriptions:",
+          deactivateError
+        );
+      }
+
       logger.info(
         `Completed subscription renewal process for ${usersToRenew.size} users`
       );
