@@ -101,10 +101,10 @@ const AuthButton = styled(Link)`
   font-weight: 600;
   font-size: 0.95rem;
   text-decoration: none;
-  transition: background-color 0.2s ease;
 
   &:hover {
-    background-color: ${colors.primaryDark};
+    color: white;
+    text-decoration: none;
   }
 
   @media (max-width: 768px) {
@@ -298,10 +298,10 @@ const MobileAuthButton = styled(Link)`
   font-weight: 600;
   text-decoration: none;
   text-align: center;
-  transition: background-color 0.3s ease, color 0.3s ease;
 
   &:hover {
-    background-color: ${colors.primaryDark};
+    color: white;
+    text-decoration: none;
   }
 
   @media (max-width: 768px) {
