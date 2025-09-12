@@ -290,13 +290,14 @@ const SessionInfo = styled.div`
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   margin-bottom: 2rem;
+  height: 100%;
 `;
 
 const SessionInfoGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr minmax(260px, 360px);
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
   margin-bottom: 2rem;
 
   @media (max-width: 900px) {
@@ -309,6 +310,7 @@ const ChartPanel = styled.div`
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
+  height: 100%;
 `;
 
 const ChartTitle = styled.h3`
@@ -3899,7 +3901,16 @@ Respond in JSON format:
               data={pieChartData}
               options={{
                 plugins: {
-                  legend: { position: "bottom" },
+                  legend: {
+                    position: "bottom",
+                    labels: {
+                      usePointStyle: true,
+                      pointStyle: "circle",
+                      boxWidth: 10,
+                      boxHeight: 10,
+                      padding: 14,
+                    },
+                  },
                   tooltip: {
                     callbacks: {
                       label: (ctx: any) => {
