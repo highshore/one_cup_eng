@@ -1868,8 +1868,10 @@ export const generateSpeakingReports = onCall(
       const reports: UserSpeakingReport[] = [];
 
       // Group speakerIds by userId to merge multiple speaker labels for the same person
+      // Ignore unmapped or falsy userIds
       const userIdToSpeakerIds: Record<string, string[]> = {};
       Object.entries(speakerMappings).forEach(([speakerId, userId]) => {
+        if (!userId) return;
         if (!userIdToSpeakerIds[userId]) userIdToSpeakerIds[userId] = [];
         userIdToSpeakerIds[userId].push(speakerId);
       });
@@ -1966,9 +1968,15 @@ export const generateSpeakingReports = onCall(
 
         reports.push(report);
 
-        // Save individual report to Firestore
-        const reportId = `${transcriptId}_${userId}_${Date.now()}`;
-        await admin.firestore().doc(`reports/${reportId}`).set(report);
+        // Save individual report to Firestore (deterministic doc id per transcript/user to prevent duplicates)
+        const reportDocId = `${transcriptId}_${userId}`;
+        await admin.firestore().doc(`reports/${reportDocId}`).set(report);
+
+        // Also save/update under the user's document as a subcollection for per-user history
+        await admin
+          .firestore()
+          .doc(`users/${userId}/speaking_reports/${reportDocId}`)
+          .set(report);
 
         logger.info(
           `Report generated and saved for user ${userId}: ${wordCount} words, ${speakingDuration.toFixed(

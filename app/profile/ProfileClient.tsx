@@ -11,7 +11,7 @@ import {
 } from "firebase/storage";
 import { updateProfile, signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, onSnapshot } from "firebase/firestore";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale/ko";
 import { httpsCallable } from "firebase/functions";
@@ -432,6 +432,62 @@ const WordsList = styled.div`
   margin-top: 15px;
 `;
 
+// Reports list styles
+const ReportsList = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+`;
+
+const ReportItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  background: #fff;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  }
+`;
+
+const ReportTitle = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const ReportMain = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+`;
+
+const ReportSub = styled.div`
+  font-size: 12px;
+  color: #666;
+`;
+
+const ReportMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const ScoreBadge = styled.span`
+  background: #111827;
+  color: #fff;
+  border-radius: 9999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+`;
+
 const AlertCard = styled(Card).withConfig({
   shouldForwardProp: (prop) => prop !== "type",
 })<{ type: "error" | "success" }>`
@@ -766,6 +822,17 @@ export default function ProfileClient() {
   });
   const [isLoading, setIsLoading] = useState(false);
 
+  // Speaking Reports state
+  const [userReports, setUserReports] = useState<
+    Array<{
+      id: string;
+      transcriptId: string;
+      metadata?: { createdAt?: Date; wordCount?: number; speakingDuration?: number; averageWordsPerMinute?: number; sessionNumber?: number; };
+      analysis?: { overallScore?: number };
+    }>
+  >([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) {
@@ -884,6 +951,39 @@ export default function ProfileClient() {
 
     fetchUserData();
   }, [user, router]);
+
+  // Subscribe to user's speaking reports
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const colRef = collection(db, `users/${user.uid}/speaking_reports`);
+      const unsub = onSnapshot(colRef, (snap) => {
+        const items: Array<any> = [];
+        snap.forEach((d) => items.push({ id: d.id, ...d.data() }));
+        const normalized = items.map((r) => ({
+          id: r.id,
+          transcriptId: r.transcriptId,
+          metadata: {
+            ...r.metadata,
+            createdAt: r?.metadata?.createdAt?.toDate
+              ? r.metadata.createdAt.toDate()
+              : (r?.metadata?.createdAt || undefined),
+          },
+          analysis: r.analysis,
+        }));
+        normalized.sort((a, b) => {
+          const at = a.metadata?.createdAt ? a.metadata.createdAt.getTime() : 0;
+          const bt = b.metadata?.createdAt ? b.metadata.createdAt.getTime() : 0;
+          return bt - at;
+        });
+        setUserReports(normalized);
+        setReportsLoading(false);
+      });
+      return () => unsub();
+    } catch (e) {
+      setReportsLoading(false);
+    }
+  }, [user]);
 
   const onAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { files } = e.target;
@@ -1490,39 +1590,56 @@ export default function ProfileClient() {
           </SubscriptionInfo>
         </MainSectionsWrapper>
 
-        {/* Articles History Section */}
+        {/* Speaking Reports Section */}
         <TransparentCard>
-          <SectionTitle>영어 한잔 기록</SectionTitle>
+          <SectionTitle>
+            스피킹 리포트
+            <div>
+              <button
+                onClick={() => router.push(`/report/user${user?.uid ? `?uid=${user.uid}` : ""}`)}
+                style={{
+                  background: "#111827",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 20,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                내 리포트 보기
+              </button>
+            </div>
+          </SectionTitle>
           <SectionContent>
-            <ArticlesList>
-              {receivedArticles.length > 0 ? (
-                [...receivedArticles].reverse().map((article) => (
-                  <ArticleItem
-                    key={article.id}
-                    onClick={() => navigateToArticle(article.id)}
-                  >
-                    <ArticleTitle>
-                      {article.title || `Article ${article.id}`}
-                    </ArticleTitle>
-                    <ArticleDate>
-                      {article.date
-                        ? formatDate(article.date)
-                        : "날짜 정보 없음"}
-                    </ArticleDate>
-                  </ArticleItem>
-                ))
-              ) : (
-                <div
-                  style={{
-                    padding: "1rem",
-                    textAlign: "center",
-                    color: "#888",
-                  }}
-                >
-                  아직 받은 아티클이 없습니다
-                </div>
-              )}
-            </ArticlesList>
+            {reportsLoading ? (
+              <div style={{ padding: "1rem", color: "#666" }}>불러오는 중...</div>
+            ) : userReports.length === 0 ? (
+              <div style={{ padding: "1rem", color: "#888", textAlign: "center" }}>
+                아직 생성된 리포트가 없습니다
+              </div>
+            ) : (
+              <ReportsList>
+                {userReports.map((r) => (
+                  <ReportItem key={r.id} onClick={() => router.push(`/transcript/${r.transcriptId}`)}>
+                    <ReportTitle>
+                      <ReportMain>
+                        세션 {r?.metadata?.sessionNumber || "-"} · 리포트
+                      </ReportMain>
+                      <ReportSub>
+                        {r?.metadata?.createdAt ? formatDate(r.metadata.createdAt) : "-"}
+                      </ReportSub>
+                    </ReportTitle>
+                    <ReportMeta>
+                      {typeof r?.analysis?.overallScore === "number" && (
+                        <ScoreBadge>{r.analysis.overallScore.toFixed(1)}/10</ScoreBadge>
+                      )}
+                    </ReportMeta>
+                  </ReportItem>
+                ))}
+              </ReportsList>
+            )}
           </SectionContent>
         </TransparentCard>
 

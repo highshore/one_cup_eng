@@ -807,32 +807,31 @@ const ModalButton = styled.button<{ $variant?: "primary" | "secondary" }>`
 `;
 
 const ToggleButton = styled.button<{ $active: boolean }>`
-  padding: 0.375rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 0.5rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 1px solid #d1d5db;
+  border: 1px solid ${props => (props.$active ? 'rgba(0,0,0,0.08)' : '#e5e7eb')};
 
-  ${(props) =>
+  ${props =>
     props.$active
       ? `
-    background: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
+    background: linear-gradient(180deg, #1f2937 0%, #0b0f14 100%);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(2, 6, 12, 0.25), inset 0 1px rgba(255, 255, 255, 0.06);
+    &:hover { filter: brightness(1.05); transform: translateY(-1px); }
   `
       : `
-    background: white;
-    color: #374151;
-    &:hover {
-      background: #f9fafb;
-    }
+    background: #f4f6f8;
+    color: #111827;
+    &:hover { background: #eef2f6; transform: translateY(-1px); }
   `}
 
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
   }
 `;
 
@@ -843,22 +842,18 @@ const RecordButtonContainer = styled.div`
 
 const SplitRecordButton = styled.div<{ $isRecording: boolean }>`
   display: flex;
-  border-radius: 25px;
+  border-radius: 9999px;
   overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12), inset 0 1px rgba(255,255,255,0.06);
 
   ${(props) =>
     props.$isRecording
       ? `
-    background: #990033;
-    &:hover {
-      background: #c00044;
-    }
+    background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
   `
       : `
-    background: #000000;
-    &:hover {
-      background: #424242;
-    }
+    background: linear-gradient(180deg, #111827 0%, #0b0f14 100%);
   `}
 `;
 
@@ -876,7 +871,7 @@ const RecordButtonMain = styled.button<{ $isRecording: boolean }>`
   background: transparent;
 
   &:disabled {
-    background: #9ca3af;
+    opacity: 0.6;
     cursor: not-allowed;
   }
 `;
@@ -896,7 +891,7 @@ const RecordButtonDropdown = styled.button<{ $isRecording: boolean }>`
   min-width: 40px;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.12);
   }
 
   &:disabled {
@@ -910,11 +905,10 @@ const DropdownMenu = styled.div<{ $isOpen: boolean }>`
   top: 100%;
   right: 0;
   margin-top: 0.75rem;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  border: 1px solid rgba(2,6,12,0.08);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(2,6,12,0.14);
   z-index: 1000;
   min-width: 180px;
   display: ${(props) => (props.$isOpen ? "block" : "none")};
@@ -931,30 +925,30 @@ const DropdownMenu = styled.div<{ $isOpen: boolean }>`
     height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
-    border-bottom: 8px solid white;
+    border-bottom: 8px solid #ffffff;
     filter: drop-shadow(0 -2px 4px rgba(0, 0, 0, 0.05));
   }
 `;
 
 const DropdownItem = styled.button`
   width: 100%;
-  padding: 1rem 1.25rem;
+  padding: 0.9rem 1.1rem;
   border: none;
-  background: white;
-  color: #dc2626;
+  background: #ffffff;
+  color: #b91c1c;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 
   &:hover {
-    background: #fef2f2;
-    color: #b91c1c;
-    transform: translateX(2px);
+    background: #fff7f7;
+    color: #991b1b;
+    transform: translateX(1px);
   }
 
   &:active {
@@ -3225,26 +3219,38 @@ Respond in JSON format:
     if (!transcriptId) return;
 
     try {
+      // Query without orderBy to avoid composite index surprises, then sort client-side
       const reportsQuery = query(
         collection(db, "reports"),
-        where("transcriptId", "==", transcriptId),
-        orderBy("metadata.createdAt", "desc")
+        where("transcriptId", "==", transcriptId)
       );
 
       const querySnapshot = await getDocs(reportsQuery);
-      const loadedReports: UserSpeakingReport[] = [];
+      const dedupMap = new Map<string, UserSpeakingReport>();
 
       querySnapshot.forEach((docSnapshot) => {
         const data = docSnapshot.data();
-        loadedReports.push({
+        const report = {
           ...data,
           metadata: {
             ...data.metadata,
             createdAt: data.metadata.createdAt.toDate(),
           },
-        } as UserSpeakingReport);
+        } as UserSpeakingReport;
+
+        // Deduplicate by userId within this transcript (keep latest by createdAt)
+        const existing = dedupMap.get(report.userId);
+        if (!existing || existing.metadata.createdAt < report.metadata.createdAt) {
+          dedupMap.set(report.userId, report);
+        }
       });
 
+      const loadedReports = Array.from(dedupMap.values());
+
+      // Sort by createdAt desc in client
+      loadedReports.sort(
+        (a, b) => b.metadata.createdAt.getTime() - a.metadata.createdAt.getTime()
+      );
       setReports(loadedReports);
       setReportsGenerated(loadedReports.length > 0);
     } catch (error) {
@@ -3969,12 +3975,13 @@ Respond in JSON format:
                   <ToggleButton
                     $active={hideUnidentifiedSpeakers}
                     onClick={() => setHideUnidentifiedSpeakers(!hideUnidentifiedSpeakers)}
+                    title={hideUnidentifiedSpeakers ? "Show all speakers including Unknown" : "Hide Unknown speakers"}
                   >
                     {hideUnidentifiedSpeakers ? "Show All" : "Hide Unknown"}
                   </ToggleButton>
 
-                  {/* Moved recording controls here from the removed header */}
-                  <div data-dropdown-container>
+                  {/* Recording controls with dropdown */}
+                  <div data-dropdown-container style={{ position: "relative" }}>
                     {isRecording ? (
                       <SplitRecordButton $isRecording={isRecording && !isPaused}>
                         <RecordButtonMain
@@ -4001,6 +4008,11 @@ Respond in JSON format:
                         >
                           ▼
                         </RecordButtonDropdown>
+                        <DropdownMenu $isOpen={showRecordingDropdown}>
+                          <DropdownItem onClick={handleStopRecording}>
+                            Stop Recording
+                          </DropdownItem>
+                        </DropdownMenu>
                       </SplitRecordButton>
                     ) : (
                       <RecordButton
@@ -4170,26 +4182,26 @@ Respond in JSON format:
             )}
 
             {/* Speaking Analysis Reports Section */}
-            {reports.length > 0 && (
-              <ReportsSection>
-                <SectionHeader>
-                  <span>Speaking Analysis Reports</span>
-                  {!reportsGenerated && (
-                    <ToggleButton
-                      $active={false}
-                      onClick={() => setShowCreateReportDialog(true)}
-                      title="Generate new reports"
-                    >
-                      📊 Generate Reports
-                    </ToggleButton>
-                  )}
-                </SectionHeader>
+            <ReportsSection>
+              <SectionHeader>
+                <span>Speaking Analysis Reports</span>
+                <ToggleButton
+                  $active={false}
+                  onClick={() => setShowCreateReportDialog(true)}
+                  title="Generate speaking reports for participants"
+                >
+                  📊 Generate Reports
+                </ToggleButton>
+              </SectionHeader>
 
-                {reports.map((report) => (
+              {reports.length === 0 ? (
+                <EmptyState>
+                  No reports yet. Click "Generate Reports" to analyze this transcript and create per-participant reports.
+                </EmptyState>
+              ) : (
+                reports.map((report) => (
                   <ReportCard
-                    key={`${
-                      report.userId
-                    }_${report.metadata.createdAt.getTime()}`}
+                    key={`${report.userId}_${report.metadata.createdAt.getTime()}`}
                     onClick={() => {
                       setSelectedReport(report);
                       setShowDetailedReport(true);
@@ -4234,17 +4246,14 @@ Respond in JSON format:
                     </ReportMetrics>
 
                     <ReportPreview>
-                      <strong>Top Strength:</strong>{" "}
-                      {report.analysis.strengths[0] || "Good participation"}
+                      <strong>Top Strength:</strong> {report.analysis.strengths[0] || "Good participation"}
                       <br />
-                      <strong>Focus Area:</strong>{" "}
-                      {report.analysis.areasForImprovement[0] ||
-                        "Continue practicing"}
+                      <strong>Focus Area:</strong> {report.analysis.areasForImprovement[0] || "Continue practicing"}
                     </ReportPreview>
                   </ReportCard>
-                ))}
-              </ReportsSection>
-            )}
+                ))
+              )}
+            </ReportsSection>
           </ConversationDetailLeft>
         </ConversationDetailContainer>
       </Content>
