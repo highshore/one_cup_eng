@@ -15,7 +15,7 @@ export default function ConditionalLayoutWrapper({
   children,
 }: ConditionalLayoutWrapperProps) {
   const pathname = usePathname();
-  const { shouldShowPrompt, hidePrompt } = useDisplayNamePrompt();
+  const { shouldShowPrompt, hidePrompt, loading } = useDisplayNamePrompt();
 
   // Pages that should NOT use the main layout (with GNB and Footer)
   const authPages = ["/auth", "/kakao_callback"];
@@ -29,7 +29,9 @@ export default function ConditionalLayoutWrapper({
       ) : (
         children
       )}
-      {shouldShowPrompt && <DisplayNamePrompt onComplete={hidePrompt} />}
+      {shouldUseMainLayout && !loading && shouldShowPrompt && (
+        <DisplayNamePrompt onComplete={hidePrompt} />
+      )}
     </I18nProvider>
   );
 }
