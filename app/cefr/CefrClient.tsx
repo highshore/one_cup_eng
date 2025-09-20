@@ -1,5 +1,8 @@
 "use client";
 import React from "react";
+import { ref, uploadString } from "firebase/storage";
+import { doc, onSnapshot } from "firebase/firestore";
+import { storage, db } from "../lib/firebase/firebase";
 import styled from "styled-components";
 
 type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
@@ -128,28 +131,75 @@ export default function CefrClient() {
 	const [total, setTotal] = React.useState(0);
 	const [uniqueCounts, setUniqueCounts] = React.useState<Record<CefrLevel, number>>({ A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 });
 	const [wordsByLevel, setWordsByLevel] = React.useState<Record<CefrLevel, { word: string; freq: number }[]>>({ A1: [], A2: [], B1: [], B2: [], C1: [], C2: [] });
+	const [labeledWords, setLabeledWords] = React.useState<Array<{ word: string; level: CefrLevel; source?: string; freq?: number }>>([]);
 
 	const handleSubmit = async () => {
 		if (!text.trim()) return;
+		
+		// Build compact words payload (deduplicated with freq and capitalization)
+		const stripPuncPreserveCase = (raw: string) => raw.replace(/^[^A-Za-z]+/g, "").replace(/[^A-Za-z]+$/g, "");
+		const normalizeWord = (raw: string) => raw.toLowerCase().replace(/^[^a-z]+/g, "").replace(/[^a-z]+$/g, "");
+		const freqMap = new Map<string, { freq: number; hasCapital: boolean }>();
+		for (const token of text.split(/\s+/g)) {
+			const core = stripPuncPreserveCase(token);
+			const w = normalizeWord(core);
+			if (!w) continue;
+			if (!/^[a-z]+$/.test(w)) continue;
+			const hasCap = /[A-Z]/.test(core);
+			const prev = freqMap.get(w);
+			if (prev) freqMap.set(w, { freq: prev.freq + 1, hasCapital: prev.hasCapital || hasCap });
+			else freqMap.set(w, { freq: 1, hasCapital: hasCap });
+		}
+		if (freqMap.size === 0) {
+			setError("No valid words found in text.");
+			return;
+		}
+		let entries = Array.from(freqMap.entries()).map(([word, v]) => ({ word, freq: v.freq, hasCapital: v.hasCapital }));
+		entries.sort((a, b) => b.freq - a.freq);
+		entries = entries.slice(0, 5000);
+		
+		// Ensure payload stays comfortably below 500KB by trimming if necessary
+		const payload = { words: entries } as { words: Array<{ word: string; freq: number; hasCapital: boolean }> };
+		// Always upload to Storage and send an inputPath pointer to avoid request size issues
+		let requestBody: any;
+		try {
+			const objectPath = `cefr_inputs/${Date.now()}_${Math.random().toString(36).slice(2,8)}.json`;
+			const fileRef = ref(storage, objectPath);
+			await uploadString(fileRef, JSON.stringify(payload), "raw", { contentType: "application/json" });
+			requestBody = { inputPath: objectPath };
+		} catch (e) {
+			console.error("Failed to upload payload to Storage", e);
+			setError("Failed to upload input. Please sign in and try again.");
+			return;
+		}
+		
 		setIsSubmitting(true);
 		setCounts({ A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 });
 		setStatus(null);
 		setTotal(0);
 		setError(null);
 		try {
-			const resp = await fetch("/api/cefr/batch", {
+			const resp = await fetch("https://startcefrbatch-cds6z3hrga-du.a.run.app", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ text })
+				body: JSON.stringify(requestBody)
 			});
 			if (!resp.ok) {
 				let message = "Failed to create batch";
-				try { const j = await resp.json(); if (j?.error) message = String(j.error); } catch {}
+				if (resp.status === 413) {
+					message = "Text is too large. Please reduce the text size and try again.";
+				} else if (resp.status === 500) {
+					message = "Server error. Please try again later.";
+				}
+				try { 
+					const j = await resp.json(); 
+					if (j?.error) message = String(j.error); 
+				} catch {}
 				setError(message);
 				return;
 			}
 			const data = await resp.json();
-			setBatchId(data.batchId);
+			setBatchId(data.batchId || data.runId || null);
 			setStatus("in_progress");
 		} catch (e) {
 			console.error(e);
@@ -159,36 +209,65 @@ export default function CefrClient() {
 		}
 	};
 
-	// Polling for status when batchId exists
+	// Subscribe to Firestore run status when batchId exists
 	React.useEffect(() => {
 		if (!batchId) return;
-		let cancelled = false;
-		const interval = setInterval(async () => {
-			try {
-				const resp = await fetch(`/api/cefr/status?batchId=${encodeURIComponent(batchId)}`);
-				if (!resp.ok) {
-					let message = "Failed to retrieve batch status";
-					try { const j = await resp.json(); if (j?.error) message = String(j.error); } catch {}
-					setError(message);
-					setStatus("failed");
-					clearInterval(interval);
-					return;
-				}
-				const data = await resp.json();
-				if (cancelled) return;
-				setStatus(data.status);
-				if (data.counts) setCounts(data.counts);
+		const unsub = onSnapshot(doc(db, "cefr_runs", batchId), (snap) => {
+			const data: any = snap.data();
+			if (!data) return;
+			const s: string = data.status || "in_progress";
+			setStatus(s);
+			if (data.counts && data.wordsByLevel) {
+				setCounts(data.counts);
+				setWordsByLevel(data.wordsByLevel);
 				if (typeof data.total === "number") setTotal(data.total);
 				if (data.uniqueCounts) setUniqueCounts(data.uniqueCounts);
-				if (data.wordsByLevel) setWordsByLevel(data.wordsByLevel);
-				if (data.status === "completed" || data.status === "failed" || data.status === "cancelled" || data.status === "expired") {
-					clearInterval(interval);
+				const flat: Array<{ word: string; level: CefrLevel; source?: string; freq?: number }> = [];
+				for (const lvl of levels) {
+					for (const item of (data.wordsByLevel?.[lvl] || [])) {
+						flat.push({ word: item.word, level: lvl, source: (item as any).source, freq: item.freq });
+					}
 				}
-			} catch {
-				// ignore transient errors
+				setLabeledWords(flat.sort((a,b) => (a.level > b.level ? 1 : a.level < b.level ? -1 : 0)));
+				return;
 			}
-		}, 3000);
-		return () => { cancelled = true; clearInterval(interval); };
+
+			// Derive interim counts from existing + acronyms while batch is running
+			const interimWordsByLevel: Record<CefrLevel, { word: string; freq: number; source?: string }[]> = { A1: [], A2: [], B1: [], B2: [], C1: [], C2: [] };
+			const interimCounts: Record<CefrLevel, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
+			let interimTotal = 0;
+			for (const src of ["existing", "acronyms"]) {
+				for (const it of (data?.[src] || [])) {
+					const lvl = String(it.level || "").toUpperCase();
+					if (!(lvl in interimCounts)) continue;
+					const level = lvl as CefrLevel;
+					const freq = Number(it.freq) || 0;
+					interimCounts[level] += freq;
+					interimTotal += freq;
+					interimWordsByLevel[level].push({ word: it.word, freq, source: src });
+				}
+			}
+			const interimUniqueCounts: Record<CefrLevel, number> = {
+				A1: interimWordsByLevel.A1.length,
+				A2: interimWordsByLevel.A2.length,
+				B1: interimWordsByLevel.B1.length,
+				B2: interimWordsByLevel.B2.length,
+				C1: interimWordsByLevel.C1.length,
+				C2: interimWordsByLevel.C2.length,
+			};
+			setCounts(interimCounts);
+			setWordsByLevel(interimWordsByLevel);
+			setUniqueCounts(interimUniqueCounts);
+			setTotal(interimTotal);
+			const flat: Array<{ word: string; level: CefrLevel; source?: string; freq?: number }> = [];
+			for (const lvl of levels) {
+				for (const item of interimWordsByLevel[lvl] || []) {
+					flat.push({ word: item.word, level: lvl, source: (item as any).source, freq: item.freq });
+				}
+			}
+			setLabeledWords(flat.sort((a,b) => (a.level > b.level ? 1 : a.level < b.level ? -1 : 0)));
+		});
+		return () => { unsub(); };
 	}, [batchId]);
 
 	const maxCount = Math.max(1, ...levels.map(l => counts[l]));
@@ -271,6 +350,19 @@ export default function CefrClient() {
 					</div>
 				)}
 			</ChartWrapper>
+			{!isLoading && (status === "completed") && (
+				<div style={{ marginTop: 16 }}>
+					<strong>Per-word labels</strong>
+					<div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+						{labeledWords.slice(0, 300).map((w) => (
+							<div key={`${w.level}-${w.word}`} style={{ padding: "6px 8px", border: "1px solid rgba(0,0,0,0.12)", borderRadius: 8, background: "#fff", color: "#111", display: "flex", justifyContent: "space-between", gap: 8 }}>
+								<span style={{ fontWeight: 700 }}>{w.word}</span>
+								<span style={{ opacity: 0.7 }}>{w.level}{w.source ? ` · ${w.source}` : ""}</span>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
 		</Container>
 	);
 }
