@@ -1748,7 +1748,8 @@ export function EventDetailClient() {
       const isLocalhost =
         typeof window !== "undefined" &&
         window.location.hostname === "localhost";
-      if (event && (isAdmin || isLocalhost)) {
+      const isLeader = accountStatus === "leader";
+      if (event && (isAdmin || isLeader || isLocalhost)) {
         try {
           const savedSeating = await loadSeatingArrangement();
           if (savedSeating) {
@@ -1769,15 +1770,16 @@ export function EventDetailClient() {
     };
 
     loadExistingSeating();
-  }, [event, isAdmin]);
+  }, [event, isAdmin, accountStatus]);
 
   useEffect(() => {
     const loadSeatingOnAdminConfirmed = async () => {
       const isLocalhost =
         typeof window !== "undefined" &&
         window.location.hostname === "localhost";
+      const isLeader = accountStatus === "leader";
       if (
-        (isAdmin || isLocalhost) &&
+        (isAdmin || isLeader || isLocalhost) &&
         event &&
         seatingAssignments.length === 0 &&
         !showSeatingTable
@@ -1796,7 +1798,7 @@ export function EventDetailClient() {
 
     const timeoutId = setTimeout(loadSeatingOnAdminConfirmed, 500);
     return () => clearTimeout(timeoutId);
-  }, [isAdmin]);
+  }, [isAdmin, accountStatus]);
 
   useEffect(() => {
     const calculatePositionAndCheckFloat = () => {
@@ -2788,6 +2790,7 @@ export function EventDetailClient() {
         </ActionButtons>
 
         {(isAdmin ||
+          accountStatus === "leader" ||
           (typeof window !== "undefined" &&
             window.location.hostname === "localhost")) && (
           <ActionButtons ref={null} $isFloating={false}>
@@ -2814,6 +2817,7 @@ export function EventDetailClient() {
 
         {/* Seating Arrangement Section */}
         {(isAdmin ||
+          accountStatus === "leader" ||
           (typeof window !== "undefined" &&
             window.location.hostname === "localhost")) &&
           showSeatingTable && (
@@ -2827,7 +2831,8 @@ export function EventDetailClient() {
                 <SectionTitle>좌석 배치</SectionTitle>
                 {typeof window !== "undefined" &&
                   window.location.hostname === "localhost" &&
-                  !isAdmin && (
+                  !isAdmin &&
+                  accountStatus !== "leader" && (
                     <div
                       style={{
                         background: "#fff3cd",

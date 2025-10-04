@@ -140,7 +140,7 @@ const CalloutBox = styled.div`
     ${colors.primaryBg} 100%
   );
   padding: 1rem 1.2rem;
-  border-radius: 12px;
+  border-radius: 20px;
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
   color: ${colors.text.medium};
@@ -1089,8 +1089,10 @@ const getWordDefinition = async (
     }
 
     // If not found in Firestore, call the GPT API
-    const apiKey =
-      "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";
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OpenAI API key not configured");
+    }
     const url = "https://api.openai.com/v1/chat/completions";
 
     const prompt = `다음 문장에서 '${word}'의 정의를 한국어로 제공해주세요. 단어의 의미를 문장의 맥락에 맞게 설명해주세요. 반드시 존대말로 작성해주세요.
@@ -1721,6 +1723,16 @@ const Article = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioTimeUpdateRef = useRef<number | null>(null);
+
+  // Long-press detection for showing meaning modal (non-audio mode)
+  const LONG_PRESS_MS = 500;
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const pressStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const pressCurrentPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const pressTargetRef = useRef<HTMLElement | null>(null);
+  const isTouchPressRef = useRef(false);
+  const MOVEMENT_THRESHOLD_PX = 8;
 
   // Character-word mapping for highlighting
   const [characterWordMap, setCharacterWordMap] = useState<{
@@ -2593,8 +2605,12 @@ const Article = () => {
     }
   };
 
-  // Handle word click for definition lookup or audio jumping
+  // Handle word click for audio jumping only (non-audio uses long-press)
   const handleWordClick = async (e: React.MouseEvent) => {
+    if (!isAudioMode) {
+      // Allow selection/copy on short clicks when not in audio mode
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
 
@@ -2755,6 +2771,173 @@ const Article = () => {
     }));
     // Re-enable scrolling
     document.body.style.overflow = "";
+  };
+
+  // Open meaning modal from a target and point, fetching AI and Wiktionary together
+  const openMeaningFromTargetAtPoint = async (
+    targetEl: HTMLElement,
+    clientX: number,
+    clientY: number
+  ) => {
+    const paragraphElement = targetEl.closest(
+      ".article-text"
+    ) as HTMLElement | null;
+    if (!paragraphElement) return;
+
+    const originalText =
+      paragraphElement.getAttribute("data-original-text") || "";
+    if (!originalText) return;
+
+    const { word } = extractFullWordFromBionicText(
+      paragraphElement,
+      clientX,
+      clientY
+    );
+    let selectedWord = (word || "").replace(/[.,!?;:'"()[\]{}]|…/g, "").trim();
+    if (
+      !selectedWord ||
+      selectedWord.length > 30 ||
+      (selectedWord.split(/\s+/).length > 1 && !selectedWord.includes("-"))
+    )
+      return;
+
+    const sentenceRegex = new RegExp(
+      `[^.!?]*\\b${selectedWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b[^.!?]*[.!?]`,
+      "i"
+    );
+    const sentenceMatch = originalText.match(sentenceRegex);
+    const context = sentenceMatch ? sentenceMatch[0].trim() : originalText;
+
+    setWordDefinitionModal({
+      isOpen: true,
+      word: selectedWord,
+      definition: "",
+      isLoading: true,
+      wiktionaryData: null,
+      isWiktionaryLoading: true,
+    });
+    document.body.style.overflow = "hidden";
+
+    try {
+      if (!articleId) throw new Error("Article ID is missing");
+      const [aiResult, wikiResult] = await Promise.allSettled([
+        getWordDefinition(selectedWord, context, articleId as string),
+        fetchWordFromWiktionaryApi(selectedWord),
+      ]);
+
+      const definition =
+        aiResult.status === "fulfilled"
+          ? aiResult.value
+          : "뜻풀이를 가져오는 중 오류가 발생했습니다.";
+      const wiktionaryData = wikiResult.status === "fulfilled" ? wikiResult.value : null;
+
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        definition,
+        isLoading: false,
+        wiktionaryData,
+        isWiktionaryLoading: false,
+      }));
+    } catch (error) {
+      setWordDefinitionModal((prev) => ({
+        ...prev,
+        definition: "뜻풀이를 가져오는 중 오류가 발생했습니다.",
+        isLoading: false,
+        wiktionaryData: null,
+        isWiktionaryLoading: false,
+      }));
+    }
+  };
+
+  // Long-press handlers (mouse)
+  const onMouseDownPress = (e: React.MouseEvent) => {
+    if (isAudioMode) return;
+    longPressTriggeredRef.current = false;
+    isTouchPressRef.current = false;
+    pressTargetRef.current = e.target as HTMLElement;
+    pressStartPosRef.current = { x: e.clientX, y: e.clientY };
+    pressCurrentPosRef.current = { x: e.clientX, y: e.clientY };
+    if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+    }, LONG_PRESS_MS);
+  };
+
+  const onMouseMovePress = (e: React.MouseEvent) => {
+    if (isAudioMode) return;
+    if (!longPressTimerRef.current) return;
+    pressCurrentPosRef.current = { x: e.clientX, y: e.clientY };
+    const dx = pressCurrentPosRef.current.x - pressStartPosRef.current.x;
+    const dy = pressCurrentPosRef.current.y - pressStartPosRef.current.y;
+    if (Math.hypot(dx, dy) > MOVEMENT_THRESHOLD_PX) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const onMouseUpPress = (e: React.MouseEvent) => {
+    if (isAudioMode) return;
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (longPressTriggeredRef.current && pressTargetRef.current) {
+      const { x, y } = pressCurrentPosRef.current;
+      openMeaningFromTargetAtPoint(pressTargetRef.current, x, y);
+    }
+    longPressTriggeredRef.current = false;
+    pressTargetRef.current = null;
+  };
+
+  const onMouseLeavePress = () => {
+    if (isAudioMode) return;
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressTriggeredRef.current = false;
+  };
+
+  // Long-press handlers (touch)
+  const onTouchStartPress = (e: React.TouchEvent) => {
+    if (isAudioMode) return;
+    longPressTriggeredRef.current = false;
+    isTouchPressRef.current = true;
+    pressTargetRef.current = e.target as HTMLElement;
+    const t = e.touches[0];
+    pressStartPosRef.current = { x: t.clientX, y: t.clientY };
+    pressCurrentPosRef.current = { x: t.clientX, y: t.clientY };
+    if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+    }, LONG_PRESS_MS);
+  };
+
+  const onTouchMovePress = (e: React.TouchEvent) => {
+    if (isAudioMode) return;
+    if (!longPressTimerRef.current) return;
+    const t = e.touches[0];
+    pressCurrentPosRef.current = { x: t.clientX, y: t.clientY };
+    const dx = pressCurrentPosRef.current.x - pressStartPosRef.current.x;
+    const dy = pressCurrentPosRef.current.y - pressStartPosRef.current.y;
+    if (Math.hypot(dx, dy) > MOVEMENT_THRESHOLD_PX) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const onTouchEndPress = () => {
+    if (isAudioMode) return;
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (longPressTriggeredRef.current && pressTargetRef.current) {
+      const { x, y } = pressCurrentPosRef.current;
+      openMeaningFromTargetAtPoint(pressTargetRef.current, x, y);
+    }
+    longPressTriggeredRef.current = false;
+    pressTargetRef.current = null;
   };
 
   // Add this effect to process and map all timestamps when article loads
@@ -3012,12 +3195,6 @@ const Article = () => {
           )}
         </InfoContainer>
 
-        <CalloutBox>
-          {isAudioMode
-            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 하이라이트가 해당 위치로 이동합니다."
-            : "단어를 클릭하면 단어 뜻풀이를 확인할 수 있습니다. 각 문단 아래 버튼을 클릭하면 전체 문단에 대한 한국어 번역을 확인할 수 있습니다."}
-        </CalloutBox>
-
         {/* Display YouTube video if URL is YouTube, otherwise show image if available */}
         {(() => {
           console.log("Article URL:", article.url);
@@ -3134,6 +3311,13 @@ const Article = () => {
                     className="article-text"
                     data-original-text={topic}
                     onClick={handleWordClick}
+                    onMouseDown={onMouseDownPress}
+                    onMouseMove={onMouseMovePress}
+                    onMouseUp={onMouseUpPress}
+                    onMouseLeave={onMouseLeavePress}
+                    onTouchStart={onTouchStartPress}
+                    onTouchMove={onTouchMovePress}
+                    onTouchEnd={onTouchEndPress}
                   >
                     {topic}
                   </DiscussionTopicItem>
@@ -3159,6 +3343,12 @@ const Article = () => {
           </DiscussionTopicsSection>
         ) : null}
 
+        <CalloutBox>
+          {isAudioMode
+            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 하이라이트가 해당 위치로 이동합니다."
+            : "단어를 길게 누르면 뜻풀이 창이 열립니다. 짧게 누르거나 드래그하면 자유롭게 텍스트를 선택하고 복사할 수 있습니다."}
+        </CalloutBox>
+
         {content.english?.length > 0 && (
           <ContentSection>
             {content.english.map((paragraph, index) => (
@@ -3167,6 +3357,13 @@ const Article = () => {
                   className="article-text"
                   data-original-text={paragraph}
                   onClick={handleWordClick}
+                  onMouseDown={onMouseDownPress}
+                  onMouseMove={onMouseMovePress}
+                  onMouseUp={onMouseUpPress}
+                  onMouseLeave={onMouseLeavePress}
+                  onTouchStart={onTouchStartPress}
+                  onTouchMove={onTouchMovePress}
+                  onTouchEnd={onTouchEndPress}
                 >
                   {isAudioMode
                     ? prepareParagraphText(paragraph, index)
