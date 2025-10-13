@@ -5,12 +5,9 @@ import fs from "fs";
 let db: admin.firestore.Firestore;
 let auth: admin.auth.Auth;
 
-// More reliable build detection
-const isVercelBuild = process.env.VERCEL === "1" && !process.env.VERCEL_ENV;
-
 try {
   // Check if a Firebase app has already been initialized to prevent errors
-  if (!admin.apps.length && !isVercelBuild) {
+  if (!admin.apps.length) {
     let credential: admin.credential.Credential | null = null;
 
     // Try service account file first (for local development)
@@ -58,7 +55,7 @@ try {
         }
       } else {
         console.log(
-          "Firebase environment variables not found - this is normal during build"
+          "Firebase environment variables not found - using mock objects for build"
         );
       }
     }
@@ -91,27 +88,8 @@ try {
       auth = {} as admin.auth.Auth;
     }
   } else {
-    if (isVercelBuild) {
-      // For Vercel build time, create comprehensive mock objects
-      db = {
-        collection: () => ({
-          where: () => ({
-            get: () => Promise.resolve({ docs: [] }),
-          }),
-          doc: () => ({
-            get: () => Promise.resolve({ exists: false, data: () => null }),
-          }),
-          get: () => Promise.resolve({ 
-            docs: [],
-            forEach: () => {} 
-          }),
-        }),
-      } as any;
-      auth = {} as admin.auth.Auth;
-    } else {
-      db = admin.firestore();
-      auth = admin.auth();
-    }
+    db = admin.firestore();
+    auth = admin.auth();
   }
 } catch (error) {
   console.warn("Firebase Admin SDK initialization failed:", error);
