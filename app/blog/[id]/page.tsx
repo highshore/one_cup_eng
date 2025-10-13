@@ -26,6 +26,12 @@ export async function generateStaticParams() {
   }
 }
 
+// Allow dynamic routes that weren't pre-generated at build time
+export const dynamicParams = true;
+
+// Enable Incremental Static Regeneration - revalidate every 60 seconds
+export const revalidate = 60;
+
 // This page will be statically generated at build time for each blog post
 export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   const { id } = await params;
