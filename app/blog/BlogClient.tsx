@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { getDictionary } from "../lib/i18n";
 import { useAuth } from "../lib/contexts/auth_context";
@@ -16,34 +16,18 @@ import {
 } from "../lib/features/blog/services/blog_service";
 import { BlogEditor } from "../lib/features/blog/components/blog_editor";
 
-// Grayscale, corporate blog palette (overrides accent usage)
+// Clean, minimal blog palette
 const blog = {
   text: { dark: "#111111", medium: "#555555", light: "#8A8A8A" },
-  bg: "rgba(255, 255, 255, 0.0)",
-  mutedBg: "#f7f7f7",
   border: "#e5e7eb",
-  shadow: "rgba(0,0,0,0.12)",
-  primary: "#111111",
-  primaryHover: "#1a1a1a",
+  shadow: "rgba(0,0,0,0.08)",
 } as const;
-
-// Use shared colors; keep accent for buttons if needed via inline vars
-
-// Gradient shining sweep animation for CTA button
-const gradientShine = keyframes`
-  0% {
-    background-position: -100% center;
-  }
-  100% {
-    background-position: 100% center;
-  }
-`;
 
 const BlogContainer = styled.div`
   padding: 2rem 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  background-color: ${blog.bg};
+  background-color: transparent;
   min-height: 100vh;
 
   @media (max-width: 768px) {
@@ -100,14 +84,14 @@ const LoadingState = styled.div`
   min-height: 400px;
   font-size: 1.1rem;
   color: ${blog.text.medium};
-  background: ${blog.bg};
+  background: transparent;
 `;
 
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: ${blog.text.medium};
-  background: ${blog.bg};
+  background: transparent;
   border: 2px dashed ${blog.border};
   border-radius: 8px;
   font-family: inherit;
@@ -177,15 +161,15 @@ const SectionDivider = styled.div`
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 600;
   color: ${blog.text.dark};
-  margin: 0 0 1.25rem 0;
-  letter-spacing: -0.02em;
+  margin: 0 0 1.5rem 0;
+  letter-spacing: -0.01em;
 
   @media (max-width: 768px) {
-    font-size: 1.5rem;
-    margin: 0 0 1rem 0;
+    font-size: 1.3rem;
+    margin: 0 0 1.25rem 0;
   }
 `;
 
@@ -271,7 +255,7 @@ const Card = styled.article`
 
 const CardImage = styled.div<{ $image?: string }>`
   background: ${({ $image }) =>
-    $image ? `url(${$image}) center/cover` : blog.mutedBg};
+    $image ? `url(${$image}) center/cover` : "#f3f4f6"};
   width: 100%;
   height: 200px;
 
@@ -387,136 +371,106 @@ const FeaturedSlide = styled.div`
 `;
 
 const FeaturedCard = styled(Card)`
-  display: grid;
-  grid-template-columns: 1.3fr 0.7fr;
-  gap: 1.5rem;
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid ${blog.border};
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: transparent;
+  border: none;
+  overflow: visible;
+  box-shadow: none;
 
   &:hover {
-    transform: translateY(-3px);
-    border-color: #d1d5db;
+    transform: none;
+    border-color: transparent;
   }
 
   @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 0;
+    border-radius: 14px;
   }
 `;
 
 const FeaturedContent = styled.div`
-  padding: 2rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
 
   @media (max-width: 768px) {
-    padding: 1.5rem;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
   }
 `;
 
-const FeaturedBadge = styled(Pill)`
+const FeaturedTitle = styled.h2`
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.3;
+  font-weight: 600;
   color: ${blog.text.dark};
-`;
-
-const FeaturedTitle = styled(CardTitle)`
-  font-size: 2rem;
-  letter-spacing: -0.02em;
-  margin: 0 0 1rem 0;
-  white-space: normal;
-  line-height: 1.2;
-  font-weight: 700;
 
   @media (max-width: 768px) {
-    font-size: 1.75rem;
-    margin: 0 0 0.75rem 0;
+    font-size: 1.5rem;
   }
 `;
 
 const FeaturedDescription = styled.p`
   color: ${blog.text.medium};
-  font-size: 1rem;
-  line-height: 1.5;
-  margin: 0 0 1.5rem 0;
-  opacity: 0.85;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 
   @media (max-width: 768px) {
-    font-size: 0.95rem;
-    margin: 0 0 1.25rem 0;
-    -webkit-line-clamp: 2;
+    font-size: 0.9rem;
   }
 `;
 
 const FeaturedButtons = styled.div`
-  margin-top: auto;
+  margin-top: 0.5rem;
   display: flex;
   gap: 0.75rem;
 `;
 
 const CTAButton = styled.button`
-  padding: 0.75rem 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  font-size: 0.95rem;
-  font-weight: 700;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid ${blog.border};
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  position: relative;
-  overflow: hidden;
-  color: white;
+  color: ${blog.text.dark};
   font-family: inherit;
-  background: linear-gradient(180deg, #1a1d22, #111315);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      120deg,
-      rgba(255, 255, 255, 0) 15%,
-      rgba(255, 255, 255, 0.35) 50%,
-      rgba(255, 255, 255, 0) 85%
-    );
-    background-size: 200% 100%;
-    animation: ${gradientShine} 2.5s linear infinite;
-    pointer-events: none;
-    mix-blend-mode: screen;
-  }
+  background: transparent;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.03);
+    border-color: ${blog.text.medium};
   }
 
   @media (max-width: 768px) {
-    padding: 0.675rem 1.25rem;
-    font-size: 0.9rem;
-    gap: 0.375rem;
-
-    &:hover {
-      transform: translateY(-1px);
-    }
+    padding: 0.5rem 1rem;
+    font-size: 0.825rem;
   }
 `;
 
 const FeaturedImage = styled(CardImage)`
-  height: auto;
-  min-height: 200px;
+  height: 280px;
+  border-radius: 12px;
+  overflow: hidden;
 
   @media (max-width: 768px) {
-    min-height: 160px;
+    height: 200px;
+    border-radius: 10px;
   }
 `;
 
@@ -787,17 +741,16 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
             <Scroller id="featured-scroller">
               {/* Single featured card; structure preserved for consistency */}
               <FeaturedSlide>
-                <FeaturedCard>
+                <FeaturedCard onClick={() => handlePostClick(featuredPost)}>
+                  <FeaturedImage $image={featuredPost.featuredImage} />
                   <FeaturedContent>
-                    <PillRow>
-                      <FeaturedBadge>{dict.blog.featured}</FeaturedBadge>
-                      <Pill>{categoryLabel(featuredPost.category)}</Pill>
-                    </PillRow>
                     <FeaturedTitle>{featuredPost.title}</FeaturedTitle>
                     <FeaturedDescription>
                       {(featuredPost.excerpt ||
                         featuredPost.content
                           .replace(/<[^>]*>/g, "")
+                          .replace(/!\[([^\]]*)\]\(([^)]*)\)/g, "")
+                          .replace(/https?:\/\/[^\s]+/g, "")
                           .slice(0, 180)) +
                         (featuredPost.excerpt
                           ? ""
@@ -807,11 +760,10 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
                     </FeaturedDescription>
                     <FeaturedButtons>
                       <CTAButton onClick={() => handlePostClick(featuredPost)}>
-                        ✨ {dict.blog.readPost}
+                        Read more →
                       </CTAButton>
                     </FeaturedButtons>
                   </FeaturedContent>
-                  <FeaturedImage $image={featuredPost.featuredImage} />
                 </FeaturedCard>
               </FeaturedSlide>
             </Scroller>
@@ -860,13 +812,14 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
                   <Card>
                     <CardImage $image={post.featuredImage} />
                     <CardBody>
-                      <PillRow>
-                        <Pill>{categoryLabel(post.category)}</Pill>
-                      </PillRow>
                       <CardTitle>{post.title}</CardTitle>
                       <CardExcerpt>
                         {(post.excerpt ||
-                          post.content.replace(/<[^>]*>/g, "").slice(0, 120)) +
+                          post.content
+                            .replace(/<[^>]*>/g, "")
+                            .replace(/!\[([^\]]*)\]\(([^)]*)\)/g, "")
+                            .replace(/https?:\/\/[^\s]+/g, "")
+                            .slice(0, 120)) +
                           (post.excerpt
                             ? ""
                             : post.content.length > 120
@@ -882,7 +835,6 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
                               | Date
                           ).toLocaleDateString("ko-KR")}
                         </span>
-                        <span>{post.tags?.slice(0, 1).join(" ") || ""}</span>
                       </MetaRow>
                     </CardBody>
                   </Card>
@@ -937,13 +889,14 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
                   <Card>
                     <CardImage $image={post.featuredImage} />
                     <CardBody>
-                      <PillRow>
-                        <Pill>{categoryLabel(post.category)}</Pill>
-                      </PillRow>
                       <CardTitle>{post.title}</CardTitle>
                       <CardExcerpt>
                         {(post.excerpt ||
-                          post.content.replace(/<[^>]*>/g, "").slice(0, 120)) +
+                          post.content
+                            .replace(/<[^>]*>/g, "")
+                            .replace(/!\[([^\]]*)\]\(([^)]*)\)/g, "")
+                            .replace(/https?:\/\/[^\s]+/g, "")
+                            .slice(0, 120)) +
                           (post.excerpt
                             ? ""
                             : post.content.length > 120
@@ -959,7 +912,6 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
                               | Date
                           ).toLocaleDateString("ko-KR")}
                         </span>
-                        <span>{post.tags?.slice(0, 1).join(" ") || ""}</span>
                       </MetaRow>
                     </CardBody>
                   </Card>
@@ -1014,13 +966,14 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
                   <Card>
                     <CardImage $image={post.featuredImage} />
                     <CardBody>
-                      <PillRow>
-                        <Pill>{categoryLabel(post.category)}</Pill>
-                      </PillRow>
                       <CardTitle>{post.title}</CardTitle>
                       <CardExcerpt>
                         {(post.excerpt ||
-                          post.content.replace(/<[^>]*>/g, "").slice(0, 120)) +
+                          post.content
+                            .replace(/<[^>]*>/g, "")
+                            .replace(/!\[([^\]]*)\]\(([^)]*)\)/g, "")
+                            .replace(/https?:\/\/[^\s]+/g, "")
+                            .slice(0, 120)) +
                           (post.excerpt
                             ? ""
                             : post.content.length > 120
@@ -1036,7 +989,6 @@ export function BlogClient({ initialPosts }: BlogClientProps) {
                               | Date
                           ).toLocaleDateString("ko-KR")}
                         </span>
-                        <span>{post.tags?.slice(0, 1).join(" ") || ""}</span>
                       </MetaRow>
                     </CardBody>
                   </Card>

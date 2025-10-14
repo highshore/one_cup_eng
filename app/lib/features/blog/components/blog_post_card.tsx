@@ -301,7 +301,12 @@ export const BlogPostCard: React.FC<BlogPostCardProps> = ({
       .replace(/\*\*(\S(?:[\s\S]*?\S)?)\*\*/g, "$1")
       .replace(/^# (.*$)/gim, "$1") // Remove header markdown
       .replace(/^## (.*$)/gim, "$1")
-      .replace(/^### (.*$)/gim, "$1");
+      .replace(/^### (.*$)/gim, "$1")
+      // Remove image markdown: ![alt](url)
+      .replace(/!\[([^\]]*)\]\(([^)]*)\)/g, "")
+      // Remove URLs that look like https://... or http://...
+      .replace(/https?:\/\/[^\s]+/g, "")
+      .trim();
 
     return textContent.length > 150
       ? textContent.substring(0, 150) + "..."

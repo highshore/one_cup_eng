@@ -22,12 +22,17 @@ functions/.next/
 functions/out/
 functions/lib/
 
-# Env files (secrets)
+# Env files (secrets) - NEVER commit these!
 .env
-.env.*
 .env.local
 .env.production
 .env.development
+.env.vercel
+.env.one-cup-eng
+functions/.env.one-cup-eng
+# But allow example files
+!.env.example
+!functions/.env.example
 
 # Cache directories
 .cache/
