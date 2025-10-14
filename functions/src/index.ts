@@ -1771,7 +1771,7 @@ export const generateSpeakingReports = onCall(
     }: SpeakingAnalysisRequest = request.data;
 
     // Initialize OpenAI client inside the function
-    const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.NEXT_OPENAI_API_KEY;
+    const apiKey = process.env.NEXT_OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error("OpenAI API key not configured");
     }

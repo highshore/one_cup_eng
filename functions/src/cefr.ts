@@ -111,19 +111,12 @@ export const startCefrBatch = onRequest({
           }
         }
 
-        const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.NEXT_OPENAI_API_KEY;
-        const keySource = process.env.VITE_OPENAI_API_KEY
-          ? "VITE_OPENAI_API_KEY"
-          : process.env.OPENAI_API_KEY
-          ? "OPENAI_API_KEY"
-          : process.env.NEXT_OPENAI_API_KEY
-          ? "NEXT_OPENAI_API_KEY"
-          : "<none>";
+        const apiKey = process.env.NEXT_OPENAI_API_KEY;
         console.log(
-          `[startCefrBatch] OpenAI key source: ${keySource}, suffix: ${apiKey ? apiKey.slice(-4) : "n/a"}`
+          `[startCefrBatch] OpenAI key available: ${!!apiKey}, suffix: ${apiKey ? apiKey.slice(-4) : "n/a"}`
         );
         if (!apiKey) {
-          res.status(500).json({ error: "Missing OpenAI key. Set VITE_OPENAI_API_KEY or OPENAI_API_KEY." });
+          res.status(500).json({ error: "Missing OpenAI key. Set NEXT_OPENAI_API_KEY." });
           resolve(undefined);
           return;
         }
@@ -294,16 +287,9 @@ function extractLevel(text: string): CefrLevel | null {
 }
 
 export const pollCefrBatches = onSchedule({ schedule: "every 2 minutes", region: "asia-northeast3" }, async () => {
-  const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY || process.env.NEXT_OPENAI_API_KEY;
-  const keySource = process.env.VITE_OPENAI_API_KEY
-    ? "VITE_OPENAI_API_KEY"
-    : process.env.OPENAI_API_KEY
-    ? "OPENAI_API_KEY"
-    : process.env.NEXT_OPENAI_API_KEY
-    ? "NEXT_OPENAI_API_KEY"
-    : "<none>";
+  const apiKey = process.env.NEXT_OPENAI_API_KEY;
   console.log(
-    `[pollCefrBatches] OpenAI key source: ${keySource}, suffix: ${apiKey ? apiKey.slice(-4) : "n/a"}`
+    `[pollCefrBatches] OpenAI key available: ${!!apiKey}, suffix: ${apiKey ? apiKey.slice(-4) : "n/a"}`
   );
   if (!apiKey) return;
   const openai = new OpenAI({ apiKey });
