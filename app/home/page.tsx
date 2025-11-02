@@ -1,21 +1,45 @@
 import HomePageClient from "../lib/features/home/components/HomePageClient";
 import { fetchUpcomingMeetupEventsServer } from "../lib/features/meetup/services/meetup_service_server";
+import { fetchHomeStats } from "../lib/features/home/services/stats_service";
+import { fetchHomeTopics } from "../lib/features/home/services/topics_service";
+import { HomeTopicArticle } from "../lib/features/home/services/topics_service";
 import { MeetupEvent } from "../lib/features/meetup/types/meetup_types";
 
 // This page will be statically generated at build time
 export default async function HomePage() {
   let upcomingEvents: MeetupEvent[] = [];
+  let stats = {
+    totalMeetups: 0,
+    totalMembers: 0,
+    totalArticles: 0,
+  };
+  let topics: HomeTopicArticle[] = [];
 
   try {
-    // Fetch upcoming meetup events at build time (SSG)
-    upcomingEvents = await fetchUpcomingMeetupEventsServer();
+    // Fetch upcoming meetup events and stats at build time (SSG)
+    [upcomingEvents, stats, topics] = await Promise.all([
+      fetchUpcomingMeetupEventsServer(),
+      fetchHomeStats(),
+      fetchHomeTopics(),
+    ]);
+    console.log("Homepage data fetched:", {
+      eventsCount: upcomingEvents.length,
+      stats,
+      topicsCount: topics.length,
+    });
   } catch (error) {
-    console.error("Error fetching upcoming events at build time:", error);
-    // Fall back to empty array - client will handle fetching
+    console.error("Error fetching data at build time:", error);
+    // Fall back to empty arrays/defaults - client will handle fetching
     upcomingEvents = [];
   }
 
-  return <HomePageClient initialUpcomingEvents={upcomingEvents} />;
+  return (
+    <HomePageClient
+      initialUpcomingEvents={upcomingEvents}
+      initialStats={stats}
+      initialTopics={topics}
+    />
+  );
 }
 
 // Generate metadata for SEO

@@ -32,6 +32,9 @@ export const dynamicParams = true;
 // Enable Incremental Static Regeneration - revalidate every 60 seconds
 export const revalidate = 60;
 
+// Force dynamic rendering as fallback
+export const dynamic = 'force-dynamic';
+
 // This page will be statically generated at build time for each blog post
 export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   const { id } = await params;

@@ -10,6 +10,16 @@ try {
   if (!admin.apps.length) {
     let credential: admin.credential.Credential | null = null;
 
+    const loadCredentialFromJson = (raw: string) => {
+      try {
+        const parsed = JSON.parse(raw);
+        return admin.credential.cert(parsed as admin.ServiceAccount);
+      } catch (error) {
+        console.error("Failed to parse Firebase service account JSON", error);
+        return null;
+      }
+    };
+
     // Try service account file first (for local development)
     if (typeof window === "undefined") {
       try {
@@ -32,6 +42,24 @@ try {
     }
 
     // Use environment variables (for Vercel deployment)
+    if (!credential) {
+      const serviceAccountJson =
+        process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
+        process.env.FIREBASE_SERVICE_ACCOUNT;
+      const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
+      if (serviceAccountJson) {
+        credential = loadCredentialFromJson(serviceAccountJson);
+      } else if (serviceAccountBase64) {
+        try {
+          const decoded = Buffer.from(serviceAccountBase64, "base64").toString("utf8");
+          credential = loadCredentialFromJson(decoded);
+        } catch (error) {
+          console.error("Failed to decode base64 Firebase service account", error);
+        }
+      }
+    }
+
     if (!credential) {
       const projectId = process.env.FIREBASE_PROJECT_ID;
       const privateKey = process.env.FIREBASE_PRIVATE_KEY;

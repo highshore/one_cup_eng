@@ -18,6 +18,19 @@ import {
 } from "../../meetup/utils/meetup_helpers";
 import { PinIcon, CalendarIcon } from "../../meetup/components/meetup_icons";
 import { UserAvatarStack } from "../../meetup/components/user_avatar";
+import StatsSection from "./StatsSection";
+import { HomeStats } from "../services/stats_service";
+import TopicsShowcase from "./TopicsShowcase";
+import { HomeTopicArticle } from "../services/topics_service";
+import {
+  collection,
+  getCountFromServer,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import { db as clientDb } from "../../../firebase/firebase";
 
 // Bubble type definition
 // interface Bubble {
@@ -44,6 +57,7 @@ const SectionBase = css`
   padding: 5rem 2rem;
   position: relative;
   overflow: hidden;
+  margin-bottom: 0;
 
   @media (max-width: 768px) {
     padding: 3rem 1rem;
@@ -53,13 +67,14 @@ const SectionBase = css`
 // Hero Section
 const HeroSection = styled.section`
   color: white;
-  padding: 0rem 10rem;
+  padding: clamp(6rem, 10vw, 7.5rem) clamp(1.5rem, 8vw, 10rem) clamp(4.5rem, 10vw, 6.5rem);
   position: relative;
   overflow: hidden;
   min-height: 100vh;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  text-align: center;
 
   video {
     position: absolute;
@@ -74,7 +89,85 @@ const HeroSection = styled.section`
 
   @media (max-width: 768px) {
     min-height: 100vh;
-    padding: 4rem 0;
+    padding: clamp(4rem, 14vw, 5.5rem) 1.25rem clamp(6rem, 30vw, 9rem);
+  }
+`;
+
+const MainContent = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: #ffffff;
+  isolation: isolate;
+`;
+
+// Gallery Section Styles
+const GallerySection = styled.section`
+  padding: clamp(3rem, 6vw, 4.5rem) 1.5rem clamp(1.5rem, 3vw, 2rem);
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  overflow: visible; /* Allow shadows to show */
+`;
+
+const GalleryTitle = styled.h2`
+  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: #1f2937;
+  margin-bottom: clamp(2rem, 4vw, 3rem);
+  text-align: center;
+  font-family: "Noto Sans KR", sans-serif;
+
+  @media (max-width: 768px) {
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+  }
+`;
+
+const GalleryGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 0.8fr;
+  gap: 1rem;
+  width: 100%;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+`;
+
+const GalleryImageBase = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+const GalleryImageLarge = styled(GalleryImageBase)`
+  grid-row: span 2;
+  aspect-ratio: 1 / 1;
+
+  @media (max-width: 768px) {
+    grid-row: span 1;
+    aspect-ratio: 1 / 1;
+  }
+`;
+
+const GalleryImageSmall = styled(GalleryImageBase)`
+  aspect-ratio: 16 / 9;
+
+  @media (max-width: 768px) {
+    aspect-ratio: 16 / 9;
   }
 `;
 
@@ -83,16 +176,19 @@ const HeroContent = styled.div`
   z-index: 2;
   max-width: 960px;
   width: 100%;
-  margin: 0 auto;
-  padding: 0 20px;
-  height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(2.4rem, 6vw, 3.4rem);
+  padding: 0 clamp(0.75rem, 3vw, 2rem);
+
+  > div {
+    max-width: 640px;
+    margin: 0 auto;
+  }
 
   @media (max-width: 768px) {
-    padding: 0 10px;
-    height: 500px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    padding: 0 0.75rem;
   }
 `;
 
@@ -138,22 +234,32 @@ const SectionTitle = styled.h2`
   font-size: 2.5rem;
   letter-spacing: -0.02em;
   line-height: 1.3;
-  color: ${colors.primary};
-  margin-bottom: 1.2rem;
+  color: #1f2937;
+  margin-bottom: 3rem;
   font-weight: 800;
   font-family: "Noto Sans KR", sans-serif;
+  text-align: center;
 
   @media (max-width: 768px) {
     font-size: 1.8rem;
     padding: 0 10px;
+    margin-bottom: 2rem;
   }
 `;
 
 // Features Section
 const FeaturesSection = styled.section`
   ${SectionBase}
-  background-color: white;
+  background: transparent;
   text-align: center;
+  
+  & > * {
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 `;
 
 // Feature slider layout with common utilities
@@ -202,88 +308,240 @@ const FeatureCard = styled.img.withConfig({
 // FAQ Section
 const FAQSection = styled.section`
   ${SectionBase}
-  background-color: white;
+  background: transparent;
+  padding-bottom: 0;
+  margin-bottom: 0;
+  
+  & > * {
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+`;
+
+// Gradient shining sweep animation for CTA button
+const gradientShine = keyframes`
+  0% {
+    background-position: -100% center;
+  }
+  100% {
+    background-position: 100% center;
+  }
+`;
+
+const CTASection = styled.div`
+  position: relative;
+  border-radius: 20px;
+  padding: 3rem;
   text-align: center;
+  margin: 3rem auto;
+  width: 100%;
+  max-width: 960px;
+  overflow: hidden;
+
+  @media (min-width: 1024px) {
+    width: 960px;
+  }
+
+  @media (max-width: 1023px) {
+    margin-left: 1.5rem;
+    margin-right: 1.5rem;
+    width: calc(100% - 3rem);
+  }
+
+  @media (max-width: 768px) {
+    padding: 2rem;
+    margin: 2rem 1.5rem;
+  }
+`;
+
+const CTAVideoBackground = styled.video`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+`;
+
+const CTAOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1;
+`;
+
+const CTAContent = styled.div`
+  position: relative;
+  z-index: 2;
+`;
+
+const CTATitle = styled.h3`
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 1rem;
+  font-family: inherit;
+
+  @media (max-width: 768px) {
+    font-size: 1.25rem;
+  }
+`;
+
+const CTADescription = styled.p`
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+  font-family: inherit;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
+`;
+
+const CTAButton = styled.button`
+  padding: 0.85rem 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  color: white;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0) 15%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0) 85%
+    );
+    background-size: 200% 100%;
+    animation: ${gradientShine} 2.5s linear infinite;
+    pointer-events: none;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9rem;
+    gap: 0.375rem;
+  }
 `;
 
 const FAQContainer = styled.div`
+  width: 100%;
   max-width: 960px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding: 0 1.5rem;
 
-  @media (max-width: 768px) {
-    padding: 0 15px;
+  @media (min-width: 1024px) {
+    padding: 0;
+    width: 960px;
   }
 `;
 
 const FAQItem = styled.div`
-  margin-bottom: 1.5rem;
-  border: 1px solid ${colors.primaryPale};
-  border-radius: 10px;
+  border-radius: 16px;
   overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
 
-  @media (max-width: 768px) {
-    margin-bottom: 1rem;
+  &:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   }
 `;
 
 interface FAQQuestionProps {
-  isOpen: boolean;
+  $isOpen: boolean;
 }
 
-const FAQQuestion = styled.div.withConfig({
-  shouldForwardProp: (prop) => prop !== "isOpen",
-})<FAQQuestionProps>`
-  padding: 1.5rem;
-  background-color: ${colors.primaryBg};
-  font-weight: 600;
-  color: ${colors.primary};
-  cursor: pointer;
+const FAQQuestion = styled.button<FAQQuestionProps>`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+  padding: 1.5rem;
+  background: transparent;
+  border: none;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1f2937;
+  cursor: pointer;
   font-family: "Noto Sans KR", sans-serif;
+  text-align: left;
+  transition: color 0.2s ease;
 
-  &::after {
-    content: "${(props) => (props.isOpen ? "−" : "+")}";
-    font-size: 1.5rem;
+  &:hover {
+    color: ${colors.primary};
+  }
+
+  span {
+    font-size: 1.4rem;
+    font-weight: 400;
+    color: ${colors.primary};
+    transition: transform 0.25s ease;
+    transform: ${(props) => (props.$isOpen ? "rotate(180deg)" : "none")};
+    flex-shrink: 0;
+    margin-left: 1rem;
   }
 
   @media (max-width: 768px) {
-    padding: 1rem;
-    font-size: 0.9rem;
-
-    &::after {
-      font-size: 1.2rem;
-    }
+    padding: 1.2rem;
+    font-size: 0.95rem;
   }
 `;
 
-interface FAQAnswerProps {
-  isOpen: boolean;
-}
-
-const FAQAnswer = styled.div.withConfig({
-  shouldForwardProp: (prop) => prop !== "isOpen",
-})<FAQAnswerProps>`
-  padding: ${(props) => (props.isOpen ? "1.5rem" : "0 1.5rem")};
-  max-height: ${(props) => (props.isOpen ? "500px" : "0")};
+const FAQAnswer = styled.div<{ $isOpen: boolean }>`
+  max-height: ${(props) => (props.$isOpen ? "500px" : "0")};
   overflow: hidden;
-  transition: all 0.3s ease;
-  color: ${colors.text.medium};
-  line-height: 1.6;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: ${(props) => (props.$isOpen ? "0 1.5rem 1.5rem" : "0 1.5rem")};
+  font-size: 0.95rem;
+  color: #6b7280;
+  line-height: 1.7;
   font-family: "Noto Sans KR", sans-serif;
-  text-align: left;
 
   @media (max-width: 768px) {
-    padding: ${(props) => (props.isOpen ? "1rem" : "0 1rem")};
     font-size: 0.9rem;
-    line-height: 1.5;
+    padding: ${(props) => (props.$isOpen ? "0 1.2rem 1.2rem" : "0 1.2rem")};
   }
 `;
 
 // Define styled component for page wrapper
 const PageWrapper = styled.div`
   padding-top: 0; /* Always 0 for homepage */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 `;
 
 // New styled components for marketing text
@@ -339,16 +597,28 @@ const subtleGlow = keyframes`
 `;
 
 const CopiedEventCard = styled.div<{ $isPast?: boolean; $isClosest?: boolean }>`
-  background-color: white; // Meetup card has a white background
+  position: relative;
   border-radius: 20px;
   padding: 16px;
-  margin-bottom: 1.5rem; // Added margin for spacing in hero
+  margin-bottom: 1.5rem;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e0e0e0;
+  box-shadow: 0 14px 36px rgba(84, 103, 168, 0.22);
   width: 100%;
   opacity: ${(props) => (props.$isPast ? 0.6 : 1)};
+  overflow: hidden;
+  background: #ffffff; /* Solid white background */
+  border: 1px solid rgba(220, 220, 220, 0.5); /* Subtle border */
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 42px rgba(70, 92, 170, 0.28);
+  }
+
+  & > * {
+    position: relative;
+    z-index: 2;
+  };
   text-align: left; // Ensure text is left-aligned
 
   ${(props) =>
@@ -486,6 +756,7 @@ const CopiedEventBottom = styled.div`
   align-items: center;
   margin-top: 8px;
   gap: 8px;
+  min-height: 30px; /* Ensure consistent height */
 
   @media (max-width: 768px) {
     margin-top: 4px;
@@ -503,6 +774,8 @@ const CopiedStatusBadge = styled.span<{ $statusColor: string }>`
   border-radius: 20px;
   text-align: center;
   min-width: 80px;
+  flex-shrink: 0; /* Prevent badge from shrinking */
+  white-space: nowrap; /* Keep badge text on one line */
   transition: all 0.2s ease;
 
   @media (max-width: 768px) {
@@ -596,16 +869,23 @@ const CaveatText = styled.p`
 
 interface HomePageClientProps {
   initialUpcomingEvents?: MeetupEvent[];
+  initialStats?: HomeStats;
+  initialTopics?: HomeTopicArticle[];
 }
 
 export default function HomePageClient({
   initialUpcomingEvents,
+  initialStats,
+  initialTopics,
 }: HomePageClientProps) {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState(0);
   const { setIsTransparent } = useGnb();
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
+  const [homeStats, setHomeStats] = useState<HomeStats | undefined>(
+    initialStats
+  );
 
   const [closestEvent, setClosestEvent] = useState<MeetupEvent | null>(
     initialUpcomingEvents && initialUpcomingEvents.length > 0
@@ -620,6 +900,108 @@ export default function HomePageClient({
   useEffect(() => {
     setIsTransparent(true);
   }, [setIsTransparent]);
+
+  useEffect(() => {
+    setHomeStats(initialStats);
+  }, [initialStats]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchClientFallbackStats = async (): Promise<HomeStats | null> => {
+      if (!clientDb) {
+        return null;
+      }
+
+      const countCollections = async (names: string[]): Promise<number> => {
+        for (const name of names) {
+          try {
+            const collRef = collection(clientDb, name);
+            const countSnapshot = await getCountFromServer(collRef);
+            const count = countSnapshot.data().count ?? 0;
+            if (count > 0) {
+              return count;
+            }
+          } catch (countError) {
+            console.warn(`Client count failed for ${name}, attempting doc fetch.`, countError);
+            try {
+              const limitedSnapshot = await getDocs(query(collection(clientDb, name), limit(1)));
+              if (!limitedSnapshot.empty) {
+                const fullSnapshot = await getDocs(collection(clientDb, name));
+                return fullSnapshot.size;
+              }
+            } catch (docError) {
+              console.error(`Client fetch failed for ${name}:`, docError);
+            }
+          }
+        }
+        return 0;
+      };
+
+      try {
+        const [meetups, members, articles] = await Promise.all([
+          countCollections(["events", "meetups", "meetup"]),
+          countCollections(["users", "members"]),
+          countCollections(["articles", "articleEntries", "posts"]),
+        ]);
+
+        const derived: HomeStats = {
+          totalMeetups: meetups,
+          totalMembers: members,
+          totalArticles: articles,
+        };
+
+        if (meetups || members || articles) {
+          return derived;
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Client fallback stats fetch failed:", error);
+        return null;
+      }
+    };
+
+    const fetchLiveStats = async () => {
+      try {
+        const response = await fetch("/api/home-stats", {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch live stats: ${response.status}`);
+        }
+        const payload: HomeStats = await response.json();
+        if (!ignore) {
+          setHomeStats(payload);
+
+          if (
+            payload.totalMeetups === 0 &&
+            payload.totalMembers === 0 &&
+            payload.totalArticles === 0
+          ) {
+            const fallback = await fetchClientFallbackStats();
+            if (fallback && !ignore) {
+              setHomeStats(fallback);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch live home stats:", error);
+        if (!ignore) {
+          const fallback = await fetchClientFallbackStats();
+          if (fallback) {
+            setHomeStats(fallback);
+          }
+        }
+      }
+    };
+
+    fetchLiveStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [initialStats?.totalMeetups, initialStats?.totalMembers, initialStats?.totalArticles]);
 
   // Effect to set video playback speed
   useEffect(() => {
@@ -835,7 +1217,7 @@ export default function HomePageClient({
             <CopiedEventBottom>
               <UserAvatarStack
                 uids={[...meetup.leaders, ...meetup.participants]}
-                maxAvatars={5} // Consistent with meetup.tsx or adjust as needed for hero
+                maxAvatars={8} // Balanced threshold to prevent overflow on smaller cards
                 size={30}
                 isPast={isPast}
                 // onAvatarClick can be omitted or a simple console.log for hero
@@ -885,60 +1267,108 @@ export default function HomePageClient({
         </HeroContent>
       </HeroSection>
 
-      {/* Features Section */}
-      <FeaturesSection>
-        <SectionTitle>
-          매주 일요일 오전 11시,
-          <br />
-          <span style={{ fontWeight: 600 }}>
+      <MainContent>
+        {/* Gallery Section */}
+        <GallerySection>
+          <GalleryTitle>
+            매주 일요일 오전 11시,
+            <br />
             통역사 출신이 리딩하는 영어 모임
-          </span>
-        </SectionTitle>
-        <FeatureSlider className="feature-slider">
-          {featureCards.map((card, index) => (
-            <FeatureCard
-              key={index}
-              src={card.image}
-              alt={card.alt}
-              isActive={activeFeature === index}
-              onClick={() => setActiveFeature(index)}
-              onMouseEnter={() => setActiveFeature(index)}
+          </GalleryTitle>
+          <GalleryGrid>
+            <GalleryImageLarge 
+              src="/assets/homepage/gallery1.JPG" 
+              alt="영어 한잔 밋업 현장 1"
+              loading="lazy"
             />
-          ))}
-        </FeatureSlider>
+            <GalleryImageSmall 
+              src="/assets/homepage/gallery2.JPG" 
+              alt="영어 한잔 밋업 현장 2"
+              loading="lazy"
+            />
+            <GalleryImageSmall 
+              src="/assets/homepage/gallery3.JPG" 
+              alt="영어 한잔 밋업 현장 3"
+              loading="lazy"
+            />
+          </GalleryGrid>
+        </GallerySection>
 
-        {/* Add caveat text */}
-        <CaveatText>
-          *1주에 1회 진행하는 밋업에 모두 참여 시 4회입니다. 운영진 귀책 사유로
-          밋업을 1주 진행하지 못할 경우 구독 기간을 2주 연장해드립니다. 멤버 분
-          귀책 사유로 밋업을 불참하실 경우 연장이 되지는 않습니다.
-        </CaveatText>
+        <StatsSection stats={homeStats} />
 
-        {/* Add this button below the feature slider */}
-        <MeetupButton onClick={() => router.push("/meetup")}>
-          밋업 일정 확인하기
-        </MeetupButton>
-      </FeaturesSection>
+        <TopicsShowcase topics={initialTopics || []} />
 
-      {/* FAQ Section */}
-      <FAQSection>
-        <SectionTitle>자주 묻는 질문</SectionTitle>
-        <FAQContainer>
-          {faqs.map(
-            (faq: { question: string; answer: string }, index: number) => (
-              <FAQItem key={index}>
-                <FAQQuestion
-                  onClick={() => toggleFAQ(index)}
-                  isOpen={openFAQ === index}
-                >
-                  {faq.question}
-                </FAQQuestion>
-                <FAQAnswer isOpen={openFAQ === index}>{faq.answer}</FAQAnswer>
-              </FAQItem>
-            )
-          )}
-        </FAQContainer>
-      </FAQSection>
+        {/* Features Section */}
+        <FeaturesSection>
+          <FeatureSlider className="feature-slider">
+            {featureCards.map((card, index) => (
+              <FeatureCard
+                key={index}
+                src={card.image}
+                alt={card.alt}
+                isActive={activeFeature === index}
+                onClick={() => setActiveFeature(index)}
+                onMouseEnter={() => setActiveFeature(index)}
+              />
+            ))}
+          </FeatureSlider>
+
+          {/* Add caveat text */}
+          <CaveatText>
+            *1주에 1회 진행하는 밋업에 모두 참여 시 4회입니다. 운영진 귀책 사유로
+            밋업을 1주 진행하지 못할 경우 구독 기간을 2주 연장해드립니다. 멤버 분
+            귀책 사유로 밋업을 불참하실 경우 연장이 되지는 않습니다.
+          </CaveatText>
+
+          {/* Add this button below the feature slider */}
+          <MeetupButton onClick={() => router.push("/meetup")}>
+            밋업 일정 확인하기
+          </MeetupButton>
+        </FeaturesSection>
+
+        {/* FAQ Section */}
+        <FAQSection>
+          <SectionTitle>자주 묻는 질문</SectionTitle>
+          <FAQContainer>
+            {faqs.map(
+              (faq: { question: string; answer: string }, index: number) => (
+                <FAQItem key={index}>
+                  <FAQQuestion
+                    onClick={() => toggleFAQ(index)}
+                    $isOpen={openFAQ === index}
+                  >
+                    {faq.question}
+                    <span>{openFAQ === index ? "−" : "+"}</span>
+                  </FAQQuestion>
+                  <FAQAnswer $isOpen={openFAQ === index}>
+                    {faq.answer}
+                  </FAQAnswer>
+                </FAQItem>
+              )
+            )}
+          </FAQContainer>
+        </FAQSection>
+
+        {/* CTA Section */}
+        <CTASection>
+          <CTAVideoBackground autoPlay loop muted playsInline>
+            <source src="/assets/blog/manhattan.mp4" type="video/mp4" />
+          </CTAVideoBackground>
+          <CTAOverlay />
+          <CTAContent>
+            <CTATitle>영어 소통 능력을 키우고 싶다면?</CTATitle>
+            <CTADescription>
+              통역사, 직장인, 대학생, 전문가 등 다양한 백그라운드를 가진 <br />
+              멤버들과 함께하는 영어 밋업에 참여해보세요. 🚀
+              <br />
+            </CTADescription>
+            <CTAButton onClick={() => router.push("/meetup")}>
+              <span>🚀</span>
+              밋업 확인하기
+            </CTAButton>
+          </CTAContent>
+        </CTASection>
+      </MainContent>
     </PageWrapper>
   );
 }

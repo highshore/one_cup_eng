@@ -439,6 +439,7 @@ const EventBottom = styled.div`
   align-items: center;
   margin-top: 8px;
   gap: 8px; // Adds gap to prevent overlap
+  min-height: 30px; /* Ensure consistent height */
 
   @media (max-width: 768px) {
     margin-top: 4px;
@@ -457,6 +458,8 @@ const StatusBadge = styled.span<{ $statusColor: string }>`
   border-radius: 20px;
   text-align: center;
   min-width: 80px; // Minimum width for the badge
+  flex-shrink: 0; /* Prevent badge from shrinking */
+  white-space: nowrap; /* Keep badge text on one line */
   transition: all 0.2s ease;
 
   @media (max-width: 768px) {
@@ -796,7 +799,7 @@ const MeetupClient: React.FC = () => {
             <EventBottom>
               <UserAvatarStack
                 uids={[...meetup.leaders, ...meetup.participants]}
-                maxAvatars={5}
+                maxAvatars={8} // Balanced threshold to prevent overflow - matching homepage
                 size={30}
                 isPast={isPast}
                 onAvatarClick={handleAvatarClick}

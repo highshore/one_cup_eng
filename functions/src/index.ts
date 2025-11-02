@@ -6,6 +6,7 @@ import { YoutubeTranscript } from "youtube-transcript"; // Added for youtube-tra
 import cors from "cors";
 import OpenAI from "openai";
 export { startCefrBatch, pollCefrBatches } from "./cefr";
+export { updateHomeStats, triggerHomeStatsUpdate } from "./updateHomeStats";
 
 // Initialize Firebase Admin SDK only once
 if (admin.apps.length === 0) {
