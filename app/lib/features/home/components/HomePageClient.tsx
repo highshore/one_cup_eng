@@ -275,7 +275,7 @@ const memberProfiles: MemberProfile[] = [
   },
   {
     id: "professionals",
-    label: "주요 멤버들",
+    label: "주요 멤버 프로필",
     name: "글로벌 커리어를 만들고 있는 다양한 멤버",
     bio: "국내외 프로젝트를 리드하는 전문직 멤버들이 매주 실제 미팅에서 쓰였던 표현과 전략을 공유하며, 서로의 업무 상황에 맞춰 연습합니다.",
     highlights: [
