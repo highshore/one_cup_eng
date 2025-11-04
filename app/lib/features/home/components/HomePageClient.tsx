@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import styled, { createGlobalStyle, css, keyframes } from "styled-components";
 import { colors } from "../../../constants/colors";
 import React from "react";
@@ -22,6 +22,16 @@ import StatsSection from "./StatsSection";
 import { HomeStats } from "../services/stats_service";
 import TopicsShowcase from "./TopicsShowcase";
 import { HomeTopicArticle } from "../services/topics_service";
+import {
+  AcademicCapIcon,
+  BriefcaseIcon,
+  CheckBadgeIcon,
+  CheckCircleIcon,
+  PhotoIcon,
+  RocketLaunchIcon,
+  SparklesIcon,
+  UsersIcon,
+} from "@heroicons/react/24/outline";
 import {
   collection,
   getCountFromServer,
@@ -104,11 +114,19 @@ const MainContent = styled.div`
 
 // Gallery Section Styles
 const GallerySection = styled.section`
-  padding: clamp(3rem, 6vw, 4.5rem) 1.5rem clamp(1.5rem, 3vw, 2rem);
+  padding: clamp(3rem, 6vw, 4.5rem) 0 clamp(1.5rem, 3vw, 2rem);
   max-width: 960px;
   margin: 0 auto;
   width: 100%;
   overflow: visible; /* Allow shadows to show */
+`;
+
+const GalleryInner = styled.div`
+  padding: 0 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1.25rem;
+  }
 `;
 
 const GalleryTitle = styled.h2`
@@ -208,20 +226,6 @@ const VideoOverlay = styled.div`
 const breakpoints = {
   mobile: "768px",
 };
-// Media query mixin
-const media = {
-  mobile: (strings: TemplateStringsArray, ...interpolations: any[]) => css`
-    @media (max-width: ${breakpoints.mobile}) {
-      ${css(strings, ...interpolations)}
-    }
-  `,
-};
-// Flex center mixin
-const flexCenter = css`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
 
 const MobileBreak = styled.br`
   display: none;
@@ -229,6 +233,97 @@ const MobileBreak = styled.br`
     display: block;
   }
 `;
+
+interface MemberProfile {
+  id: string;
+  label: string;
+  name: string;
+  bio: string;
+  highlights: string[];
+  image?: string;
+  background: string;
+  accent: string;
+  accentSoft: string;
+  initials: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+}
+
+interface PricingBenefit {
+  title: string;
+  description: string;
+}
+
+const memberProfiles: MemberProfile[] = [
+  {
+    id: "founder",
+    label: "모임장 프로필",
+    name: "모임장 및 개발자 | 카일",
+    bio: "국내외 컨퍼런스와 기업 트레이닝을 도맡던 통역사가 빌드한 커리큘럼으로, 매주 실무형 토픽과 스피킹 루틴을 직접 큐레이션합니다.",
+    highlights: [
+      "(현) 고려대 컴퓨터학과 재학",
+      "(전) CJ 제일제당 통역사",
+      "(전) 센드버드 통역사",
+      "(전) 한미연합사 통역병",
+    ],
+    image: "/assets/homepage/member1.JPG",
+    background:
+      "linear-gradient(135deg, rgba(17, 24, 39, 0.88) 0%, rgba(30, 64, 175, 0.78) 100%)",
+    accent: "#3b82f6",
+    accentSoft: "rgba(59, 130, 246, 0.18)",
+    initials: "모임장",
+    icon: AcademicCapIcon,
+  },
+  {
+    id: "professionals",
+    label: "주요 멤버들",
+    name: "글로벌 커리어를 만들고 있는 다양한 멤버",
+    bio: "국내외 프로젝트를 리드하는 전문직 멤버들이 매주 실제 미팅에서 쓰였던 표현과 전략을 공유하며, 서로의 업무 상황에 맞춰 연습합니다.",
+    highlights: [
+      "대기업 및 전문직",
+      "영미권 유학을 목표로 하는 대학원생",
+      "외국계 및 컨설팅",
+    ],
+    image: "/assets/homepage/gallery2.JPG",
+    background:
+      "linear-gradient(135deg, rgba(15, 118, 110, 0.88) 0%, rgba(22, 163, 74, 0.75) 100%)",
+    accent: "#10b981",
+    accentSoft: "rgba(16, 185, 129, 0.18)",
+    initials: "프로",
+    icon: BriefcaseIcon,
+  },
+  {
+    id: "students",
+    label: "대학교 재학생",
+    name: "성북구 대학생",
+    bio: "해외 고객과 협업을 원하는 창업가, 프리랜서, 크리에이터들이 서로의 도전을 응원하며 성장 스토리와 노하우를 나눕니다.",
+    highlights: [
+      "고려대학교 재학생 및 졸업생",
+      "Google Developer Group 멤버",
+    ],
+    image: "/assets/homepage/gallery3.JPG",
+    background:
+      "linear-gradient(135deg, rgba(76, 29, 149, 0.88) 0%, rgba(124, 58, 237, 0.72) 100%)",
+    accent: "#a855f7",
+    accentSoft: "rgba(168, 85, 247, 0.18)",
+    initials: "G",
+    icon: UsersIcon,
+  },
+];
+
+const pricingBenefits: PricingBenefit[] = [
+  {
+    title: "월 4회 오프라인 밋업",
+    description: "운영자가 직접 리딩하는 집중형 세션으로 실전 영어 루틴을 완성합니다.",
+  },
+  {
+    title: "실무 맞춤 콘텐츠",
+    description: "비즈니스 이메일, 프레젠테이션, 미팅 표현을 매주 큐레이션합니다.",
+  },
+  {
+    title: "피드백 & 커뮤니티",
+    description: "노션, 슬랙 커뮤니티에서 피드백과 네트워킹을 이어갑니다.",
+  },
+];
 
 const SectionTitle = styled.h2`
   font-size: 2.5rem;
@@ -247,61 +342,396 @@ const SectionTitle = styled.h2`
   }
 `;
 
-// Features Section
-const FeaturesSection = styled.section`
+// Members Section
+const MembersSection = styled.section`
   ${SectionBase}
-  background: transparent;
-  text-align: center;
-  
-  & > * {
-    max-width: 960px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
+  background: #f8fafc;
+  padding: clamp(4.5rem, 8vw, 6rem) 0 clamp(4rem, 8vw, 6rem);
 `;
 
-// Feature slider layout with common utilities
-const FeatureSlider = styled.div`
-  ${flexCenter}
-  gap: 3rem;
-  margin: 0 auto;
+const MembersInner = styled.div`
   max-width: 960px;
-  overflow: visible;
-  will-change: contents;
-  height: 400px; /* Add fixed height */
-
-  ${media.mobile`
-    flex-direction: column;
-    gap: 1.5rem;
-    height: auto; /* Allow height to adjust on mobile */
-    padding: 1rem 0;
-  `}
-`;
-
-// Styled image that will act as a feature card
-const FeatureCard = styled.img.withConfig({
-  shouldForwardProp: (prop) => prop !== "isActive",
-})<{ isActive?: boolean }>`
-  width: ${(props) => (props.isActive ? "280px" : "240px")};
-  height: auto;
-  cursor: pointer;
-  transition: all 0.3s ease-out;
-  filter: drop-shadow(0 10px 5px rgba(0, 0, 0, 0.15));
-  opacity: ${(props) => (props.isActive ? 1 : 0.85)};
-  transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(1)")};
-  will-change: transform, opacity, filter;
-
-  &:hover {
-    transform: ${(props) => (props.isActive ? "scale(1.05)" : "scale(1.02)")};
-    filter: drop-shadow(0 15px 20px rgba(0, 0, 0, 0.2));
-  }
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2rem, 4vw, 3rem);
+  padding: 0 1.5rem;
 
   @media (max-width: 768px) {
-    width: ${(props) => (props.isActive ? "280px" : "250px")};
-    margin-bottom: 0.5rem;
-    transform: ${(props) => (props.isActive ? "scale(1.02)" : "scale(1)")};
+    padding: 0 1.25rem;
+  }
+`;
+
+const MembersHeading = styled(SectionTitle)`
+  text-align: center;
+  margin: 0;
+  color: #0f172a;
+`;
+
+const MembersIntro = styled.p`
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0.5rem auto 0;
+  max-width: 640px;
+  line-height: 1.5;
+  text-align: center;
+`;
+
+const MembersLayout = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: stretch;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const MemberVisualPanel = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+`;
+
+const MemberVisualCard = styled.div<{ $background: string }>`
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  background: ${(props) => props.$background};
+  display: flex;
+  align-items: stretch;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+`;
+
+const MemberVisualMedia = styled.div`
+  position: relative;
+  flex: 1;
+`;
+
+const MemberVisualImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const MemberVisualFallback = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(2rem, 5vw, 2.6rem);
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.9);
+`;
+
+
+const MembersAccordion = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const MemberAccordionItem = styled.div<{ $isActive: boolean }>`
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid
+    ${(props) => (props.$isActive ? colors.primary : "rgba(229, 231, 235, 1)")};
+  box-shadow: ${(props) =>
+    props.$isActive
+      ? "0 18px 42px rgba(15, 23, 42, 0.12)"
+      : "0 8px 22px rgba(15, 23, 42, 0.08)"};
+  transition: all 0.25s ease;
+`;
+
+const MemberAccordionHeader = styled.button<{ $accent: string; $accentSoft: string; $isActive: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: ${(props) => (props.$isActive ? "1.5rem" : "1rem 1.5rem")};
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: padding 0.25s ease;
+
+  @media (max-width: 768px) {
+    padding: ${(props) => (props.$isActive ? "1.3rem" : "0.9rem 1.3rem")};
+  }
+`;
+
+const MemberIconCircle = styled.span<{ $accent: string; $accentSoft: string }>`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: ${(props) => props.$accentSoft};
+  color: ${(props) => props.$accent};
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+`;
+
+const MemberHeaderTitle = styled.span`
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.4;
+  flex: 1;
+`;
+
+const MemberAccordionContent = styled.div<{ $isActive: boolean }>`
+  max-height: ${(props) => (props.$isActive ? "440px" : "0")};
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+`;
+
+const MemberAccordionBody = styled.div`
+  padding: 0 1.5rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1.3rem 1.3rem;
+  }
+`;
+
+const MemberName = styled.h4`
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+`;
+
+const MemberBio = styled.p`
+  margin: 0;
+  font-size: 0.95rem;
+  color: #4b5563;
+  line-height: 1.65;
+`;
+
+const MemberHighlights = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const MemberHighlight = styled.li`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.92rem;
+  color: #1f2937;
+  line-height: 1.5;
+`;
+
+const MemberHighlightIcon = styled.span<{ $accent: string }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.2rem;
+  color: ${(props) => props.$accent};
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+`;
+
+// Pricing Section
+const PricingSection = styled.section`
+  ${SectionBase}
+  background: #030713;
+  color: #f8fafc;
+  padding: clamp(4.5rem, 9vw, 6.5rem) 0 clamp(4rem, 9vw, 6.5rem);
+`;
+
+const PricingInner = styled.div`
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(2rem, 4vw, 3rem);
+  text-align: center;
+  padding: 0 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1.25rem;
+  }
+`;
+
+const PricingCard = styled.div`
+  width: 100%;
+  border-radius: 28px;
+  padding: clamp(2.4rem, 6vw, 3.3rem);
+  background: linear-gradient(
+    145deg,
+    rgba(15, 23, 42, 0.95) 0%,
+    rgba(30, 64, 175, 0.78) 55%,
+    rgba(14, 116, 144, 0.75) 100%
+  );
+  box-shadow: 0 24px 52px rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.6rem, 4vw, 2.2rem);
+`;
+
+const PricingHeader = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  text-align: center;
+`;
+
+const PricingBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  align-self: center;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: rgba(165, 180, 252, 0.2);
+  color: #e0e7ff;
+`;
+
+const PricingPrice = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.6rem;
+`;
+
+const PricingCurrency = styled.span`
+  font-size: clamp(1.7rem, 4vw, 2.1rem);
+  font-weight: 700;
+`;
+
+const PricingAmount = styled.span`
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+`;
+
+const PricingPeriod = styled.span`
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(226, 232, 240, 0.72);
+`;
+
+const PricingTagline = styled.p`
+  margin: 0;
+  font-size: 1rem;
+  color: rgba(226, 232, 240, 0.85);
+  line-height: 1.65;
+`;
+
+const PricingHighlights = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+`;
+
+const PricingHighlightItem = styled.li`
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  text-align: left;
+`;
+
+const PricingHighlightIcon = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(96, 165, 250, 0.18);
+  color: #60a5fa;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+`;
+
+const PricingHighlightText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+`;
+
+const PricingHighlightTitle = styled.span`
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f8fafc;
+`;
+
+const PricingHighlightDescription = styled.span`
+  font-size: 0.95rem;
+  color: rgba(226, 232, 240, 0.78);
+  line-height: 1.6;
+`;
+
+const PricingButton = styled.button`
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.95rem 2.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.4);
+  background: rgba(248, 250, 252, 0.06);
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(10px);
+
+  &:hover {
+    background: rgba(248, 250, 252, 0.12);
+    border-color: rgba(226, 232, 240, 0.6);
+    transform: translateY(-1px);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+`;
+
+const PricingDisclaimer = styled.p`
+  font-size: 0.85rem;
+  color: rgba(226, 232, 240, 0.72);
+  line-height: 1.6;
+  text-align: center;
+  margin: 0;
+  max-width: 760px;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
   }
 `;
 
@@ -309,15 +739,17 @@ const FeatureCard = styled.img.withConfig({
 const FAQSection = styled.section`
   ${SectionBase}
   background: transparent;
-  padding-bottom: 0;
+  padding: 5rem 0 0;
   margin-bottom: 0;
-  
-  & > * {
-    max-width: 960px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+`;
+
+const FAQInner = styled.div`
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1.25rem;
   }
 `;
 
@@ -331,29 +763,27 @@ const gradientShine = keyframes`
   }
 `;
 
+const CTAWrapper = styled.div`
+  max-width: 960px;
+  margin: 3rem auto;
+  padding: 0 1.5rem;
+
+  @media (max-width: 768px) {
+    margin: 2rem auto;
+    padding: 0 1.25rem;
+  }
+`;
+
 const CTASection = styled.div`
   position: relative;
   border-radius: 20px;
   padding: 3rem;
   text-align: center;
-  margin: 3rem auto;
   width: 100%;
-  max-width: 960px;
   overflow: hidden;
-
-  @media (min-width: 1024px) {
-    width: 960px;
-  }
-
-  @media (max-width: 1023px) {
-    margin-left: 1.5rem;
-    margin-right: 1.5rem;
-    width: calc(100% - 3rem);
-  }
 
   @media (max-width: 768px) {
     padding: 2rem;
-    margin: 2rem 1.5rem;
   }
 `;
 
@@ -445,6 +875,11 @@ const CTAButton = styled.button`
     border-color: rgba(255, 255, 255, 0.5);
   }
 
+  svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
   @media (max-width: 768px) {
     padding: 0.875rem 1.5rem;
     font-size: 0.9rem;
@@ -454,17 +889,9 @@ const CTAButton = styled.button`
 
 const FAQContainer = styled.div`
   width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
-  padding: 0 1.5rem;
-
-  @media (min-width: 1024px) {
-    padding: 0;
-    width: 960px;
-  }
 `;
 
 const FAQItem = styled.div`
@@ -677,11 +1104,19 @@ const CopiedEventImage = styled.img`
 `;
 
 const CopiedEventImagePlaceholder = styled.div`
-  color: #ccc;
+  color: #d1d5db;
   font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   @media (max-width: 768px) {
     font-size: 1.5rem;
+  }
+
+  svg {
+    width: 42px;
+    height: 42px;
   }
 `;
 
@@ -793,16 +1228,26 @@ const EventCardPrompt = styled.div`
   padding: 0.75rem 1.25rem;
   border-radius: 12px;
   margin-bottom: 1rem; // Space between this prompt and the card
-  text-align: center;
   font-size: 1rem;
   font-weight: 600;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   border: 1px solid ${colors.primaryPale};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  text-align: center;
 
   @media (max-width: ${breakpoints.mobile}) {
     font-size: 0.9rem;
     padding: 0.6rem 1rem;
     line-height: 1.3;
+  }
+
+  svg {
+    width: 1.15rem;
+    height: 1.15rem;
+    color: ${colors.primary};
   }
 `;
 
@@ -819,54 +1264,6 @@ const HeroMeetupCardContainer = styled.div`
   }
 `;
 
-// New styled component for the MeetupButton
-const MeetupButton = styled.button`
-  background-color: ${colors.primary};
-  color: white;
-  border: none;
-  border-radius: 30px;
-  padding: 12px 30px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-top: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-
-  &:hover {
-    background-color: ${colors.primaryLight};
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  @media (max-width: 768px) {
-    padding: 10px 24px;
-    font-size: 0.9rem;
-  }
-`;
-
-// New styled component for the caveat text
-const CaveatText = styled.p`
-  font-size: 0.85rem;
-  color: ${colors.text.light};
-  text-align: center;
-  margin: 1.5rem auto 0 auto;
-  max-width: 600px;
-  line-height: 1.4;
-  font-family: "Noto Sans KR", sans-serif;
-
-  @media (max-width: 768px) {
-    font-size: 0.8rem;
-    margin: 1rem auto 0 auto;
-    padding: 0 20px;
-    line-height: 1.3;
-  }
-`;
-
 interface HomePageClientProps {
   initialUpcomingEvents?: MeetupEvent[];
   initialStats?: HomeStats;
@@ -879,13 +1276,16 @@ export default function HomePageClient({
   initialTopics,
 }: HomePageClientProps) {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
-  const [activeFeature, setActiveFeature] = useState(0);
   const { setIsTransparent } = useGnb();
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
   const [homeStats, setHomeStats] = useState<HomeStats | undefined>(
     initialStats
   );
+  const [activeMemberIndex, setActiveMemberIndex] = useState(0);
+  const memberRotationRef = useRef<NodeJS.Timeout | null>(null);
+  const isMemberPointerActive = useRef(false);
+  const isMemberFocusActive = useRef(false);
 
   const [closestEvent, setClosestEvent] = useState<MeetupEvent | null>(
     initialUpcomingEvents && initialUpcomingEvents.length > 0
@@ -894,7 +1294,73 @@ export default function HomePageClient({
   );
   const [loadingEvent, setLoadingEvent] = useState(!initialUpcomingEvents);
 
-  const featureTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const startMemberRotation = useCallback(() => {
+    if (memberRotationRef.current) {
+      clearInterval(memberRotationRef.current);
+    }
+
+    memberRotationRef.current = setInterval(() => {
+      setActiveMemberIndex((prevIndex) => (prevIndex + 1) % memberProfiles.length);
+    }, 5000);
+  }, [memberProfiles.length]);
+
+  const pauseMemberRotation = useCallback(() => {
+    if (memberRotationRef.current) {
+      clearInterval(memberRotationRef.current);
+      memberRotationRef.current = null;
+    }
+  }, []);
+
+  const resumeMemberRotation = useCallback(() => {
+    if (isMemberPointerActive.current || isMemberFocusActive.current) {
+      return;
+    }
+    startMemberRotation();
+  }, [startMemberRotation]);
+
+  const handleMemberSelect = useCallback((index: number) => {
+    setActiveMemberIndex(index);
+  }, []);
+
+  const handleMemberHover = useCallback((index: number) => {
+    setActiveMemberIndex(index);
+  }, []);
+
+  const handleMemberFocus = useCallback(
+    (index: number) => {
+      setActiveMemberIndex(index);
+      isMemberFocusActive.current = true;
+      pauseMemberRotation();
+    },
+    [pauseMemberRotation]
+  );
+
+  const handleMemberBlur = useCallback(() => {
+    isMemberFocusActive.current = false;
+    resumeMemberRotation();
+  }, [resumeMemberRotation]);
+
+  const handleMemberMouseEnter = useCallback(() => {
+    isMemberPointerActive.current = true;
+    pauseMemberRotation();
+  }, [pauseMemberRotation]);
+
+  const handleMemberMouseLeave = useCallback(() => {
+    isMemberPointerActive.current = false;
+    resumeMemberRotation();
+  }, [resumeMemberRotation]);
+
+  useEffect(() => {
+    startMemberRotation();
+
+    return () => {
+      if (memberRotationRef.current) {
+        clearInterval(memberRotationRef.current);
+      }
+    };
+  }, [startMemberRotation]);
+
+  const activeMember = memberProfiles[activeMemberIndex];
 
   // Set initial transparency for homepage
   useEffect(() => {
@@ -1072,76 +1538,6 @@ export default function HomePageClient({
     },
   ];
 
-  // Set up automatic feature card rotation
-  React.useEffect(() => {
-    // Function to handle automatic feature highlight
-    const rotateFeatures = () => {
-      setActiveFeature((prevIndex) => (prevIndex + 1) % 3);
-    };
-
-    // Start the automatic rotation with a longer interval to reduce strain
-    featureTimerRef.current = setInterval(rotateFeatures, 5000);
-
-    // Initial card highlight
-    setActiveFeature(0);
-
-    // Pause rotation when user hovers or interacts with cards
-    const pauseRotation = () => {
-      if (featureTimerRef.current) {
-        clearInterval(featureTimerRef.current);
-      }
-    };
-
-    // Resume rotation after delay
-    const resumeRotation = () => {
-      if (featureTimerRef.current) {
-        clearInterval(featureTimerRef.current);
-      }
-      featureTimerRef.current = setInterval(rotateFeatures, 5000);
-    };
-
-    // Add event listeners to the feature slider
-    const featureSlider = document.querySelector(".feature-slider");
-    if (featureSlider) {
-      featureSlider.addEventListener("mouseenter", pauseRotation);
-      featureSlider.addEventListener("mouseleave", resumeRotation);
-      featureSlider.addEventListener("touchstart", pauseRotation, {
-        passive: true,
-      });
-      featureSlider.addEventListener("touchend", resumeRotation);
-    }
-
-    // Cleanup function to clear the interval when component unmounts
-    return () => {
-      if (featureTimerRef.current) {
-        clearInterval(featureTimerRef.current);
-      }
-
-      if (featureSlider) {
-        featureSlider.removeEventListener("mouseenter", pauseRotation);
-        featureSlider.removeEventListener("mouseleave", resumeRotation);
-        featureSlider.removeEventListener("touchstart", pauseRotation);
-        featureSlider.removeEventListener("touchend", resumeRotation);
-      }
-    };
-  }, [setActiveFeature]); // Add dependency to fix linter warning
-
-  // Feature card images
-  const featureCards = [
-    {
-      image: "/assets/homepage/feature_card_1.png",
-      alt: "최신 영어 토픽",
-    },
-    {
-      image: "/assets/homepage/feature_card_2.png",
-      alt: "속독 모드",
-    },
-    {
-      image: "/assets/homepage/feature_card_3.png",
-      alt: "한글 번역 및 단어 정리",
-    },
-  ];
-
   // Render logic for the closest event using copied styles
   const renderHeroEventCard = (meetup: MeetupEvent) => {
     if (!meetup) return null;
@@ -1186,7 +1582,9 @@ export default function HomePageClient({
             {meetup.image_urls && meetup.image_urls.length > 0 ? (
               <CopiedEventImage src={meetup.image_urls[0]} alt={meetup.title} />
             ) : (
-              <CopiedEventImagePlaceholder>🖼️</CopiedEventImagePlaceholder>
+              <CopiedEventImagePlaceholder>
+                <PhotoIcon />
+              </CopiedEventImagePlaceholder>
             )}
           </CopiedEventImageContainer>
           <CopiedEventDetails>
@@ -1258,8 +1656,11 @@ export default function HomePageClient({
           {!loadingEvent && closestEvent && (
             <HeroMeetupCardContainer>
               <EventCardPrompt>
-                ✨ 바로 지금! 통역사가 직접 리딩하는
-                <MobileBreak /> 영어 모임에 참여해보세요! ✨
+                <SparklesIcon />
+                <span>
+                  바로 지금! 통역사가 직접 리딩하는
+                  <MobileBreak /> 영어 모임에 참여해보세요!
+                </span>
               </EventCardPrompt>
               {renderHeroEventCard(closestEvent)}
             </HeroMeetupCardContainer>
@@ -1270,104 +1671,199 @@ export default function HomePageClient({
       <MainContent>
         {/* Gallery Section */}
         <GallerySection>
-          <GalleryTitle>
-            매주 일요일 오전 11시,
-            <br />
-            통역사 출신이 리딩하는 영어 모임
-          </GalleryTitle>
-          <GalleryGrid>
-            <GalleryImageLarge 
-              src="/assets/homepage/gallery1.JPG" 
-              alt="영어 한잔 밋업 현장 1"
-              loading="lazy"
-            />
-            <GalleryImageSmall 
-              src="/assets/homepage/gallery2.JPG" 
-              alt="영어 한잔 밋업 현장 2"
-              loading="lazy"
-            />
-            <GalleryImageSmall 
-              src="/assets/homepage/gallery3.JPG" 
-              alt="영어 한잔 밋업 현장 3"
-              loading="lazy"
-            />
-          </GalleryGrid>
+          <GalleryInner>
+            <GalleryTitle>
+              매주 일요일 오전 11시,
+              <br />
+              통역사 출신이 리딩하는 영어 모임
+            </GalleryTitle>
+            <GalleryGrid>
+              <GalleryImageLarge 
+                src="/assets/homepage/gallery1.JPG" 
+                alt="영어 한잔 밋업 현장 1"
+                loading="lazy"
+              />
+              <GalleryImageSmall 
+                src="/assets/homepage/gallery2.JPG" 
+                alt="영어 한잔 밋업 현장 2"
+                loading="lazy"
+              />
+              <GalleryImageSmall 
+                src="/assets/homepage/gallery3.JPG" 
+                alt="영어 한잔 밋업 현장 3"
+                loading="lazy"
+              />
+            </GalleryGrid>
+          </GalleryInner>
         </GallerySection>
 
         <StatsSection stats={homeStats} />
 
         <TopicsShowcase topics={initialTopics || []} />
 
-        {/* Features Section */}
-        <FeaturesSection>
-          <FeatureSlider className="feature-slider">
-            {featureCards.map((card, index) => (
-              <FeatureCard
-                key={index}
-                src={card.image}
-                alt={card.alt}
-                isActive={activeFeature === index}
-                onClick={() => setActiveFeature(index)}
-                onMouseEnter={() => setActiveFeature(index)}
-              />
-            ))}
-          </FeatureSlider>
+        <MembersSection>
+          <MembersInner>
+            <MembersHeading>모임에는 누가 참석하나요?</MembersHeading>
+            <MembersLayout
+              onMouseEnter={handleMemberMouseEnter}
+              onMouseLeave={handleMemberMouseLeave}
+              onTouchStart={handleMemberMouseEnter}
+              onTouchEnd={handleMemberMouseLeave}
+              onTouchCancel={handleMemberMouseLeave}
+            >
+              <MemberVisualPanel>
+                <MemberVisualCard $background={activeMember.background}>
+                  <MemberVisualMedia>
+                    {activeMember.image ? (
+                      <MemberVisualImage
+                        src={activeMember.image}
+                        alt={`${activeMember.label} 비주얼 이미지`}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <MemberVisualFallback>{activeMember.initials}</MemberVisualFallback>
+                    )}
+                  </MemberVisualMedia>
+                </MemberVisualCard>
+              </MemberVisualPanel>
 
-          {/* Add caveat text */}
-          <CaveatText>
-            *1주에 1회 진행하는 밋업에 모두 참여 시 4회입니다. 운영진 귀책 사유로
-            밋업을 1주 진행하지 못할 경우 구독 기간을 2주 연장해드립니다. 멤버 분
-            귀책 사유로 밋업을 불참하실 경우 연장이 되지는 않습니다.
-          </CaveatText>
+              <MembersAccordion>
+                {memberProfiles.map((member, index) => {
+                  const Icon = member.icon;
+                  return (
+                    <MemberAccordionItem
+                      key={member.id}
+                      $isActive={activeMemberIndex === index}
+                    >
+                      <MemberAccordionHeader
+                        onClick={() => handleMemberSelect(index)}
+                        onFocus={() => handleMemberFocus(index)}
+                        onBlur={handleMemberBlur}
+                        onMouseEnter={() => handleMemberHover(index)}
+                        $accent={member.accent}
+                        $accentSoft={member.accentSoft}
+                        $isActive={activeMemberIndex === index}
+                      >
+                        <MemberIconCircle
+                          $accent={member.accent}
+                          $accentSoft={member.accentSoft}
+                        >
+                          <Icon />
+                        </MemberIconCircle>
+                        <MemberHeaderTitle>{member.label}</MemberHeaderTitle>
+                      </MemberAccordionHeader>
+                      <MemberAccordionContent $isActive={activeMemberIndex === index}>
+                        <MemberAccordionBody>
+                          <MemberName>{member.name}</MemberName>
+                          <MemberBio>{member.bio}</MemberBio>
+                          <MemberHighlights>
+                            {member.highlights.map((highlight, highlightIndex) => (
+                              <MemberHighlight key={highlightIndex}>
+                                <MemberHighlightIcon $accent={member.accent}>
+                                  <CheckCircleIcon />
+                                </MemberHighlightIcon>
+                                <span>{highlight}</span>
+                              </MemberHighlight>
+                            ))}
+                          </MemberHighlights>
+                        </MemberAccordionBody>
+                      </MemberAccordionContent>
+                    </MemberAccordionItem>
+                  );
+                })}
+              </MembersAccordion>
+            </MembersLayout>
+          </MembersInner>
+        </MembersSection>
 
-          {/* Add this button below the feature slider */}
-          <MeetupButton onClick={() => router.push("/meetup")}>
-            밋업 일정 확인하기
-          </MeetupButton>
-        </FeaturesSection>
+        <PricingSection>
+          <PricingInner>
+            <SectionTitle>멤버십 이용권 안내</SectionTitle>
+            <PricingCard>
+              <PricingHeader>
+                <PricingBadge>정기 멤버십</PricingBadge>
+                <PricingPrice>
+                  <PricingCurrency>₩</PricingCurrency>
+                  <PricingAmount>9,700</PricingAmount>
+                  <PricingPeriod>/월</PricingPeriod>
+                </PricingPrice>
+                <PricingTagline>
+                  월 4회의 오프라인 밋업과 실무 맞춤 콘텐츠, 온라인 커뮤니티를 모두 이용할 수 있습니다.
+                </PricingTagline>
+              </PricingHeader>
+
+              <PricingHighlights>
+                {pricingBenefits.map((benefit, index) => (
+                  <PricingHighlightItem key={index}>
+                    <PricingHighlightIcon>
+                      <CheckBadgeIcon />
+                    </PricingHighlightIcon>
+                    <PricingHighlightText>
+                      <PricingHighlightTitle>{benefit.title}</PricingHighlightTitle>
+                      <PricingHighlightDescription>
+                        {benefit.description}
+                      </PricingHighlightDescription>
+                    </PricingHighlightText>
+                  </PricingHighlightItem>
+                ))}
+              </PricingHighlights>
+
+              <PricingButton onClick={() => router.push("/payment")}>
+                <RocketLaunchIcon />
+                멤버십 신청하기
+              </PricingButton>
+            </PricingCard>
+            <PricingDisclaimer>
+              *1주에 1회 진행하는 밋업에 모두 참여 시 4회입니다. 운영진 귀책 사유로 밋업을 1주 진행하지 못할 경우 구독 기간을 2주 연장해드립니다. 멤버 분 귀책 사유로 밋업을 불참하실 경우 연장이 되지는 않습니다.
+            </PricingDisclaimer>
+          </PricingInner>
+        </PricingSection>
 
         {/* FAQ Section */}
         <FAQSection>
-          <SectionTitle>자주 묻는 질문</SectionTitle>
-          <FAQContainer>
-            {faqs.map(
-              (faq: { question: string; answer: string }, index: number) => (
-                <FAQItem key={index}>
-                  <FAQQuestion
-                    onClick={() => toggleFAQ(index)}
-                    $isOpen={openFAQ === index}
-                  >
-                    {faq.question}
-                    <span>{openFAQ === index ? "−" : "+"}</span>
-                  </FAQQuestion>
-                  <FAQAnswer $isOpen={openFAQ === index}>
-                    {faq.answer}
-                  </FAQAnswer>
-                </FAQItem>
-              )
-            )}
-          </FAQContainer>
+          <FAQInner>
+            <SectionTitle>자주 묻는 질문</SectionTitle>
+            <FAQContainer>
+              {faqs.map(
+                (faq: { question: string; answer: string }, index: number) => (
+                  <FAQItem key={index}>
+                    <FAQQuestion
+                      onClick={() => toggleFAQ(index)}
+                      $isOpen={openFAQ === index}
+                    >
+                      {faq.question}
+                      <span>{openFAQ === index ? "−" : "+"}</span>
+                    </FAQQuestion>
+                    <FAQAnswer $isOpen={openFAQ === index}>
+                      {faq.answer}
+                    </FAQAnswer>
+                  </FAQItem>
+                )
+              )}
+            </FAQContainer>
+          </FAQInner>
         </FAQSection>
 
         {/* CTA Section */}
-        <CTASection>
-          <CTAVideoBackground autoPlay loop muted playsInline>
-            <source src="/assets/blog/manhattan.mp4" type="video/mp4" />
-          </CTAVideoBackground>
-          <CTAOverlay />
-          <CTAContent>
-            <CTATitle>영어 소통 능력을 키우고 싶다면?</CTATitle>
-            <CTADescription>
-              통역사, 직장인, 대학생, 전문가 등 다양한 백그라운드를 가진 <br />
-              멤버들과 함께하는 영어 밋업에 참여해보세요. 🚀
-              <br />
-            </CTADescription>
-            <CTAButton onClick={() => router.push("/meetup")}>
-              <span>🚀</span>
-              밋업 확인하기
-            </CTAButton>
-          </CTAContent>
-        </CTASection>
+        <CTAWrapper>
+          <CTASection>
+            <CTAVideoBackground autoPlay loop muted playsInline>
+              <source src="/assets/blog/manhattan.mp4" type="video/mp4" />
+            </CTAVideoBackground>
+            <CTAOverlay />
+            <CTAContent>
+              <CTATitle>영어 소통 능력을 키우고 싶다면?</CTATitle>
+              <CTADescription>
+                통역사, 직장인, 대학생, 전문가 등 다양한 백그라운드를 가진 <br />
+                멤버들과 함께하는 영어 밋업에 참여해보세요.
+              </CTADescription>
+              <CTAButton onClick={() => router.push("/meetup")}>
+                <RocketLaunchIcon />
+                밋업 확인하기
+              </CTAButton>
+            </CTAContent>
+          </CTASection>
+        </CTAWrapper>
       </MainContent>
     </PageWrapper>
   );

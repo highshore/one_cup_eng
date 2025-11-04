@@ -13,9 +13,12 @@ export interface HomeTopicArticle {
 // Featured article IDs - UPDATE THESE WITH YOUR ACTUAL FIRESTORE ARTICLE IDs
 // These should match the IDs in topics_service_client.ts
 export const FEATURED_ARTICLE_IDS = [
-  "REPLACE_WITH_ACTUAL_ID_1",
-  "REPLACE_WITH_ACTUAL_ID_2",
-  "REPLACE_WITH_ACTUAL_ID_3",
+  "Alx2pN2Wrv9jbP2MCNKo",
+  "7WHMBwU9m8LtBYI2wQVA",
+  "hienPf1lJL8GMBKkjnKm",
+  "H1hBMM5hB7MqdXkbvvxp",
+  "xI3D8ijG6Fp7UHHCvu9B",
+  "xFqyswJDnRcEtTmwsU9q",
 ];
 
 // Server-side fetch using Firebase Admin SDK - fetches specific articles by ID

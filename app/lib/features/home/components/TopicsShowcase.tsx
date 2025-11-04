@@ -11,7 +11,7 @@ interface TopicsShowcaseProps {
 
 const Section = styled.section`
   position: relative;
-  padding: clamp(3rem, 6vw, 4.5rem) 1.5rem;
+  padding: clamp(3rem, 6vw, 4.5rem) 0;
   background: transparent;
 `;
 
@@ -24,6 +24,10 @@ const SectionContent = styled.div`
   flex-direction: column;
   gap: clamp(2rem, 4vw, 3rem);
   padding: 0 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1.25rem;
+  }
 `;
 
 const SectionTitle = styled.h2`

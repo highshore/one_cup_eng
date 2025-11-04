@@ -30,7 +30,7 @@ const floatDistort = keyframes`
 const Section = styled.section`
   position: relative;
   overflow: visible; /* Allow shadows to show */
-  padding: 0 1.5rem clamp(2.5rem, 5vw, 3.5rem);
+  padding: 0 0 clamp(2.5rem, 5vw, 3.5rem);
   background: transparent;
 
   &::before {
@@ -51,6 +51,10 @@ const SectionContent = styled.div`
   max-width: 960px;
   margin: 0 auto;
   padding: 0 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1.25rem;
+  }
 `;
 
 const CardsGrid = styled.div`
@@ -188,14 +192,14 @@ export default function StatsSection({ stats }: StatsSectionProps) {
   const cardsRef = useRef<Array<HTMLDivElement | null>>([]);
 
   // Hardcoded values
-  const totalMeetups = 25;
-  const totalMembers = 64;
+  const totalMeetups = 26;
+  const totalMembers = 40;
   const retentionRate = 90;
 
   const statsData = useMemo<StatConfig[]>(
     () => [
       { label: "밋업 진행 횟수", value: totalMeetups, Icon: FiCalendar },
-      { label: "누적 멤버 수", value: totalMembers, Icon: FiUsers },
+      { label: "누적 유료 멤버 수", value: totalMembers, Icon: FiUsers },
       { label: "재참여율", value: retentionRate, Icon: FiRepeat },
     ],
     [totalMeetups, totalMembers, retentionRate]
