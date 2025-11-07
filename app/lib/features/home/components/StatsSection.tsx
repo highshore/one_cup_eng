@@ -193,7 +193,7 @@ export default function StatsSection({ stats }: StatsSectionProps) {
 
   // Hardcoded values
   const totalMeetups = 26;
-  const totalMembers = 40;
+  const totalMembers = 41;
   const retentionRate = 90;
 
   const statsData = useMemo<StatConfig[]>(

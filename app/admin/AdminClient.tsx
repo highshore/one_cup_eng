@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
 import { auth, db } from "../lib/firebase/firebase";
 import {
@@ -8,14 +8,17 @@ import {
   getDocs,
   getDoc,
   doc,
+  deleteDoc,
   query,
   orderBy,
   Timestamp,
-  where,
+  getCountFromServer,
+  writeBatch,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale/ko";
+import { CalendarDaysIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 const Wrapper = styled.div`
   display: flex;
@@ -168,7 +171,7 @@ const UserCard = styled.div`
 const UserInfo = styled.div`
   flex: 1;
   display: grid;
-  grid-template-columns: 2fr 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 16px;
   align-items: center;
 `;
@@ -193,6 +196,17 @@ const UserStatus = styled.div<{ active: boolean }>`
   font-weight: 500;
   background-color: ${(props) => (props.active ? "#dcfce7" : "#fee2e2")};
   color: ${(props) => (props.active ? "#166534" : "#dc2626")};
+`;
+
+const GdgStatus = styled.div<{ $isMember: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: ${(props) => (props.$isMember ? "#e0f2fe" : "#f3f4f6")};
+  color: ${(props) => (props.$isMember ? "#1d4ed8" : "#4b5563")};
 `;
 
 const UserDate = styled.div`
@@ -284,6 +298,151 @@ const FeedbackOther = styled.div`
   color: #4b5563;
 `;
 
+const ArticlesList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const ArticleCard = styled.button`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #ffffff, #f3f4f6);
+  color: #111827;
+  box-shadow: 0 4px 10px rgba(17, 24, 39, 0.08);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 12px 28px -12px rgba(17, 24, 39, 0.5);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(17, 24, 39, 0.4);
+    outline-offset: 3px;
+  }
+`;
+
+const ArticleHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+`;
+
+const ArticleTitle = styled.div`
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+`;
+
+const ArticleSubtitle = styled.div`
+  font-size: 14px;
+  color: #6b7280;
+`;
+
+const ArticleMeta = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #6b7280;
+`;
+
+const ArticleActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+`;
+
+const ArticleActionButton = styled.button<{ $variant?: "danger" }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #0f172a;
+  background: ${(props) =>
+    props.$variant === "danger"
+      ? "linear-gradient(135deg, #111827, #1f2937)"
+      : "linear-gradient(135deg, #1f2937, #111827)"};
+  color: #f9fafb;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 10px 24px -16px rgba(17, 24, 39, 0.8);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 32px -18px rgba(17, 24, 39, 0.85);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+    box-shadow: none;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const MembersToolbar = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 18px;
+  gap: 12px;
+`;
+
+const MembersActionButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(17, 24, 39, 0.8);
+  background: linear-gradient(135deg, #0f172a, #1f2937);
+  color: #f3f4f6;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 16px 30px -18px rgba(17, 24, 39, 0.75);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 22px 38px -20px rgba(17, 24, 39, 0.88);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+    box-shadow: none;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+`;
+
 const LoadingSpinner = styled.div`
   display: flex;
   justify-content: center;
@@ -303,12 +462,13 @@ interface UserData {
   id: string;
   email?: string;
   displayName?: string;
-  createdAt?: Timestamp;
+  createdAt?: Timestamp | Date | string;
   hasActiveSubscription?: boolean;
   billingCancelled?: boolean;
-  subscriptionStartDate?: Timestamp;
-  subscriptionEndDate?: Timestamp;
+  subscriptionStartDate?: Timestamp | Date | string;
+  subscriptionEndDate?: Timestamp | Date | string;
   account_status?: string;
+  gdg_member?: boolean;
 }
 
 interface FeedbackData {
@@ -325,23 +485,51 @@ interface DashboardStats {
   activeSubscriptions: number;
   cancelledBilling: number;
   newMembersThisMonth: number;
+  totalEvents: number;
+  purchasingMembers: number;
+}
+
+interface ArticleData {
+  id: string;
+  titleEnglish?: string;
+  titleKorean?: string;
+  publishedAt?: Date;
 }
 
 export default function AdminClient() {
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "members" | "feedback"
+    "dashboard" | "members" | "feedback" | "articles"
   >("dashboard");
   const [users, setUsers] = useState<UserData[]>([]);
   const [feedback, setFeedback] = useState<FeedbackData[]>([]);
+  const [articles, setArticles] = useState<ArticleData[]>([]);
+  const [deletingArticleId, setDeletingArticleId] = useState<string | null>(
+    null
+  );
+  const [extendingSubscriptions, setExtendingSubscriptions] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
     activeSubscriptions: 0,
     cancelledBilling: 0,
     newMembersThisMonth: 0,
+    totalEvents: 0,
+    purchasingMembers: 0,
   });
   const router = useRouter();
+
+  const usersById = useMemo(() => {
+    const entries = new Map<string, UserData>();
+    users.forEach((user) => {
+      entries.set(user.id, user);
+    });
+    return entries;
+  }, [users]);
+
+  const activeMembersCount = useMemo(() => {
+    return users.filter((user) => user.hasActiveSubscription).length;
+  }, [users]);
 
   useEffect(() => {
     const checkAdminAccess = async () => {
@@ -399,7 +587,18 @@ export default function AdminClient() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      await Promise.all([fetchUsers(), fetchFeedback()]);
+      const [usersData, feedbackData, eventsCount, articlesData] =
+        await Promise.all([
+          fetchUsers(),
+          fetchFeedback(),
+          fetchEventsCount(),
+          fetchArticles(),
+        ]);
+
+      setUsers(usersData);
+      setFeedback(feedbackData);
+      setArticles(articlesData);
+      calculateStats(usersData, eventsCount);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     } finally {
@@ -407,7 +606,7 @@ export default function AdminClient() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (): Promise<UserData[]> => {
     try {
       const usersQuery = query(
         collection(db, "users"),
@@ -423,14 +622,14 @@ export default function AdminClient() {
         } as UserData);
       });
 
-      setUsers(usersData);
-      calculateStats(usersData);
+      return usersData;
     } catch (error) {
       console.error("Error fetching users:", error);
+      return [];
     }
   };
 
-  const fetchFeedback = async () => {
+  const fetchFeedback = async (): Promise<FeedbackData[]> => {
     try {
       const feedbackQuery = query(
         collection(db, "feedback"),
@@ -446,37 +645,249 @@ export default function AdminClient() {
         } as FeedbackData);
       });
 
-      setFeedback(feedbackData);
+      return feedbackData;
     } catch (error) {
       console.error("Error fetching feedback:", error);
+      return [];
     }
   };
 
-  const calculateStats = (usersData: UserData[]) => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fetchEventsCount = async (): Promise<number> => {
+    const collectionCandidates = ["events", "meetups", "meetup"];
+
+    for (const name of collectionCandidates) {
+      try {
+        const eventsRef = collection(db, name);
+        const countSnapshot = await getCountFromServer(eventsRef);
+        const count = countSnapshot.data().count ?? 0;
+        if (
+          count > 0 ||
+          name === collectionCandidates[collectionCandidates.length - 1]
+        ) {
+          return count;
+        }
+      } catch (countError) {
+        console.warn(
+          `Count fetch failed for ${name}, falling back to doc fetch.`,
+          countError
+        );
+        try {
+          const snapshot = await getDocs(collection(db, name));
+          if (!snapshot.empty) {
+            return snapshot.size;
+          }
+        } catch (docError) {
+          console.error(`Fallback doc fetch failed for ${name}:`, docError);
+        }
+      }
+    }
+
+    return 0;
+  };
+
+  const fetchArticles = async (): Promise<ArticleData[]> => {
+    try {
+      const baseRef = collection(db, "articles");
+      let snapshot;
+
+      try {
+        snapshot = await getDocs(query(baseRef, orderBy("timestamp", "desc")));
+      } catch (orderError) {
+        console.warn(
+          "Primary articles query failed, using unordered fetch.",
+          orderError
+        );
+        snapshot = await getDocs(baseRef);
+      }
+
+      const articlesData: ArticleData[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() || {};
+        const rawTimestamp =
+          data.timestamp ?? data.publishedAt ?? data.createdAt ?? null;
+
+        let publishedAt: Date | undefined;
+        if (rawTimestamp?.toDate) {
+          publishedAt = rawTimestamp.toDate();
+        } else if (rawTimestamp instanceof Date) {
+          publishedAt = rawTimestamp;
+        } else if (typeof rawTimestamp === "string") {
+          const parsed = new Date(rawTimestamp);
+          if (!Number.isNaN(parsed.getTime())) {
+            publishedAt = parsed;
+          }
+        }
+
+        return {
+          id: docSnap.id,
+          titleEnglish:
+            data.title?.english ?? data.titleEnglish ?? data.title ?? "",
+          titleKorean: data.title?.korean ?? data.titleKorean ?? "",
+          publishedAt,
+        };
+      });
+
+      return articlesData.sort((a, b) => {
+        const aTime = a.publishedAt ? a.publishedAt.getTime() : 0;
+        const bTime = b.publishedAt ? b.publishedAt.getTime() : 0;
+        return bTime - aTime;
+      });
+    } catch (error) {
+      console.error("Error fetching articles:", error);
+      return [];
+    }
+  };
+
+  const calculateStats = (usersData: UserData[], totalEvents: number) => {
+     const now = new Date();
+     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+ 
+    const purchasingMembers = usersData.filter((user) =>
+      Boolean(
+        user.hasActiveSubscription ||
+          user.subscriptionStartDate ||
+          user.subscriptionEndDate
+      )
+    ).length;
 
     const newStats: DashboardStats = {
       totalMembers: usersData.length,
       activeSubscriptions: usersData.filter((u) => u.hasActiveSubscription)
         .length,
       cancelledBilling: usersData.filter((u) => u.billingCancelled).length,
-      newMembersThisMonth: usersData.filter(
-        (u) => u.createdAt && u.createdAt.toDate() >= startOfMonth
-      ).length,
+      newMembersThisMonth: usersData.filter((u) => {
+        const createdAtDate = resolveToDate(u.createdAt);
+        if (!createdAtDate) {
+          return false;
+        }
+        return createdAtDate >= startOfMonth;
+      }).length,
+      totalEvents,
+      purchasingMembers,
     };
+ 
+     setStats(newStats);
+   };
+ 
+  const resolveToDate = (value?: Timestamp | Date | string): Date | null => {
+    if (!value) {
+      return null;
+    }
 
-    setStats(newStats);
+    if (value instanceof Timestamp) {
+      return value.toDate();
+    }
+
+    if (value instanceof Date) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    return null;
   };
 
-  const formatDate = (timestamp?: Timestamp) => {
-    if (!timestamp) return "-";
-    return format(timestamp.toDate(), "yyyy.MM.dd", { locale: ko });
+  const handleExtendActiveMembers = async () => {
+    const activeUsers = users.filter((user) => user.hasActiveSubscription);
+
+    if (activeUsers.length === 0) {
+      window.alert("No active members found to extend.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Extend the subscription end date by 14 days for ${activeUsers.length} active ${
+        activeUsers.length === 1 ? "member" : "members"
+      }?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setExtendingSubscriptions(true);
+
+    try {
+      const batchSize = 400;
+
+      for (let index = 0; index < activeUsers.length; index += batchSize) {
+        const slice = activeUsers.slice(index, index + batchSize);
+        const batch = writeBatch(db);
+
+        slice.forEach((user) => {
+          const userRef = doc(db, "users", user.id);
+          const baseDate =
+            resolveToDate(user.subscriptionEndDate) ||
+            resolveToDate(user.subscriptionStartDate) ||
+            new Date();
+          const extendedDate = new Date(baseDate);
+          extendedDate.setDate(extendedDate.getDate() + 14);
+
+          batch.update(userRef, {
+            subscriptionEndDate: Timestamp.fromDate(extendedDate),
+          });
+        });
+
+        await batch.commit();
+      }
+
+      const updatedUsers = await fetchUsers();
+      setUsers(updatedUsers);
+      calculateStats(updatedUsers, stats.totalEvents);
+      window.alert("Extended all active subscriptions by 14 days.");
+    } catch (error) {
+      console.error("Error extending active subscriptions:", error);
+      window.alert("Failed to extend active subscriptions. Please try again.");
+    } finally {
+      setExtendingSubscriptions(false);
+    }
   };
 
-  const formatDateTime = (timestamp?: Timestamp) => {
-    if (!timestamp) return "-";
-    return format(timestamp.toDate(), "yyyy.MM.dd HH:mm", { locale: ko });
+  const handleArticleClick = (articleId: string) => {
+    router.push(`/article/${articleId}`);
+  };
+
+  const handleDeleteArticle = async (articleId: string) => {
+    const shouldDelete = window.confirm(
+      "Are you sure you want to delete this article? This action cannot be undone."
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingArticleId(articleId);
+    try {
+      await deleteDoc(doc(db, "articles", articleId));
+      setArticles((prev) => prev.filter((article) => article.id !== articleId));
+    } catch (error) {
+      console.error("Error deleting article:", error);
+      window.alert("Failed to delete article. Please try again.");
+    } finally {
+      setDeletingArticleId(null);
+    }
+  };
+
+  const formatDate = (value?: Timestamp | Date | string) => {
+    const date = resolveToDate(value);
+    if (!date) {
+      return "-";
+    }
+
+    return format(date, "yyyy.MM.dd", { locale: ko });
+  };
+
+  const formatDateTime = (value?: Timestamp | Date | string) => {
+    const date = resolveToDate(value);
+    if (!date) {
+      return "-";
+    }
+
+    return format(date, "yyyy.MM.dd HH:mm", { locale: ko });
   };
 
   const renderDashboard = () => (
@@ -505,90 +916,192 @@ export default function AdminClient() {
           <StatLabel>New This Month</StatLabel>
           <StatSubtext>New members this month</StatSubtext>
         </StatCard>
+
+        <StatCard>
+          <StatNumber>{stats.totalEvents}</StatNumber>
+          <StatLabel>Total Events</StatLabel>
+          <StatSubtext>Events hosted overall</StatSubtext>
+        </StatCard>
+
+        <StatCard>
+          <StatNumber>{stats.purchasingMembers}</StatNumber>
+          <StatLabel>Paying Members</StatLabel>
+          <StatSubtext>Users with purchase history</StatSubtext>
+        </StatCard>
       </StatsGrid>
     </>
   );
 
-  const renderMembers = () => (
-    <ContentSection>
-      <SectionTitle>Member Management ({users.length} members)</SectionTitle>
-      <UsersList>
-        {users.map((user) => (
-          <UserCard key={user.id}>
-            <UserInfo>
-              <div>
-                <UserName>{user.displayName || "No Name"}</UserName>
-                <UserEmail>{user.email}</UserEmail>
-              </div>
+  const renderMembers = () => {
+    const extendButtonLabel = extendingSubscriptions
+      ? "Extending..."
+      : activeMembersCount > 0
+      ? `Extend ${activeMembersCount} Active ${
+          activeMembersCount === 1 ? "Member" : "Members"
+        } (+14 days)`
+      : "No Active Members to Extend";
 
-              <div>{/* Categories section removed as deprecated */}</div>
+    return (
+      <ContentSection>
+        <SectionTitle>Member Management ({users.length} members)</SectionTitle>
+        <MembersToolbar>
+          <MembersActionButton
+            type="button"
+            onClick={handleExtendActiveMembers}
+            disabled={extendingSubscriptions || activeMembersCount === 0}
+          >
+            <CalendarDaysIcon />
+            {extendButtonLabel}
+          </MembersActionButton>
+        </MembersToolbar>
+        <UsersList>
+          {users.map((user) => (
+            <UserCard key={user.id}>
+              <UserInfo>
+                <div>
+                  <UserName>{user.displayName || "No Name"}</UserName>
+                  <UserEmail>{user.email}</UserEmail>
+                </div>
 
-              <UserStatus active={!!user.hasActiveSubscription}>
-                {user.hasActiveSubscription ? "Active" : "Inactive"}
-              </UserStatus>
+                <div>
+                  <GdgStatus $isMember={user.gdg_member === true}>
+                    {user.gdg_member ? "GDG Member" : "Non-GDG"}
+                  </GdgStatus>
+                </div>
 
-              <div>
-                {user.billingCancelled && (
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      color: "#dc2626",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Billing Stopped
-                  </div>
-                )}
-              </div>
+                <UserStatus active={!!user.hasActiveSubscription}>
+                  {user.hasActiveSubscription ? "Active" : "Inactive"}
+                </UserStatus>
 
-              <UserDate>{formatDate(user.createdAt)}</UserDate>
-            </UserInfo>
-          </UserCard>
-        ))}
-      </UsersList>
-    </ContentSection>
-  );
+                <div>
+                  {user.billingCancelled && (
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#dc2626",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Billing Stopped
+                    </div>
+                  )}
+                </div>
+
+                <UserDate>{formatDate(user.createdAt)}</UserDate>
+              </UserInfo>
+            </UserCard>
+          ))}
+        </UsersList>
+      </ContentSection>
+    );
+  };
 
   const renderFeedback = () => (
+     <ContentSection>
+       <SectionTitle>User Feedback ({feedback.length} items)</SectionTitle>
+       <FeedbackList>
+         {feedback.length === 0 ? (
+           <EmptyState>No feedback yet.</EmptyState>
+         ) : (
+           feedback.map((item) => {
+             const linkedUser = usersById.get(item.userId);
+             const linkedDisplayName = linkedUser?.displayName;
+ 
+             return (
+               <FeedbackCard key={item.id}>
+                 <FeedbackHeader>
+                   <FeedbackCategory category={item.category}>
+                     {item.category === "cancellation"
+                       ? "Subscription Stop"
+                       : "Refund Request"}
+                   </FeedbackCategory>
+                   <FeedbackDate>{formatDateTime(item.timestamp)}</FeedbackDate>
+                 </FeedbackHeader>
+ 
+                 <FeedbackUser>
+                   {linkedDisplayName
+                     ? `${linkedDisplayName} (${item.userId})`
+                     : `User ID: ${item.userId}`}
+                 </FeedbackUser>
+ 
+                 <FeedbackReasons>
+                   <strong>Selected Reasons:</strong>
+                   <ReasonsList>
+                     {item.reasons.map((reason, index) => (
+                       <ReasonItem key={index}>{reason}</ReasonItem>
+                     ))}
+                   </ReasonsList>
+                 </FeedbackReasons>
+ 
+                 {item.otherReason && (
+                   <FeedbackOther>
+                     <strong>Additional Comments:</strong>
+                     <br />
+                     {item.otherReason}
+                   </FeedbackOther>
+                 )}
+               </FeedbackCard>
+             );
+           })
+         )}
+       </FeedbackList>
+     </ContentSection>
+   );
+
+  const renderArticles = () => (
     <ContentSection>
-      <SectionTitle>User Feedback ({feedback.length} items)</SectionTitle>
-      <FeedbackList>
-        {feedback.length === 0 ? (
-          <EmptyState>No feedback yet.</EmptyState>
-        ) : (
-          feedback.map((item) => (
-            <FeedbackCard key={item.id}>
-              <FeedbackHeader>
-                <FeedbackCategory category={item.category}>
-                  {item.category === "cancellation"
-                    ? "Subscription Stop"
-                    : "Refund Request"}
-                </FeedbackCategory>
-                <FeedbackDate>{formatDateTime(item.timestamp)}</FeedbackDate>
-              </FeedbackHeader>
+      <SectionTitle>Articles ({articles.length})</SectionTitle>
+      {articles.length === 0 ? (
+        <EmptyState>No articles available.</EmptyState>
+      ) : (
+        <ArticlesList>
+          {articles.map((article) => {
+            const primaryTitle =
+              article.titleEnglish || article.titleKorean || "Untitled Article";
+            const showKoreanSubtitle =
+              article.titleKorean && article.titleKorean !== article.titleEnglish;
 
-              <FeedbackUser>User ID: {item.userId}</FeedbackUser>
+            return (
+              <ArticleCard
+                key={article.id}
+                type="button"
+                onClick={() => handleArticleClick(article.id)}
+              >
+                <ArticleHeader>
+                  <ArticleTitle>{primaryTitle}</ArticleTitle>
+                  <ArticleMeta>
+                    <span>{formatDateTime(article.publishedAt)}</span>
+                  </ArticleMeta>
+                </ArticleHeader>
 
-              <FeedbackReasons>
-                <strong>Selected Reasons:</strong>
-                <ReasonsList>
-                  {item.reasons.map((reason, index) => (
-                    <ReasonItem key={index}>{reason}</ReasonItem>
-                  ))}
-                </ReasonsList>
-              </FeedbackReasons>
+                {showKoreanSubtitle && (
+                  <ArticleSubtitle>{article.titleKorean}</ArticleSubtitle>
+                )}
 
-              {item.otherReason && (
-                <FeedbackOther>
-                  <strong>Additional Comments:</strong>
-                  <br />
-                  {item.otherReason}
-                </FeedbackOther>
-              )}
-            </FeedbackCard>
-          ))
-        )}
-      </FeedbackList>
+                <ArticleMeta>
+                  <span>ID: {article.id}</span>
+                </ArticleMeta>
+
+                <ArticleActions>
+                  <ArticleActionButton
+                    type="button"
+                    $variant="danger"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleDeleteArticle(article.id);
+                    }}
+                    disabled={deletingArticleId === article.id}
+                  >
+                    <TrashIcon />
+                    {deletingArticleId === article.id ? "Deleting..." : "Delete"}
+                  </ArticleActionButton>
+                </ArticleActions>
+              </ArticleCard>
+            );
+          })}
+        </ArticlesList>
+      )}
     </ContentSection>
   );
 
@@ -634,11 +1147,18 @@ export default function AdminClient() {
         >
           Feedback
         </Tab>
+        <Tab
+          active={activeTab === "articles"}
+          onClick={() => setActiveTab("articles")}
+        >
+          Articles
+        </Tab>
       </TabContainer>
 
       {activeTab === "dashboard" && renderDashboard()}
       {activeTab === "members" && renderMembers()}
       {activeTab === "feedback" && renderFeedback()}
+      {activeTab === "articles" && renderArticles()}
     </Wrapper>
   );
 }

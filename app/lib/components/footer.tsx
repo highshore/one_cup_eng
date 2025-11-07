@@ -2,7 +2,7 @@ import styled from "styled-components";
 import { colors } from "../constants/colors";
 
 const FooterContainer = styled.footer`
-  background-color: transparent;
+  background-color: #ffffff;
   padding: 2rem 1.5rem;
   border-top: 1px solid ${colors.primaryPale};
   font-size: 0.8rem;

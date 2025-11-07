@@ -18,7 +18,7 @@ export const FEATURED_ARTICLE_IDS = [
   "hienPf1lJL8GMBKkjnKm",
   "H1hBMM5hB7MqdXkbvvxp",
   "xI3D8ijG6Fp7UHHCvu9B",
-  "xFqyswJDnRcEtTmwsU9q",
+  "Xi1YVDM6xqHYNTfnhW6X",
 ];
 
 // Server-side fetch using Firebase Admin SDK - fetches specific articles by ID

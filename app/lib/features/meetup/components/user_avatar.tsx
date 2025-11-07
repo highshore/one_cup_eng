@@ -201,6 +201,15 @@ interface UserAvatarStackProps {
   onAvatarClick?: (uid: string) => void;
 }
 
+const AvatarStackContainer = styled.div<{ $size: number; $width: number }>`
+  position: relative;
+  height: ${(props) => props.$size}px;
+  width: ${(props) => props.$width}px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+`;
+
 export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
   uids,
   maxAvatars = 5,
@@ -217,18 +226,13 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
   const hasMore = uniqueUids.length > maxAvatars;
   const moreCount = uniqueUids.length - maxAvatars;
 
+  // Calculate the width needed for the avatar stack
+  const stackWidth = displayedUids.length > 0
+    ? displayedUids.length * size * 0.6 + size * 0.4 + (hasMore ? size * 0.6 : 0)
+    : size;
+
   return (
-    <div
-      style={{
-        position: "relative",
-        height: `${size}px`,
-        minWidth: `${
-          displayedUids.length > 0
-            ? displayedUids.length * size * 0.6 + size * 0.4
-            : size
-        }px`,
-      }}
-    >
+    <AvatarStackContainer $size={size} $width={stackWidth}>
       {displayedUids.map((uid, index) => (
         <UserAvatar
           key={`${uid}-${index}`} // Use compound key to ensure uniqueness
@@ -252,7 +256,7 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
           <AvatarPlaceholder $size={size}>+{moreCount}</AvatarPlaceholder>
         </AvatarContainer>
       )}
-    </div>
+    </AvatarStackContainer>
   );
 };
 

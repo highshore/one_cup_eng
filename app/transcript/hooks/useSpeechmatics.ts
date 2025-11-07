@@ -292,7 +292,7 @@ export const useSpeechmatics = (isPausedRef?: React.RefObject<boolean>) => {
       audioData.byteLength > 0
     ) {
       try {
-        clientRef.current.sendAudio(new Uint8Array(audioData));
+        clientRef.current.sendAudio(audioData);
       } catch (e: any) {
         // console.error("[SpeechmaticsService] Error sending audio:", e);
         setSpeechmaticsError(
