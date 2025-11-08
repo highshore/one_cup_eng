@@ -4,7 +4,6 @@ import {
   getPublishedBlogPostIdsServer,
 } from "../../lib/features/blog/services/blog_service_server";
 import { BlogPost } from "../../lib/features/blog/types/blog_types";
-import { notFound } from "next/navigation";
 
 interface BlogDetailPageProps {
   params: Promise<{
@@ -12,27 +11,7 @@ interface BlogDetailPageProps {
   }>;
 }
 
-// Generate static paths for all published blog posts
-export async function generateStaticParams() {
-  try {
-    const postIds = await getPublishedBlogPostIdsServer();
-
-    return postIds.map((id) => ({
-      id: id,
-    }));
-  } catch (error) {
-    console.error("Error generating static params for blog posts:", error);
-    return [];
-  }
-}
-
-// Allow dynamic routes that weren't pre-generated at build time
-export const dynamicParams = true;
-
-// Enable Incremental Static Regeneration - revalidate every 60 seconds
-export const revalidate = 60;
-
-// Force dynamic rendering as fallback
+// Force dynamic rendering - generate pages on-demand
 export const dynamic = 'force-dynamic';
 
 // This page will be statically generated at build time for each blog post
@@ -48,11 +27,6 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
     console.error("Error fetching blog post at build time:", error);
   }
 
-  // If no post found, show 404
-  if (!post) {
-    notFound();
-  }
-
   return <BlogDetailClient initialPost={post} />;
 }
 
@@ -63,24 +37,26 @@ export async function generateMetadata({ params }: BlogDetailPageProps) {
   try {
     const post = await fetchPublishedBlogPostByIdServer(id);
 
-    if (!post) {
+    if (post) {
       return {
-        title: "포스트를 찾을 수 없습니다 | 영어 한잔",
+        title: `${post.title} | 영어 한잔`,
+        description: post.excerpt || post.content.slice(0, 160),
+        keywords: post.tags?.join(", ") || "영어 학습, 블로그, 영어 한잔",
+        openGraph: {
+          title: post.title,
+          description: post.excerpt || post.content.slice(0, 160),
+          type: "article",
+          publishedTime: post.publishedAt?.toISOString(),
+          authors: ["영어 한잔"],
+          images: post.featuredImage ? [post.featuredImage] : undefined,
+        },
       };
     }
 
     return {
-      title: `${post.title} | 영어 한잔`,
-      description: post.excerpt || post.content.slice(0, 160),
-      keywords: post.tags?.join(", ") || "영어 학습, 블로그, 영어 한잔",
-      openGraph: {
-        title: post.title,
-        description: post.excerpt || post.content.slice(0, 160),
-        type: "article",
-        publishedTime: post.publishedAt?.toISOString(),
-        authors: ["영어 한잔"],
-        images: post.featuredImage ? [post.featuredImage] : undefined,
-      },
+      title: "블로그 | 영어 한잔",
+      description: "영어 한잔 커뮤니티의 블로그 콘텐츠를 만나보세요.",
+      keywords: "영어 학습, 블로그, 영어 한잔",
     };
   } catch (error) {
     console.error("Error generating metadata for blog post:", error);
