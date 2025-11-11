@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { ref, uploadString } from "firebase/storage";
+import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { doc, onSnapshot } from "firebase/firestore";
-import { storage, db } from "../lib/firebase/firebase";
+import { db } from "../lib/firebase/firebase";
 import styled from "styled-components";
 
 type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
@@ -60,6 +60,22 @@ const SecondaryText = styled.div`
 	color: rgba(0,0,0,0.6);
 	font-size: 13px;
 	margin-top: 8px;
+`;
+
+const InstructionRow = styled.div`
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 10px;
+	color: rgba(0,0,0,0.62);
+	font-size: 13px;
+`;
+
+const InstructionIcon = styled(InformationCircleIcon)`
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+	color: rgba(0,0,0,0.45);
 `;
 
 const Spinner = styled.div`
@@ -121,22 +137,41 @@ const levelColors: Record<CefrLevel, string> = {
 	C2: "#111827",
 };
 
+const createEmptyCounts = (): Record<CefrLevel, number> => ({
+	A1: 0,
+	A2: 0,
+	B1: 0,
+	B2: 0,
+	C1: 0,
+	C2: 0,
+});
+
+const createEmptyWordsByLevel = (): Record<CefrLevel, { word: string; freq: number; source?: string }[]> => ({
+	A1: [],
+	A2: [],
+	B1: [],
+	B2: [],
+	C1: [],
+	C2: [],
+});
+
 export default function CefrClient() {
 	const [text, setText] = React.useState("");
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const [batchId, setBatchId] = React.useState<string | null>(null);
 	const [status, setStatus] = React.useState<string | null>(null);
 	const [error, setError] = React.useState<string | null>(null);
-	const [counts, setCounts] = React.useState<Record<CefrLevel, number>>({ A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 });
+	const [counts, setCounts] = React.useState<Record<CefrLevel, number>>(() => createEmptyCounts());
 	const [total, setTotal] = React.useState(0);
-	const [uniqueCounts, setUniqueCounts] = React.useState<Record<CefrLevel, number>>({ A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 });
-	const [wordsByLevel, setWordsByLevel] = React.useState<Record<CefrLevel, { word: string; freq: number }[]>>({ A1: [], A2: [], B1: [], B2: [], C1: [], C2: [] });
+	const [uniqueCounts, setUniqueCounts] = React.useState<Record<CefrLevel, number>>(() => createEmptyCounts());
+	const [wordsByLevel, setWordsByLevel] = React.useState<Record<CefrLevel, { word: string; freq: number; source?: string }[]>>(() => createEmptyWordsByLevel());
 	const [labeledWords, setLabeledWords] = React.useState<Array<{ word: string; level: CefrLevel; source?: string; freq?: number }>>([]);
+	const [candidateWordCount, setCandidateWordCount] = React.useState(0);
 
-	const handleSubmit = async () => {
+	const handleSubmit = React.useCallback(async () => {
 		if (!text.trim()) return;
-		
-		// Build compact words payload (deduplicated with freq and capitalization)
+
+		setError(null);
 		const stripPuncPreserveCase = (raw: string) => raw.replace(/^[^A-Za-z]+/g, "").replace(/[^A-Za-z]+$/g, "");
 		const normalizeWord = (raw: string) => raw.toLowerCase().replace(/^[^a-z]+/g, "").replace(/[^a-z]+$/g, "");
 		const freqMap = new Map<string, { freq: number; hasCapital: boolean }>();
@@ -151,38 +186,38 @@ export default function CefrClient() {
 			else freqMap.set(w, { freq: 1, hasCapital: hasCap });
 		}
 		if (freqMap.size === 0) {
+			setCandidateWordCount(0);
 			setError("No valid words found in text.");
 			return;
 		}
+
 		let entries = Array.from(freqMap.entries()).map(([word, v]) => ({ word, freq: v.freq, hasCapital: v.hasCapital }));
 		entries.sort((a, b) => b.freq - a.freq);
 		entries = entries.slice(0, 5000);
-		
-		// Ensure payload stays comfortably below 500KB by trimming if necessary
+		setCandidateWordCount(entries.length);
+
 		const payload = { words: entries } as { words: Array<{ word: string; freq: number; hasCapital: boolean }> };
-		// Always upload to Storage and send an inputPath pointer to avoid request size issues
-		let requestBody: any;
-		try {
-			const objectPath = `cefr_inputs/${Date.now()}_${Math.random().toString(36).slice(2,8)}.json`;
-			const fileRef = ref(storage, objectPath);
-			await uploadString(fileRef, JSON.stringify(payload), "raw", { contentType: "application/json" });
-			requestBody = { inputPath: objectPath };
-		} catch (e) {
-			console.error("Failed to upload payload to Storage", e);
-			setError("Failed to upload input. Please sign in and try again.");
+		const payloadJson = JSON.stringify(payload);
+		const payloadBytes = typeof TextEncoder !== "undefined" ? new TextEncoder().encode(payloadJson).length : payloadJson.length;
+		const MAX_BYTES = 450 * 1024; // stay well under 500KB CF limit
+		if (payloadBytes > MAX_BYTES) {
+			setError("Unique word list is too large. Please shorten the text and try again.");
 			return;
 		}
-		
+
 		setIsSubmitting(true);
-		setCounts({ A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 });
+		setCounts(createEmptyCounts());
+		setUniqueCounts(createEmptyCounts());
+		setWordsByLevel(createEmptyWordsByLevel());
+		setLabeledWords([]);
 		setStatus(null);
 		setTotal(0);
-		setError(null);
+		setBatchId(null);
 		try {
 			const resp = await fetch("https://startcefrbatch-cds6z3hrga-du.a.run.app", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(requestBody)
+				body: payloadJson
 			});
 			if (!resp.ok) {
 				let message = "Failed to create batch";
@@ -191,9 +226,9 @@ export default function CefrClient() {
 				} else if (resp.status === 500) {
 					message = "Server error. Please try again later.";
 				}
-				try { 
-					const j = await resp.json(); 
-					if (j?.error) message = String(j.error); 
+				try {
+					const j = await resp.json();
+					if (j?.error) message = String(j.error);
 				} catch {}
 				setError(message);
 				return;
@@ -207,7 +242,17 @@ export default function CefrClient() {
 		} finally {
 			setIsSubmitting(false);
 		}
-	};
+	}, [text]);
+
+	const handleKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (event.key !== "Enter") return;
+		const nativeEvent: any = event.nativeEvent;
+		if (nativeEvent?.isComposing) return;
+		if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+		event.preventDefault();
+		if (isSubmitting) return;
+		handleSubmit();
+	}, [handleSubmit, isSubmitting]);
 
 	// Subscribe to Firestore run status when batchId exists
 	React.useEffect(() => {
@@ -221,7 +266,13 @@ export default function CefrClient() {
 				setCounts(data.counts);
 				setWordsByLevel(data.wordsByLevel);
 				if (typeof data.total === "number") setTotal(data.total);
-				if (data.uniqueCounts) setUniqueCounts(data.uniqueCounts);
+				if (data.uniqueCounts) {
+					setUniqueCounts(data.uniqueCounts);
+					const uniqueTotal = levels.reduce((sum, lvl) => sum + Number(data.uniqueCounts?.[lvl] || 0), 0);
+					if (uniqueTotal > 0) setCandidateWordCount(uniqueTotal);
+				} else {
+					setUniqueCounts(createEmptyCounts());
+				}
 				const flat: Array<{ word: string; level: CefrLevel; source?: string; freq?: number }> = [];
 				for (const lvl of levels) {
 					for (const item of (data.wordsByLevel?.[lvl] || [])) {
@@ -259,6 +310,8 @@ export default function CefrClient() {
 			setWordsByLevel(interimWordsByLevel);
 			setUniqueCounts(interimUniqueCounts);
 			setTotal(interimTotal);
+			const interimUniqueTotal = levels.reduce((sum, lvl) => sum + interimUniqueCounts[lvl], 0);
+			if (interimUniqueTotal > 0) setCandidateWordCount(interimUniqueTotal);
 			const flat: Array<{ word: string; level: CefrLevel; source?: string; freq?: number }> = [];
 			for (const lvl of levels) {
 				for (const item of interimWordsByLevel[lvl] || []) {
@@ -281,7 +334,17 @@ export default function CefrClient() {
 				placeholder="Paste or type your text here..."
 				value={text}
 				onChange={e => setText(e.target.value)}
+				onKeyDown={handleKeyDown}
 			/>
+			<InstructionRow>
+				<InstructionIcon aria-hidden="true" />
+				<span>
+					Press Enter to classify with the CEFR model (Shift+Enter for a newline).{" "}
+					{candidateWordCount > 0
+						? `Batching ${candidateWordCount.toLocaleString()} unique words.`
+						: "We automatically deduplicate words before sending."}
+				</span>
+			</InstructionRow>
 			<Actions>
 				<PrimaryButton onClick={handleSubmit} disabled={isSubmitting || !text.trim()}>
 					{isSubmitting ? "Submitting..." : "Classify Words"}

@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { onRequest, HttpsOptions } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { defineSecret } from "firebase-functions/params";
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import cors from "cors";
@@ -12,6 +13,8 @@ const db = admin.firestore();
 const httpsOpts: HttpsOptions = { region: "asia-northeast3", timeoutSeconds: 120, memory: "256MiB" };
 
 type CefrLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+const DEFAULT_CEFR_MODEL = "ft:gpt-4.1-nano-2025-04-14:native-pt:full-dataset:CFH7oyMj";
+const NEXT_OPENAI_API_KEY = defineSecret("NEXT_OPENAI_API_KEY");
 
 function normalizeWord(raw: string): string {
   return raw
@@ -37,7 +40,8 @@ const corsHandler = cors({
 export const startCefrBatch = onRequest({
   ...httpsOpts,
   maxInstances: 10,
-  memory: "1GiB"
+  memory: "1GiB",
+  secrets: [NEXT_OPENAI_API_KEY]
 }, async (req, res) => {
   return new Promise((resolve, reject) => {
     corsHandler(req, res, async () => {
@@ -111,7 +115,7 @@ export const startCefrBatch = onRequest({
           }
         }
 
-        const apiKey = process.env.NEXT_OPENAI_API_KEY;
+        const apiKey = NEXT_OPENAI_API_KEY.value();
         console.log(
           `[startCefrBatch] OpenAI key available: ${!!apiKey}, suffix: ${apiKey ? apiKey.slice(-4) : "n/a"}`
         );
@@ -156,20 +160,30 @@ export const startCefrBatch = onRequest({
 
     const entries = Array.from(freqMap.entries()).sort((a,b)=>b[1].freq-a[1].freq).slice(0, 5000);
     const candidateIds = entries.map(([w]) => w);
+    const existingDocs = new Map<string, { level: CefrLevel; source?: string }>();
 
-    // Existing check (chunks of 30)
+    // Existing check (chunks of 10 - Firestore IN limit)
     const existing = new Set<string>();
-    for (let i=0;i<candidateIds.length;i+=30){
-      const chunk = candidateIds.slice(i,i+30);
-      const snap = await db.collection("cefr").where(admin.firestore.FieldPath.documentId(), "in", chunk).select(admin.firestore.FieldPath.documentId()).get();
-      snap.docs.forEach(d=>existing.add(d.id));
+    const chunkSize = 10;
+    for (let i=0;i<candidateIds.length;i+=chunkSize){
+      const chunk = candidateIds.slice(i,i+chunkSize);
+      if (!chunk.length) continue;
+      const snap = await db.collection("cefr").where(admin.firestore.FieldPath.documentId(), "in", chunk).get();
+      snap.docs.forEach(docSnap => {
+        const data = docSnap.data() || {};
+        const lvl = String(data.level || "").toUpperCase();
+        if (["A1","A2","B1","B2","C1","C2"].includes(lvl)){
+          existing.add(docSnap.id);
+          existingDocs.set(docSnap.id, { level: lvl as CefrLevel, source: data.source });
+        }
+      });
     }
 
-    const acronyms: Array<{ word: string; level: CefrLevel; freq: number }> = [];
+    const acronyms: Array<{ word: string; level: CefrLevel; freq: number; source: string }> = [];
     const toClassify: Array<{ word: string; freq: number }> = [];
     for (const [w, info] of entries) {
       if (existing.has(w)) continue;
-      if (info.hasCapital) acronyms.push({ word: w, level: "A1", freq: info.freq });
+      if (info.hasCapital) acronyms.push({ word: w, level: "A1", freq: info.freq, source: "acronym" });
       else toClassify.push({ word: w, freq: info.freq });
     }
 
@@ -178,7 +192,18 @@ export const startCefrBatch = onRequest({
       const writer = (db as any).bulkWriter ? (db as any).bulkWriter() : null;
       if (writer){
         for (const a of acronyms){
-          writer.set(db.collection("cefr").doc(a.word), { level: a.level, source: "inference", firstSeenAt: admin.firestore.FieldValue.serverTimestamp(), freq: admin.firestore.FieldValue.increment(a.freq) }, { merge: true });
+          writer.set(
+            db.collection("cefr").doc(a.word),
+            {
+              word: a.word,
+              level: a.level,
+              source: a.source,
+              firstSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              freq: admin.firestore.FieldValue.increment(a.freq)
+            },
+            { merge: true }
+          );
         }
         await writer.close();
       } else {
@@ -186,26 +211,69 @@ export const startCefrBatch = onRequest({
           const chunk = acronyms.slice(i,i+450);
           const batch = db.batch();
           for (const a of chunk){
-            batch.set(db.collection("cefr").doc(a.word), { level: a.level, source: "inference", firstSeenAt: admin.firestore.FieldValue.serverTimestamp(), freq: admin.firestore.FieldValue.increment(a.freq) }, { merge: true });
+            batch.set(
+              db.collection("cefr").doc(a.word),
+              {
+                word: a.word,
+                level: a.level,
+                source: a.source,
+                firstSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                freq: admin.firestore.FieldValue.increment(a.freq)
+              },
+              { merge: true }
+            );
           }
           await batch.commit();
         }
       }
     }
 
-    // Build existing labeled list with levels
-    const existingIds = Array.from(existing.values());
-    const existingLabeled: Array<{ word: string; level: CefrLevel; freq: number }> = [];
-    for (let i=0;i<existingIds.length;i+=30){
-      const chunk = existingIds.slice(i,i+30);
-      if (!chunk.length) continue;
-      const snap = await db.collection("cefr").where(admin.firestore.FieldPath.documentId(), "in", chunk).select("level").get();
-      for (const doc of snap.docs){
-        const level = String(doc.get("level") || "").toUpperCase() as CefrLevel;
-        const info = freqMap.get(doc.id);
-        if (!info) continue;
-        if (level && ["A1","A2","B1","B2","C1","C2"].includes(level)){
-          existingLabeled.push({ word: doc.id, level, freq: info.freq });
+    // Build existing labeled list with levels and source
+    const existingLabeled: Array<{ word: string; level: CefrLevel; freq: number; source?: string }> = [];
+    for (const [word, info] of entries){
+      const cached = existingDocs.get(word);
+      if (!cached) continue;
+      existingLabeled.push({
+        word,
+        level: cached.level,
+        freq: info.freq,
+        source: cached.source,
+      });
+    }
+
+    // Update cached words with new frequency/timestamp
+    if (existingLabeled.length){
+      const writer = (db as any).bulkWriter ? (db as any).bulkWriter() : null;
+      if (writer){
+        for (const item of existingLabeled){
+          writer.set(
+            db.collection("cefr").doc(item.word),
+            {
+              word: item.word,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              freq: admin.firestore.FieldValue.increment(item.freq),
+            },
+            { merge: true }
+          );
+        }
+        await writer.close();
+      } else {
+        for (let i=0;i<existingLabeled.length;i+=450){
+          const chunk = existingLabeled.slice(i,i+450);
+          const batch = db.batch();
+          for (const item of chunk){
+            batch.set(
+              db.collection("cefr").doc(item.word),
+              {
+                word: item.word,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                freq: admin.firestore.FieldValue.increment(item.freq),
+              },
+              { merge: true }
+            );
+          }
+          await batch.commit();
         }
       }
     }
@@ -222,7 +290,7 @@ export const startCefrBatch = onRequest({
           if (!(lvl in counts)) continue;
           counts[lvl as CefrLevel] += it.freq || 0;
           total += it.freq || 0;
-          wordsByLevel[lvl as CefrLevel].push({ word: it.word, freq: it.freq || 0, source: src });
+          wordsByLevel[lvl as CefrLevel].push({ word: it.word, freq: it.freq || 0, source: it.source || src });
         }
       };
       add(existingLabeled, "db");
@@ -236,7 +304,8 @@ export const startCefrBatch = onRequest({
 
         // Build Batch JSONL with size guard to avoid OpenAI 413
         const openai = new OpenAI({ apiKey });
-        const model = process.env.CEFR_MODEL_ID || "gpt-4o-mini";
+        const model = (process.env.CEFR_MODEL_ID && process.env.CEFR_MODEL_ID.trim()) || DEFAULT_CEFR_MODEL;
+        console.log(`[startCefrBatch] Using CEFR model: ${model}`);
         const makeLine = (word: string, freq: number) => JSON.stringify({
           custom_id: `w=${encodeURIComponent(word)}|f=${freq}`,
           method: "POST",
@@ -267,7 +336,13 @@ export const startCefrBatch = onRequest({
         const file = await openai.files.create({ file: await toFile(Buffer.from(jsonl, "utf8"), "cefr.jsonl"), purpose: "batch" });
         const batch = await openai.batches.create({ input_file_id: file.id, endpoint: "/v1/responses", completion_window: "24h", metadata: { feature: "cefr-word-classification" }});
 
-        await db.collection("cefr_runs").doc(batch.id).set({ createdAt: admin.firestore.FieldValue.serverTimestamp(), status: "in_progress", existing: existingLabeled, acronyms: acronyms.map(a=>({ word: a.word, level: a.level, freq: a.freq })), pending: toClassify }, { merge: true });
+        await db.collection("cefr_runs").doc(batch.id).set({
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          status: "in_progress",
+          existing: existingLabeled,
+          acronyms: acronyms.map(a=>({ word: a.word, level: a.level, freq: a.freq, source: a.source })),
+          pending: toClassify
+        }, { merge: true });
 
         // queued reflects the actual number uploaded in this batch
         res.json({ batchId: batch.id, queued: lines.length, addedAcronyms: acronyms.length });
@@ -286,8 +361,8 @@ function extractLevel(text: string): CefrLevel | null {
   return (m?.[1] as CefrLevel) || null;
 }
 
-export const pollCefrBatches = onSchedule({ schedule: "every 2 minutes", region: "asia-northeast3" }, async () => {
-  const apiKey = process.env.NEXT_OPENAI_API_KEY;
+export const pollCefrBatches = onSchedule({ schedule: "every 2 minutes", region: "asia-northeast3", secrets: [NEXT_OPENAI_API_KEY] }, async () => {
+  const apiKey = NEXT_OPENAI_API_KEY.value();
   console.log(
     `[pollCefrBatches] OpenAI key available: ${!!apiKey}, suffix: ${apiKey ? apiKey.slice(-4) : "n/a"}`
   );
@@ -324,7 +399,18 @@ export const pollCefrBatches = onSchedule({ schedule: "every 2 minutes", region:
         const writer = (db as any).bulkWriter ? (db as any).bulkWriter() : null;
         if (writer){
           for (const { word, level, freq } of words){
-            writer.set(db.collection("cefr").doc(word), { level, source: "inference", firstSeenAt: admin.firestore.FieldValue.serverTimestamp(), freq: admin.firestore.FieldValue.increment(freq) }, { merge: true });
+            writer.set(
+              db.collection("cefr").doc(word),
+              {
+                word,
+                level,
+                source: "inference",
+                firstSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                freq: admin.firestore.FieldValue.increment(freq)
+              },
+              { merge: true }
+            );
           }
           await writer.close();
         } else {
@@ -332,7 +418,18 @@ export const pollCefrBatches = onSchedule({ schedule: "every 2 minutes", region:
             const chunk = words.slice(i,i+450);
             const batchW = db.batch();
             for (const { word, level, freq } of chunk){
-              batchW.set(db.collection("cefr").doc(word), { level, source: "inference", firstSeenAt: admin.firestore.FieldValue.serverTimestamp(), freq: admin.firestore.FieldValue.increment(freq) }, { merge: true });
+              batchW.set(
+                db.collection("cefr").doc(word),
+                {
+                  word,
+                  level,
+                  source: "inference",
+                  firstSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  freq: admin.firestore.FieldValue.increment(freq)
+                },
+                { merge: true }
+              );
             }
             await batchW.commit();
           }
@@ -344,7 +441,7 @@ export const pollCefrBatches = onSchedule({ schedule: "every 2 minutes", region:
       const wordsByLevel: Record<CefrLevel, { word: string; freq: number; source?: string }[]> = { A1: [], A2: [], B1: [], B2: [], C1: [], C2: [] };
       const counts: Record<CefrLevel, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0, C2: 0 };
       let total = 0;
-      const add = (arr:any[], src:string)=>{ for (const it of arr||[]){ const lvl = (it.level||"").toUpperCase(); if (!(lvl in counts)) continue; counts[lvl as CefrLevel]+=it.freq||0; total+=it.freq||0; wordsByLevel[lvl as CefrLevel].push({ word: it.word, freq: it.freq||0, source: src }); } };
+      const add = (arr:any[], src:string)=>{ for (const it of arr||[]){ const lvl = (it.level||"").toUpperCase(); if (!(lvl in counts)) continue; counts[lvl as CefrLevel]+=it.freq||0; total+=it.freq||0; wordsByLevel[lvl as CefrLevel].push({ word: it.word, freq: it.freq||0, source: it.source || src }); } };
       add(run.existing, "db");
       add(run.acronyms, "acronym");
       add(words, "batch");
