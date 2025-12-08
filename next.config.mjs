@@ -4,10 +4,6 @@ const nextConfig = {
   compiler: {
     styledComponents: true,
   },
-  // Full SSR/SSG support
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: false,
   },
