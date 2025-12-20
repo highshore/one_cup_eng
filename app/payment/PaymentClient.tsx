@@ -493,6 +493,9 @@ export default function PaymentClient() {
   const [referralMessage, setReferralMessage] = useState("");
   const [isReferralValid, setIsReferralValid] = useState(false);
   const [discountPrice, setDiscountPrice] = useState<number | null>(null);
+  const [discountType, setDiscountType] = useState<"percent" | "fixed_price" | null>(null);
+  const [discountValue, setDiscountValue] = useState<number | null>(null);
+  const [discountPercentApplied, setDiscountPercentApplied] = useState<number | null>(null);
   const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [prefillChecked, setPrefillChecked] = useState(false);
   // --- END REFERRAL STATE ---
@@ -540,17 +543,28 @@ export default function PaymentClient() {
         const discountValue = Number(data.discount ?? 0);
         const discountType = data.discountType || "fixed_price";
         let discounted = BASE_PRICE;
+        let appliedPercent = 0;
+
         if (discountType === "percent") {
-          discounted = Math.max(
-            0,
-            Math.round(BASE_PRICE * (1 - discountValue / 100))
-          );
+          const rawDiscount = BASE_PRICE * (discountValue / 100);
+          const discountRoundedDown10 = Math.floor(rawDiscount / 10) * 10;
+          discounted = Math.max(0, BASE_PRICE - discountRoundedDown10);
+          // Final price should be rounded UP to nearest 10 KRW
+          discounted = Math.ceil(discounted / 10) * 10;
+          appliedPercent = Math.floor((discountRoundedDown10 / BASE_PRICE) * 100);
         } else {
-          discounted = Math.max(0, Math.round(BASE_PRICE - discountValue));
+          // fixed amount off, round discount down to nearest 10 KRW
+          const discountRoundedDown10 = Math.floor(discountValue / 10) * 10;
+          discounted = Math.max(0, BASE_PRICE - discountRoundedDown10);
+          discounted = Math.ceil(discounted / 10) * 10; // round final price UP to nearest 10 KRW
+          appliedPercent = Math.floor((discountRoundedDown10 / BASE_PRICE) * 100);
         }
 
         setIsReferralValid(true);
         setDiscountPrice(discounted);
+        setDiscountType(discountType);
+        setDiscountValue(discountValue);
+        setDiscountPercentApplied(appliedPercent);
         setReferralMessage(data.message);
         if (typeof window !== "undefined") {
           sessionStorage.setItem("referralCodePrefill", codeToUse);
@@ -561,6 +575,8 @@ export default function PaymentClient() {
       } else {
         setIsReferralValid(false);
         setDiscountPrice(null);
+        setDiscountType(null);
+        setDiscountValue(null);
         setReferralMessage(data.message);
       }
     } catch (e) {
@@ -838,6 +854,9 @@ export default function PaymentClient() {
                     setReferralCode("");
                     setIsReferralValid(false);
                     setDiscountPrice(null);
+                    setDiscountType(null);
+                    setDiscountValue(null);
+                    setDiscountPercentApplied(null);
                     setReferralMessage("");
                     if (typeof window !== "undefined") {
                       sessionStorage.removeItem("referralCodePrefill");
@@ -868,9 +887,9 @@ export default function PaymentClient() {
                   <>
                     월 {totalAmount.toLocaleString()}원으로 시작하기{" "}
                     <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>
-                      (
-                      {(BASE_PRICE - discountPrice).toLocaleString()}
-                      원 할인 적용)
+                      {discountType === "percent" && discountValue !== null
+                        ? `(할인 ${discountValue}% 적용)`
+                        : `(할인 ${discountPercentApplied ?? 0}% 적용)`}
                     </span>
                   </>
                 ) : (

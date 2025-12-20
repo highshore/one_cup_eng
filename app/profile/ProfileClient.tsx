@@ -1197,7 +1197,7 @@ export default function ProfileClient() {
 
   const handleShareReferral = async () => {
     if (!userData?.referralCode) return;
-    const shareText = `영어 한잔 50% 할인 코드: ${userData.referralCode}\nhttps://1cupenglish.com/payment?ref=${userData.referralCode}`;
+    const shareText = `영어 한잔 추천 코드: ${userData.referralCode}\nhttps://1cupenglish.com/payment?ref=${userData.referralCode}`;
     const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY;
 
     // Try Kakao share first if key exists
@@ -1215,7 +1215,7 @@ export default function ProfileClient() {
           Kakao.Share.sendDefault({
             objectType: "feed",
             content: {
-              title: "영어 한잔 50% 할인 코드",
+              title: "영어 한잔 추천 코드",
               description: `코드: ${userData.referralCode}`,
               imageUrl: "https://1cupenglish.com/images/logos/1cup_logo_new.svg",
               link: {
@@ -1762,7 +1762,7 @@ export default function ProfileClient() {
                   내 추천 코드: {userData.referralCode}
                 </div>
                 <div style={{ color: "#666", fontSize: "0.9rem" }}>
-                  친구가 결제 시 50% 할인 적용 (첫 결제 및 정기 결제에 적용)
+                  친구가 결제 시 혜택이 적용될 수 있습니다.
                 </div>
                 <Button onClick={handleShareReferral}>카카오톡으로 공유하기</Button>
               </div>
@@ -1775,7 +1775,7 @@ export default function ProfileClient() {
                 }}
               >
                 <div style={{ color: "#666", fontSize: "0.9rem" }}>
-                  아직 추천 코드가 없습니다. 생성하면 친구에게 50% 할인 코드를 공유할 수 있어요.
+                  아직 추천 코드가 없습니다. 생성하면 친구에게 추천 코드를 공유할 수 있어요.
                 </div>
                 <Button onClick={handleGenerateReferral} disabled={referralGenerating}>
                   {referralGenerating ? "생성 중..." : "추천 코드 생성하기"}
