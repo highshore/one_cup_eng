@@ -2012,7 +2012,7 @@ export const generateReferralCode = onCall(
     const codeDoc = db.collection("referral_codes").doc(newCode);
     await codeDoc.set({
       active: true,
-      discount: 50,
+      discount: 33,
       type: "percent",
       referrer: uid,
       createdAt: Timestamp.now(),
