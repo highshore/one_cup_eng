@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import PaymentClient from "./PaymentClient";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "영어 한잔 멤버십 | OneCup English",
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function PaymentPage() {
-  return <PaymentClient />;
+  return (
+    <Suspense fallback={null}>
+      <PaymentClient />
+    </Suspense>
+  );
 }

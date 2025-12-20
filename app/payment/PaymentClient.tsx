@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { styled } from "styled-components";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { auth, db, functions } from "../lib/firebase/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -113,7 +113,7 @@ const PricingCard = styled.div`
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(90deg, #ff6b35, #f7931e);
+    background: #990033;
   }
 
   @media (max-width: 768px) {
@@ -372,6 +372,98 @@ const Badge = styled.span`
   margin-bottom: 1rem;
 `;
 
+const ReferralSection = styled.div`
+  margin: 2rem 0;
+  padding-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+`;
+
+const ReferralLabel = styled.label`
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.75rem;
+`;
+
+const InputGroup = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+`;
+
+const Input = styled.input`
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s;
+
+  &:focus {
+    outline: none;
+    border-color: #000;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  }
+
+  &:disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+  }
+`;
+
+const VerifyButton = styled.button`
+  padding: 0 1.25rem;
+  background: #000;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #1f2937;
+  }
+
+  &:disabled {
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+`;
+
+const ClearButton = styled.button`
+  padding: 0 1.25rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+  }
+
+  &:disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+`;
+
+const ReferralMessage = styled.div<{ $valid?: boolean }>`
+  font-size: 0.875rem;
+  color: ${(props) => (props.$valid ? "#16a34a" : "#dc2626")};
+  margin-top: 0.5rem;
+  font-weight: 500;
+`;
+
 interface UserData {
   hasActiveSubscription?: boolean;
   subscriptionStartDate?: Date;
@@ -381,17 +473,29 @@ interface UserData {
 
 export default function PaymentClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
+  const BASE_PRICE = 9700;
+
   // --- NEW STATE ---
   const [selectMeetup, setSelectMeetup] = useState(true); // Default to selected
   const [totalAmount, setTotalAmount] = useState(0); // Will be calculated
-  const [selectedProductName] = useState("밋업 참여 티켓");
+  const [selectedProductName] = useState("영어 한잔 멤버십 (정기 결제)");
   // --- END NEW STATE ---
+
+  // --- REFERRAL STATE ---
+  const [referralCode, setReferralCode] = useState("");
+  const [referralMessage, setReferralMessage] = useState("");
+  const [isReferralValid, setIsReferralValid] = useState(false);
+  const [discountPrice, setDiscountPrice] = useState<number | null>(null);
+  const [isCheckingCode, setIsCheckingCode] = useState(false);
+  const [prefillChecked, setPrefillChecked] = useState(false);
+  // --- END REFERRAL STATE ---
 
   // Check authentication and fetch user data
   useEffect(() => {
@@ -411,10 +515,83 @@ export default function PaymentClient() {
 
   // Calculate total amount based on meetup selection
   useEffect(() => {
-    const meetupPrice = 4700;
+    let meetupPrice = BASE_PRICE;
+
+    if (isReferralValid && discountPrice !== null) {
+      meetupPrice = discountPrice;
+    }
+
     const amount = selectMeetup ? meetupPrice : 0;
     setTotalAmount(amount);
-  }, [selectMeetup]);
+  }, [selectMeetup, isReferralValid, discountPrice]);
+
+  const checkCode = async (codeOverride?: string) => {
+    const codeToUse = (codeOverride ?? referralCode).trim();
+    if (!codeToUse) return;
+    setIsCheckingCode(true);
+    setReferralMessage("");
+
+    try {
+      const checkReferralCodeFn = httpsCallable(functions, "checkReferralCode");
+      const result = await checkReferralCodeFn({ code: codeToUse });
+      const data = result.data as any;
+
+      if (data.valid) {
+        const discountValue = Number(data.discount ?? 0);
+        const discountType = data.discountType || "fixed_price";
+        let discounted = BASE_PRICE;
+        if (discountType === "percent") {
+          discounted = Math.max(
+            0,
+            Math.round(BASE_PRICE * (1 - discountValue / 100))
+          );
+        } else {
+          discounted = Math.max(0, Math.round(BASE_PRICE - discountValue));
+        }
+
+        setIsReferralValid(true);
+        setDiscountPrice(discounted);
+        setReferralMessage(data.message);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("referralCodePrefill", codeToUse);
+        }
+        if (!codeOverride) {
+          setReferralCode(codeToUse);
+        }
+      } else {
+        setIsReferralValid(false);
+        setDiscountPrice(null);
+        setReferralMessage(data.message);
+      }
+    } catch (e) {
+      console.error(e);
+      setReferralMessage("코드 확인 중 오류가 발생했습니다.");
+      setIsReferralValid(false);
+      setDiscountPrice(null);
+    } finally {
+      setIsCheckingCode(false);
+    }
+  };
+
+  // Prefill referral code from URL (?ref=CODE) and auto-validate once
+  useEffect(() => {
+    if (prefillChecked) return;
+    const urlRef = searchParams?.get("ref")?.trim();
+    const storedRef =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("referralCodePrefill")?.trim()
+        : null;
+
+    const refToUse = urlRef || storedRef;
+    if (refToUse) {
+      setReferralCode(refToUse);
+      checkCode(refToUse);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("referralCodePrefill", refToUse);
+      }
+      setPrefillChecked(true);
+    }
+  }, [searchParams, prefillChecked]);
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -445,6 +622,13 @@ export default function PaymentClient() {
     if (!currentUser) {
       // Store the current path for post-login redirect
       localStorage.setItem("returnUrl", "/payment");
+      // Persist referral code for after login
+      if (typeof window !== "undefined") {
+        const refToSave = referralCode?.trim() || searchParams?.get("ref")?.trim() || "";
+        if (refToSave) {
+          sessionStorage.setItem("referralCodePrefill", refToSave);
+        }
+      }
       // Redirect to auth page
       router.push("/auth");
       return;
@@ -479,6 +663,7 @@ export default function PaymentClient() {
         selected_categories: {
           meetup: selectMeetup,
         },
+        referralCode: isReferralValid ? referralCode.trim() : undefined,
       };
       // --- END UPDATE ---
 
@@ -582,6 +767,7 @@ export default function PaymentClient() {
   }
 
   return (
+    <Suspense fallback={<MainCard><div style={{padding:"2rem", textAlign:"center"}}><LoadingSpinner /></div></MainCard>}>
     <MainCard>
       {userData?.hasActiveSubscription ? (
         <AlreadySubscribedCard>
@@ -604,7 +790,7 @@ export default function PaymentClient() {
             <PricingHeader>
               <PricingTitle>Monthly Membership</PricingTitle>
               <PricingAmount>
-                4,700
+                9,700
                 <PricingPeriod> 원 / 1개월</PricingPeriod>
               </PricingAmount>
             </PricingHeader>
@@ -614,9 +800,60 @@ export default function PaymentClient() {
               <FeatureItem>
                 통번역사 출신 및 다양한 백그라운드를 가진 멤버들과 실전 대화
               </FeatureItem>
-              <FeatureItem>소규모 그룹 (5명 이하) 집중 학습</FeatureItem>
-              <FeatureItem>매주 최신 영어 아티클 제공</FeatureItem>
+              <FeatureItem>소규모 그룹 (5명 이하) 집중 토론</FeatureItem>
+              <FeatureItem>
+                미국 기업 임원들이 즐겨보는 기사로 학습 및 스피킹
+              </FeatureItem>
             </FeaturesList>
+
+            <ReferralSection>
+              <ReferralLabel>지인 추천 코드 (선택)</ReferralLabel>
+              <InputGroup>
+                <Input
+                  placeholder="추천 코드를 입력하세요"
+                  value={referralCode}
+                  onChange={(e) => {
+                    setReferralCode(e.target.value);
+                    if (isReferralValid) {
+                      setIsReferralValid(false);
+                      setDiscountPrice(null);
+                      setReferralMessage("");
+                    }
+                  }}
+                />
+                <VerifyButton
+                  onClick={() => checkCode()}
+                  disabled={
+                    !referralCode.trim() || isCheckingCode
+                  }
+                >
+                  {isCheckingCode
+                    ? "확인 중..."
+                    : isReferralValid
+                    ? "적용됨"
+                    : "확인"}
+                </VerifyButton>
+                <ClearButton
+                  onClick={() => {
+                    setReferralCode("");
+                    setIsReferralValid(false);
+                    setDiscountPrice(null);
+                    setReferralMessage("");
+                    if (typeof window !== "undefined") {
+                      sessionStorage.removeItem("referralCodePrefill");
+                    }
+                  }}
+                  disabled={!referralCode && !isReferralValid}
+                >
+                  해제
+                </ClearButton>
+              </InputGroup>
+              {referralMessage && (
+                <ReferralMessage $valid={isReferralValid}>
+                  {referralMessage}
+                </ReferralMessage>
+              )}
+            </ReferralSection>
 
             <ActionButton
               onClick={handlePaymentClick}
@@ -625,7 +862,20 @@ export default function PaymentClient() {
               {isProcessing ? (
                 <LoadingSpinner />
               ) : (
-                `월 ${totalAmount.toLocaleString()}원으로 시작하기`
+                isReferralValid &&
+                discountPrice !== null &&
+                discountPrice < BASE_PRICE ? (
+                  <>
+                    월 {totalAmount.toLocaleString()}원으로 시작하기{" "}
+                    <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>
+                      (
+                      {(BASE_PRICE - discountPrice).toLocaleString()}
+                      원 할인 적용)
+                    </span>
+                  </>
+                ) : (
+                  `월 ${totalAmount.toLocaleString()}원으로 시작하기`
+                )
               )}
             </ActionButton>
           </PricingCard>
@@ -672,5 +922,6 @@ export default function PaymentClient() {
         </>
       )}
     </MainCard>
+    </Suspense>
   );
 }

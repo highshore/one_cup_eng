@@ -183,6 +183,7 @@ interface PaymentWindowData {
   pcd_amount: number;
   pcd_good_name: string;
   selected_categories: string[];
+  referralCode?: string;
 }
 
 // Function to get payment window parameters
@@ -217,6 +218,7 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         pcd_amount,
         pcd_good_name,
         selected_categories,
+        referralCode,
       } = request.data || {};
 
       // Log each field individually for debugging
@@ -361,6 +363,49 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         );
       }
 
+      // Check referral code if provided (validate only; amount comes from frontend-calculated price)
+      let finalAmount = pcd_amount;
+      let appliedReferralCode = null;
+
+      if (referralCode) {
+        try {
+          const refDoc = await admin
+            .firestore()
+            .collection("referral_codes")
+            .doc(referralCode)
+            .get();
+          if (refDoc.exists) {
+            const refData = refDoc.data() as {
+              discount?: number;
+              type?: string;
+              active?: boolean;
+              referrer?: string;
+            };
+            if (refData && refData.active) {
+              // Block self-referral
+              if (refData.referrer && refData.referrer === request.auth.uid) {
+                logger.warn(
+                  `Self-referral detected for user ${request.auth.uid}. Ignoring referral code ${referralCode}.`
+                );
+              } else {
+                appliedReferralCode = referralCode;
+                logger.info(
+                  `Referral code ${referralCode} validated. Using client-calculated amount: ${finalAmount}`
+                );
+              }
+            } else {
+              logger.warn(
+                `Referral code ${referralCode} exists but is inactive.`
+              );
+            }
+          } else {
+            logger.warn(`Referral code ${referralCode} not found.`);
+          }
+        } catch (e) {
+          logger.error("Error checking referral code", e);
+        }
+      }
+
       // No need for auth token here, we're just opening the card registration window
 
       const orderDate = new Date();
@@ -381,7 +426,7 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
 
         // Required parameters
         PCD_PAY_GOODS: pcd_good_name || "영어 한잔 멤버십",
-        PCD_PAY_TOTAL: pcd_amount,
+        PCD_PAY_TOTAL: finalAmount,
 
         // Billing-specific parameters
         PCD_REGULER_FLAG: "Y",
@@ -421,7 +466,8 @@ export const getPaymentWindow = onCall<PaymentWindowData>(
         .set({
           userId: request.auth.uid,
           orderNumber,
-          amount: pcd_amount, // Use amount from frontend
+          amount: finalAmount, // Use amount from frontend
+          referralCode: appliedReferralCode, // Store referral code if used
           orderDate: Timestamp.fromDate(orderDate),
           status: "pending_auth", // Indicate waiting for Payple auth/callback
           type: "subscription_init",
@@ -569,7 +615,8 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
       // --- Fetch the original order to get dynamic amount and categories ---
       let originalAmount = SUBSCRIPTION_PRICE; // Default fallback
       let selectedCategories: { [key: string]: boolean } = {};
-      let productName = "One Cup English 멤버십 (정기결제)"; // Default fallback
+      let productName = "영어 한잔 멤버십 (정기결제)"; // Default fallback
+      let referrerUid: string | null = null;
 
       if (paymentOrderId) {
         try {
@@ -600,19 +647,28 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
               selectedCategories = orderData.selectedCategories;
               // Construct product name from categories
               let nameParts: string[] = [];
-              if (selectedCategories.tech) nameParts.push("Tech");
-              if (selectedCategories.business) nameParts.push("Business");
-              if (selectedCategories.meetup) nameParts.push("Meetup");
+              if (selectedCategories.tech) nameParts.push("테크");
+              if (selectedCategories.business) nameParts.push("비즈니스");
+              if (selectedCategories.meetup) nameParts.push("밋업");
               if (nameParts.length > 0) {
-                productName = `One Cup English (${nameParts.join(
-                  " + "
-                )}) 멤버십`;
+                productName = `영어 한잔 멤버십 (${nameParts.join(" + ")})`;
               }
               logger.info(`Constructed product name: ${productName}`);
             } else {
               logger.warn(
                 `Original order ${paymentOrderId} missing selectedCategories.`
               );
+            }
+            if (orderData?.referralCode) {
+              // Lookup referrer UID from referral_codes collection
+              const refDoc = await admin
+                .firestore()
+                .collection("referral_codes")
+                .doc(orderData.referralCode)
+                .get();
+              if (refDoc.exists && refDoc.data()?.referrer) {
+                referrerUid = refDoc.data()!.referrer as string;
+              }
             }
           }
         } catch (fetchError) {
@@ -744,10 +800,42 @@ export const verifyPaymentResult = onCall<VerifyPaymentData>(
               billingKey: billingKey, // Store/confirm the billing key
               paymentMethod: "card", // Store/confirm payment method
               billingUpdatedAt: Timestamp.now(), // Timestamp for this billing key update
+              plan_price: originalAmount, // Store the price so recurring payments use this amount
               cat_tech: selectedCategories.tech ?? false, // Set based on fetched categories
               cat_business: selectedCategories.business ?? false, // Set based on fetched categories
               // meetup status can also be stored if needed: cat_meetup: selectedCategories.meetup ?? false
             });
+
+          // If this payment used a referral code, reward the referrer with a 4,700 KRW plan_price
+          if (referrerUid) {
+            try {
+              const refUserRef = admin.firestore().doc(`users/${referrerUid}`);
+              const refUserSnap = await refUserRef.get();
+              if (refUserSnap.exists) {
+                const refData = refUserSnap.data() || {};
+                const currentPlanPrice = Number(refData.plan_price || 0);
+                const TARGET_PRICE = 4700;
+                if (!currentPlanPrice || currentPlanPrice > TARGET_PRICE) {
+                  await refUserRef.update({
+                    plan_price: TARGET_PRICE,
+                    billingUpdatedAt: Timestamp.now(),
+                  });
+                  logger.info(
+                    `Applied referral reward to referrer ${referrerUid} (plan_price set to ${TARGET_PRICE})`
+                  );
+                } else {
+                  logger.info(
+                    `Referrer ${referrerUid} already at plan_price ${currentPlanPrice}, no change.`
+                  );
+                }
+              }
+            } catch (refRewardError) {
+              logger.error(
+                `Failed to apply referral reward to referrer ${referrerUid}:`,
+                refRewardError
+              );
+            }
+          }
 
           logger.info("User subscription activated:", { userId });
 
@@ -1835,5 +1923,109 @@ export const stopNextBilling = onCall<StopNextBillingData>(
         error.message || "결제 중단 중 서버 오류가 발생했습니다."
       );
     }
+  }
+);
+
+// Function to check referral code validity
+export const checkReferralCode = onCall<{ code: string }>(
+  {
+    ...onCallFunctionConfig,
+  },
+  async (request) => {
+    const { code } = request.data;
+    if (!code) {
+      return { valid: false, message: "코드를 입력해주세요." };
+    }
+
+    try {
+      const doc = await admin
+        .firestore()
+        .collection("referral_codes")
+        .doc(code)
+        .get();
+
+      if (!doc.exists) {
+        return { valid: false, message: "유효하지 않은 코드입니다." };
+      }
+
+      const data = doc.data();
+      if (!data?.active) {
+        return { valid: false, message: "만료된 코드입니다." };
+      }
+
+      return {
+        valid: true,
+        discount: data.discount,
+        discountType: data.type || "fixed_price",
+        message: "할인 코드가 적용되었습니다.",
+        originalPrice: 9700,
+      };
+    } catch (error) {
+      logger.error("Error checking referral code:", error);
+      throw new HttpsError("internal", "코드 확인 중 오류가 발생했습니다.");
+    }
+  }
+);
+
+// Generate a unique referral code for the current user
+export const generateReferralCode = onCall(
+  {
+    ...onCallFunctionConfig,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Authentication required");
+    }
+    const uid = request.auth.uid;
+    const db = admin.firestore();
+
+    // If user already has a code, return it
+    const userRef = db.doc(`users/${uid}`);
+    const userSnap = await userRef.get();
+    if (userSnap.exists && userSnap.data()?.referralCode) {
+      return { referralCode: userSnap.data()?.referralCode };
+    }
+
+    const generateCode = () => {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let code = "";
+      for (let i = 0; i < 6; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return code;
+    };
+
+    let newCode = "";
+    for (let i = 0; i < 10; i++) {
+      const candidate = generateCode();
+      const existing = await db.collection("referral_codes").doc(candidate).get();
+      if (!existing.exists) {
+        newCode = candidate;
+        break;
+      }
+    }
+
+    if (!newCode) {
+      throw new HttpsError("internal", "Failed to generate unique referral code");
+    }
+
+    const codeDoc = db.collection("referral_codes").doc(newCode);
+    await codeDoc.set({
+      active: true,
+      discount: 50,
+      type: "percent",
+      referrer: uid,
+      createdAt: Timestamp.now(),
+    });
+
+    await userRef.set(
+      {
+        referralCode: newCode,
+        referralGeneratedAt: Timestamp.now(),
+      },
+      { merge: true }
+    );
+
+    return { referralCode: newCode };
   }
 );

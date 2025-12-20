@@ -563,9 +563,28 @@ interface UserData {
   billingCancelled?: boolean;
   account_status?: string;
   gdg_member?: boolean;
+  referralCode?: string;
+  referralGeneratedAt?: Date;
 }
 
 const defaultUserImage = "/images/default_user.jpg"; // Using public folder
+
+// Kakao SDK loader
+const loadKakaoSdk = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") return reject();
+    if ((window as any).Kakao) {
+      resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://developers.kakao.com/sdk/js/kakao.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+};
 
 // Survey options
 const cancellationReasons = [
@@ -821,6 +840,8 @@ export default function ProfileClient() {
     status: "unknown",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [referralGenerating, setReferralGenerating] = useState(false);
+  const [kakaoReady, setKakaoReady] = useState(false);
 
   // Speaking Reports state
   const [userReports, setUserReports] = useState<
@@ -880,6 +901,10 @@ export default function ProfileClient() {
             billingCancelled: data.billingCancelled || false,
             account_status: data.account_status,
             gdg_member: data.gdg_member || false,
+            referralCode: data.referralCode,
+            referralGeneratedAt: data.referralGeneratedAt?.toDate
+              ? data.referralGeneratedAt.toDate()
+              : undefined,
           };
 
           setUserData(userDataObj);
@@ -1144,6 +1169,84 @@ export default function ProfileClient() {
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       saveDisplayName();
+    }
+  };
+
+  const handleGenerateReferral = async () => {
+    if (!user) return;
+    try {
+      setReferralGenerating(true);
+      const generateReferralCodeFn = httpsCallable(functions, "generateReferralCode");
+      const result = await generateReferralCodeFn({});
+      const code = (result.data as any)?.referralCode;
+      if (code) {
+        setUserData((prev) =>
+          prev ? { ...prev, referralCode: code, referralGeneratedAt: new Date() } : prev
+        );
+        setSuccessMessage("추천 코드가 생성되었습니다.");
+      } else {
+        setError("추천 코드를 생성하지 못했습니다. 다시 시도해주세요.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("추천 코드 생성 중 오류가 발생했습니다.");
+    } finally {
+      setReferralGenerating(false);
+    }
+  };
+
+  const handleShareReferral = async () => {
+    if (!userData?.referralCode) return;
+    const shareText = `영어 한잔 50% 할인 코드: ${userData.referralCode}\nhttps://1cupenglish.com/payment?ref=${userData.referralCode}`;
+    const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY;
+
+    // Try Kakao share first if key exists
+    if (kakaoKey) {
+      try {
+        if (!kakaoReady) {
+          await loadKakaoSdk();
+          if (!(window as any).Kakao?.isInitialized?.()) {
+            (window as any).Kakao?.init?.(kakaoKey);
+          }
+          setKakaoReady(true);
+        }
+        const Kakao = (window as any).Kakao;
+        if (Kakao && Kakao.Share && Kakao.Share.sendDefault) {
+          Kakao.Share.sendDefault({
+            objectType: "feed",
+            content: {
+              title: "영어 한잔 50% 할인 코드",
+              description: `코드: ${userData.referralCode}`,
+              imageUrl: "https://1cupenglish.com/images/logos/1cup_logo_new.svg",
+              link: {
+                mobileWebUrl: `https://1cupenglish.com/payment?ref=${userData.referralCode}`,
+                webUrl: `https://1cupenglish.com/payment?ref=${userData.referralCode}`,
+              },
+            },
+            buttons: [
+              {
+                title: "바로 사용하기",
+                link: {
+                  mobileWebUrl: `https://1cupenglish.com/payment?ref=${userData.referralCode}`,
+                  webUrl: `https://1cupenglish.com/payment?ref=${userData.referralCode}`,
+                },
+              },
+            ],
+          });
+          setSuccessMessage("카카오톡 공유를 시도했습니다.");
+          return;
+        }
+      } catch (e) {
+        console.error("Kakao share failed, falling back to copy", e);
+      }
+    }
+
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setSuccessMessage("추천 코드가 복사되었습니다. 카카오톡에 붙여넣어 공유해주세요.");
+    } catch (e) {
+      setError("클립보드 복사에 실패했습니다. 직접 복사하여 공유해주세요.");
     }
   };
 
@@ -1639,6 +1742,45 @@ export default function ProfileClient() {
                   </ReportItem>
                 ))}
               </ReportsList>
+            )}
+          </SectionContent>
+        </TransparentCard>
+
+        {/* Referral Code Section */}
+        <TransparentCard>
+          <SectionTitle>추천 코드</SectionTitle>
+          <SectionContent>
+            {userData?.referralCode ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: "1rem" }}>
+                  내 추천 코드: {userData.referralCode}
+                </div>
+                <div style={{ color: "#666", fontSize: "0.9rem" }}>
+                  친구가 결제 시 50% 할인 적용 (첫 결제 및 정기 결제에 적용)
+                </div>
+                <Button onClick={handleShareReferral}>카카오톡으로 공유하기</Button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                <div style={{ color: "#666", fontSize: "0.9rem" }}>
+                  아직 추천 코드가 없습니다. 생성하면 친구에게 50% 할인 코드를 공유할 수 있어요.
+                </div>
+                <Button onClick={handleGenerateReferral} disabled={referralGenerating}>
+                  {referralGenerating ? "생성 중..." : "추천 코드 생성하기"}
+                </Button>
+              </div>
             )}
           </SectionContent>
         </TransparentCard>

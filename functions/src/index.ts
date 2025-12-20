@@ -26,7 +26,11 @@ import {
   processRecurringPayments,
   logCredentials, // <<< Make sure this export line exists
   paymentCallback,
+  checkReferralCode,
 } from "./payment";
+
+// Register callable generator explicitly (avoid unused import warnings)
+export { generateReferralCode } from "./payment";
 
 // Export Kakao Auth Processor function
 import { processKakaoUser } from "./processKakaoUser";
@@ -146,6 +150,7 @@ export {
   processRecurringPayments,
   logCredentials, // <<< Make sure this export line exists
   paymentCallback,
+  checkReferralCode,
   processKakaoUser,
 };
 
