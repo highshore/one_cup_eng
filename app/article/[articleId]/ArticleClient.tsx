@@ -15,6 +15,20 @@ import { db } from "../../lib/firebase/firebase";
 import styled from "styled-components";
 import { useAuth } from "../../lib/contexts/auth_context";
 import React from "react";
+import {
+  ArrowUpTrayIcon,
+  CheckIcon,
+  DocumentTextIcon,
+  PencilSquareIcon,
+  PhotoIcon,
+  PlusIcon,
+  TrashIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import {
+  uploadArticleImage,
+  validateArticleImageFiles,
+} from "../../lib/features/article/services/article_image_service";
 
 // Import modular components
 import AudioPlayer from "./components/AudioPlayer";
@@ -1642,6 +1656,254 @@ const AddTopicButton = styled.button`
   }
 `;
 
+const SectionHeaderRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 2rem;
+  margin-bottom: 0.6rem;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+`;
+
+const AdminActionGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+`;
+
+const AdminActionButton = styled.button<{ variant?: "primary" | "ghost" }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: ${(props) =>
+    props.variant === "ghost" ? `1px solid ${colors.primary}` : "none"};
+  background: ${(props) =>
+    props.variant === "ghost" ? "transparent" : colors.primary};
+  color: ${(props) =>
+    props.variant === "ghost" ? colors.primaryDark : "white"};
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: ${(props) =>
+      props.variant === "ghost" ? colors.primaryPale : colors.primaryLight};
+    color: ${(props) =>
+      props.variant === "ghost" ? colors.primary : "white"};
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const AdminEditCard = styled.div`
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 16px;
+  padding: 1.2rem;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+`;
+
+const AdminEditTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: ${colors.text.dark};
+  margin-bottom: 0.9rem;
+`;
+
+const AdminFieldLabel = styled.label`
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: ${colors.text.medium};
+  margin-bottom: 0.4rem;
+`;
+
+const AdminInput = styled.input`
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid ${colors.primaryPale};
+  padding: 0.55rem 0.75rem;
+  font-size: 0.95rem;
+  color: ${colors.text.dark};
+  background: ${colors.primaryBg};
+  transition: border 0.2s ease;
+  margin-bottom: 1rem;
+
+  &:focus {
+    outline: none;
+    border-color: ${colors.accent};
+    box-shadow: 0 0 0 2px rgba(52, 120, 246, 0.15);
+  }
+`;
+
+const AdminTextArea = styled.textarea`
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid ${colors.primaryPale};
+  padding: 0.75rem 0.85rem;
+  font-size: 0.95rem;
+  color: ${colors.text.dark};
+  background: ${colors.primaryBg};
+  transition: border 0.2s ease;
+  min-height: 120px;
+  resize: vertical;
+  margin-bottom: 0.8rem;
+  line-height: 1.5;
+
+  &:focus {
+    outline: none;
+    border-color: ${colors.accent};
+    box-shadow: 0 0 0 2px rgba(52, 120, 246, 0.1);
+  }
+`;
+
+const ParagraphEditorWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const ParagraphEditorCard = styled.div`
+  border: 1px solid ${colors.primaryPale};
+  border-radius: 16px;
+  padding: 1rem;
+  background: white;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+`;
+
+const ParagraphEditorHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+`;
+
+const ParagraphBadge = styled.span`
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${colors.primaryDark};
+  background: ${colors.primaryPale};
+  border-radius: 999px;
+  padding: 0.2rem 0.8rem;
+`;
+
+const IconCircleButton = styled.button`
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid ${colors.primaryPale};
+  background: white;
+  color: ${colors.text.medium};
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${colors.primaryPale};
+    color: ${colors.primary};
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const AddParagraphButton = styled.button`
+  width: 100%;
+  border-radius: 14px;
+  border: 1px dashed ${colors.primary};
+  padding: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: ${colors.primaryBg};
+  color: ${colors.primary};
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${colors.primaryPale};
+  }
+`;
+
+const MediaPreview = styled.div`
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid ${colors.primaryPale};
+  background: ${colors.primaryBg};
+  margin-bottom: 1rem;
+`;
+
+const MediaPreviewImage = styled.img`
+  width: 100%;
+  display: block;
+  object-fit: cover;
+`;
+
+const EditorHint = styled.p`
+  font-size: 0.85rem;
+  color: ${colors.text.light};
+  margin-bottom: 0.8rem;
+`;
+
+const EmptyMediaState = styled.div`
+  border: 1px dashed ${colors.primaryPale};
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  color: ${colors.text.light};
+  font-size: 0.9rem;
+`;
+
+const FileUploadRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+`;
+
+const HiddenFileInput = styled.input`
+  display: none;
+`;
+
+const UploadStatus = styled.div<{ variant?: "error" | "success" }>`
+  font-size: 0.85rem;
+  color: ${(props) =>
+    props.variant === "error" ? "#ff5c5c" : colors.primaryDark};
+  background: ${(props) =>
+    props.variant === "error" ? "#ffecec" : colors.primaryPale};
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.8rem;
+`;
+
 const Article = () => {
   const params = useParams();
   const articleId = params.articleId as string;
@@ -1652,6 +1914,7 @@ const Article = () => {
   }
 
   const { currentUser, accountStatus } = useAuth(); // Get the current user and account status from auth context
+  const isAdmin = accountStatus === "admin";
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1669,6 +1932,7 @@ const Article = () => {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isQuickReading, setIsQuickReading] = useState(false);
   const [wordDetails, setWordDetails] = useState<Record<string, WordData>>({});
   const [wordLoading, setWordLoading] = useState<Record<string, boolean>>({});
@@ -1680,6 +1944,18 @@ const Article = () => {
   const [editedTopics, setEditedTopics] = useState<string[]>([]);
   const [newTopic, setNewTopic] = useState("");
   const [isSavingTopics, setIsSavingTopics] = useState(false);
+
+  const [isEditingMedia, setIsEditingMedia] = useState(false);
+  const [editedImageUrl, setEditedImageUrl] = useState("");
+  const [isSavingMedia, setIsSavingMedia] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadStatus, setImageUploadStatus] = useState<string | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+
+  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [editedEnglishContent, setEditedEnglishContent] = useState<string[]>([]);
+  const [editedKoreanContent, setEditedKoreanContent] = useState<string[]>([]);
+  const [isSavingContent, setIsSavingContent] = useState(false);
 
   // Translation warning state
   const [translationClickCount, setTranslationClickCount] = useState(0);
@@ -3147,6 +3423,205 @@ const Article = () => {
     }
   };
 
+  const handleImageUploadClick = () => {
+    if (isUploadingImage) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleImageFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setImageUploadError(null);
+    setImageUploadStatus(null);
+
+    const { valid, errors } = validateArticleImageFiles(files);
+    if (errors.length > 0) {
+      setImageUploadError(errors.join("\n"));
+      event.target.value = "";
+      return;
+    }
+
+    const file = valid[0];
+
+    try {
+      setIsUploadingImage(true);
+      const downloadURL = await uploadArticleImage(file);
+      setEditedImageUrl(downloadURL);
+      setImageUploadStatus("업로드가 완료되었습니다. 미리보기로 확인해주세요.");
+    } catch (uploadError) {
+      console.error("Error uploading article image:", uploadError);
+      setImageUploadError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "이미지 업로드 중 오류가 발생했습니다."
+      );
+    } finally {
+      setIsUploadingImage(false);
+      event.target.value = "";
+    }
+  };
+
+  const startEditingMedia = () => {
+    if (!isAdmin) return;
+    setEditedImageUrl(article?.image_url || "");
+    setIsEditingMedia(true);
+    setImageUploadError(null);
+    setImageUploadStatus(null);
+  };
+
+  const cancelEditingMedia = () => {
+    setIsEditingMedia(false);
+    setEditedImageUrl("");
+    setImageUploadError(null);
+    setImageUploadStatus(null);
+  };
+
+  const saveMediaChanges = async () => {
+    if (!articleId || !isAdmin) return;
+
+    const trimmedUrl = editedImageUrl.trim();
+    if (!trimmedUrl) {
+      alert("이미지 URL을 입력해주세요.");
+      return;
+    }
+
+    setIsSavingMedia(true);
+    try {
+      const articleRef = doc(db, "articles", articleId);
+      await updateDoc(articleRef, {
+        image_url: trimmedUrl,
+      });
+
+      setArticle((prev) =>
+        prev
+          ? {
+              ...prev,
+              image_url: trimmedUrl,
+            }
+          : prev
+      );
+
+      setIsEditingMedia(false);
+      setEditedImageUrl("");
+      setImageUploadStatus(null);
+    } catch (error) {
+      console.error("Error saving media:", error);
+      alert("이미지 정보를 저장하는 중 문제가 발생했습니다.");
+    } finally {
+      setIsSavingMedia(false);
+    }
+  };
+
+  const startEditingContent = () => {
+    if (!isAdmin) return;
+    const english = [...(article?.content?.english || [])];
+    const korean = [...(article?.content?.korean || [])];
+    const maxLength = Math.max(english.length, korean.length);
+    const length = maxLength > 0 ? maxLength : 1;
+
+    const normalizedEnglish = Array.from({ length }, (_, index) => english[index] || "");
+    const normalizedKorean = Array.from({ length }, (_, index) => korean[index] || "");
+
+    setEditedEnglishContent(normalizedEnglish);
+    setEditedKoreanContent(normalizedKorean);
+    setIsEditingContent(true);
+  };
+
+  const cancelEditingContent = () => {
+    setIsEditingContent(false);
+    setEditedEnglishContent([]);
+    setEditedKoreanContent([]);
+  };
+
+  const updateContentParagraph = (
+    language: "english" | "korean",
+    index: number,
+    value: string
+  ) => {
+    if (language === "english") {
+      setEditedEnglishContent((prev) => {
+        const next = [...prev];
+        next[index] = value;
+        return next;
+      });
+    } else {
+      setEditedKoreanContent((prev) => {
+        const next = [...prev];
+        next[index] = value;
+        return next;
+      });
+    }
+  };
+
+  const addContentParagraph = () => {
+    setEditedEnglishContent((prev) => [...prev, ""]);
+    setEditedKoreanContent((prev) => [...prev, ""]);
+  };
+
+  const removeContentParagraph = (index: number) => {
+    if (editedEnglishContent.length <= 1) return;
+
+    setEditedEnglishContent((prev) => prev.filter((_, idx) => idx !== index));
+    setEditedKoreanContent((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const saveContentChanges = async () => {
+    if (!articleId || !isAdmin) return;
+
+    const combined = editedEnglishContent.map((englishParagraph, index) => ({
+      english: englishParagraph.trim(),
+      korean: (editedKoreanContent[index] || "").trim(),
+    }));
+
+    const filtered = combined.filter(
+      (paragraph) => paragraph.english.length > 0 || paragraph.korean.length > 0
+    );
+
+    if (filtered.length === 0) {
+      alert("최소 한 개의 단락을 입력해주세요.");
+      return;
+    }
+
+    const englishContent = filtered.map((paragraph) => paragraph.english);
+    const koreanContent = filtered.map((paragraph) => paragraph.korean);
+
+    setIsSavingContent(true);
+    try {
+      const articleRef = doc(db, "articles", articleId);
+      await updateDoc(articleRef, {
+        content: {
+          english: englishContent,
+          korean: koreanContent,
+        },
+      });
+
+      setArticle((prev) =>
+        prev
+          ? {
+              ...prev,
+              content: {
+                english: englishContent,
+                korean: koreanContent,
+              },
+            }
+          : prev
+      );
+
+      setIsEditingContent(false);
+      setEditedEnglishContent([]);
+      setEditedKoreanContent([]);
+      setVisibleKoreanParagraphs([]);
+    } catch (error) {
+      console.error("Error saving article content:", error);
+      alert("본문을 저장하는 중 문제가 발생했습니다.");
+    } finally {
+      setIsSavingContent(false);
+    }
+  };
+
   if (loading) return <LoadingContainer>Loading article...</LoadingContainer>;
   if (error) return <ErrorContainer>Error: {error}</ErrorContainer>;
   if (!article) return <ErrorContainer>No article found</ErrorContainer>;
@@ -3195,43 +3670,128 @@ const Article = () => {
           )}
         </InfoContainer>
 
-        {/* Display YouTube video if URL is YouTube, otherwise show image if available */}
-        {(() => {
-          console.log("Article URL:", article.url);
-          console.log("Article image_url:", article.image_url);
-          console.log("Is YouTube URL:", isYouTubeUrl(article.url));
+        <SectionHeaderRow>
+          <SectionTitle style={{ marginBottom: 0 }}>Article Visual</SectionTitle>
+          {isAdmin && !isEditingMedia && (
+            <AdminActionButton type="button" onClick={startEditingMedia}>
+              <PencilSquareIcon width={18} height={18} />
+              이미지 편집
+            </AdminActionButton>
+          )}
+        </SectionHeaderRow>
 
-          // Check if the main URL is a YouTube video
-          if (isYouTubeUrl(article.url)) {
-            return (
-              <YouTubeIframe
-                src={getYouTubeEmbedUrl(article.url) || ""}
-                title={article.title.english}
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        {isEditingMedia ? (
+          <AdminEditCard>
+            <AdminEditTitle>
+              <PhotoIcon width={20} height={20} />
+              대표 이미지 URL
+            </AdminEditTitle>
+            <EditorHint>
+              새로운 이미지를 입력하면 저장 즉시 모든 사용자 화면에 반영됩니다.
+              안정적인 CDN 또는 Cloud Storage 경로를 권장합니다.
+            </EditorHint>
+            <FileUploadRow>
+              <AdminActionButton
+                type="button"
+                onClick={handleImageUploadClick}
+                disabled={isUploadingImage}
+              >
+                <ArrowUpTrayIcon width={18} height={18} />
+                {isUploadingImage ? "업로드 중..." : "내 컴퓨터에서 업로드"}
+              </AdminActionButton>
+              <HiddenFileInput
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleImageFileChange}
               />
-            );
-          }
-
-          // Otherwise, show image if available
-          if (article.image_url) {
-            return (
-              <>
-                <ArticleImage
-                  src={article.image_url}
-                  alt={article.title.english}
+            </FileUploadRow>
+            {imageUploadStatus && (
+              <UploadStatus>{imageUploadStatus}</UploadStatus>
+            )}
+            {imageUploadError && (
+              <UploadStatus variant="error">{imageUploadError}</UploadStatus>
+            )}
+            <AdminFieldLabel htmlFor="articleImageUrl">
+              이미지 URL
+            </AdminFieldLabel>
+            <AdminInput
+              id="articleImageUrl"
+              type="url"
+              placeholder="https://"
+              value={editedImageUrl}
+              onChange={(e) => setEditedImageUrl(e.target.value)}
+            />
+            {editedImageUrl && (
+              <MediaPreview>
+                <MediaPreviewImage
+                  src={editedImageUrl}
+                  alt="선택한 기사 이미지 미리보기"
                   loading="lazy"
                 />
-                <ImageCaption>
-                  이 이미지는 기사 이해를 돕기 위한 이미지로, AI에 의해
-                  생성되었으며 실제와 다를 수 있습니다.
-                </ImageCaption>
-              </>
-            );
-          }
+              </MediaPreview>
+            )}
+            <AdminActionGroup>
+              <AdminActionButton
+                type="button"
+                onClick={saveMediaChanges}
+                disabled={isSavingMedia}
+              >
+                <CheckIcon width={18} height={18} />
+                {isSavingMedia ? "저장 중..." : "변경 사항 저장"}
+              </AdminActionButton>
+              <AdminActionButton
+                type="button"
+                variant="ghost"
+                onClick={cancelEditingMedia}
+                disabled={isSavingMedia}
+              >
+                <XMarkIcon width={18} height={18} />
+                취소
+              </AdminActionButton>
+            </AdminActionGroup>
+          </AdminEditCard>
+        ) : (
+          (() => {
+            console.log("Article URL:", article.url);
+            console.log("Article image_url:", article.image_url);
+            console.log("Is YouTube URL:", isYouTubeUrl(article.url));
 
-          return null;
-        })()}
+            if (isYouTubeUrl(article.url)) {
+              return (
+                <YouTubeIframe
+                  src={getYouTubeEmbedUrl(article.url) || ""}
+                  title={article.title.english}
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              );
+            }
+
+            if (article.image_url) {
+              return (
+                <>
+                  <ArticleImage
+                    src={article.image_url}
+                    alt={article.title.english}
+                    loading="lazy"
+                  />
+                  <ImageCaption>
+                    이 이미지는 기사 이해를 돕기 위한 이미지로, AI에 의해
+                    생성되었으며 실제와 다를 수 있습니다.
+                  </ImageCaption>
+                </>
+              );
+            }
+
+            return (
+              <EmptyMediaState>
+                등록된 이미지가 없습니다. 상단의 편집 버튼을 눌러 이미지를
+                추가해 보세요.
+              </EmptyMediaState>
+            );
+          })()
+        )}
 
         {/* Discussion Topics */}
         {(article.discussion_topics && article.discussion_topics.length > 0) ||
@@ -3343,53 +3903,131 @@ const Article = () => {
           </DiscussionTopicsSection>
         ) : null}
 
-        <CalloutBox>
-          {isAudioMode
-            ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 하이라이트가 해당 위치로 이동합니다."
-            : "단어를 길게 누르면 뜻풀이 창이 열립니다. 짧게 누르거나 드래그하면 자유롭게 텍스트를 선택하고 복사할 수 있습니다."}
-        </CalloutBox>
+        <SectionHeaderRow>
+          <SectionTitle style={{ marginBottom: 0 }}>Article Content</SectionTitle>
+          {isAdmin && !isEditingContent && (
+            <AdminActionButton type="button" onClick={startEditingContent}>
+              <DocumentTextIcon width={18} height={18} />
+              본문 편집
+            </AdminActionButton>
+          )}
+        </SectionHeaderRow>
 
-        {content.english?.length > 0 && (
+        {!isEditingContent && (
+          <CalloutBox>
+            {isAudioMode
+              ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 하이라이트가 해당 위치로 이동합니다."
+              : "단어를 길게 누르면 뜻풀이 창이 열립니다. 짧게 누르거나 드래그하면 자유롭게 텍스트를 선택하고 복사할 수 있습니다."}
+          </CalloutBox>
+        )}
+
+        {(isEditingContent || content.english?.length > 0) && (
           <ContentSection>
-            {content.english.map((paragraph, index) => (
-              <ParagraphContainer key={index}>
-                <Paragraph
-                  className="article-text"
-                  data-original-text={paragraph}
-                  onClick={handleWordClick}
-                  onMouseDown={onMouseDownPress}
-                  onMouseMove={onMouseMovePress}
-                  onMouseUp={onMouseUpPress}
-                  onMouseLeave={onMouseLeavePress}
-                  onTouchStart={onTouchStartPress}
-                  onTouchMove={onTouchMovePress}
-                  onTouchEnd={onTouchEndPress}
-                >
-                  {isAudioMode
-                    ? prepareParagraphText(paragraph, index)
-                    : paragraph}
-                </Paragraph>
-                <TranslationToggleButton
-                  onClick={() => toggleKoreanParagraph(index)}
-                  className={
-                    visibleKoreanParagraphs.includes(index) ? "active" : ""
-                  }
-                >
-                  {visibleKoreanParagraphs.includes(index)
-                    ? "한국어 번역 숨기기"
-                    : "한국어 번역 보기"}
-                </TranslationToggleButton>
-                {content.korean[index] && (
-                  <KoreanParagraph
-                    isVisible={visibleKoreanParagraphs.includes(index)}
-                    className="article-text"
-                    data-original-text={content.korean[index]}
+            {isEditingContent ? (
+              <>
+                <AdminActionGroup style={{ marginBottom: "0.8rem" }}>
+                  <AdminActionButton
+                    type="button"
+                    onClick={saveContentChanges}
+                    disabled={isSavingContent}
                   >
-                    {content.korean[index]}
-                  </KoreanParagraph>
-                )}
-              </ParagraphContainer>
-            ))}
+                    <CheckIcon width={18} height={18} />
+                    {isSavingContent ? "저장 중..." : "변경 사항 저장"}
+                  </AdminActionButton>
+                  <AdminActionButton
+                    type="button"
+                    variant="ghost"
+                    onClick={cancelEditingContent}
+                    disabled={isSavingContent}
+                  >
+                    <XMarkIcon width={18} height={18} />
+                    취소
+                  </AdminActionButton>
+                </AdminActionGroup>
+                <EditorHint>
+                  영어와 한국어 단락은 같은 순서를 유지합니다. 두 언어 모두
+                  비워 둔 단락은 저장 시 자동으로 제외됩니다.
+                </EditorHint>
+                <ParagraphEditorWrapper>
+                  {editedEnglishContent.map((paragraph, index) => (
+                    <ParagraphEditorCard key={index}>
+                      <ParagraphEditorHeader>
+                        <ParagraphBadge>{`Paragraph ${index + 1}`}</ParagraphBadge>
+                        <IconCircleButton
+                          type="button"
+                          onClick={() => removeContentParagraph(index)}
+                          disabled={editedEnglishContent.length <= 1}
+                          aria-label="단락 삭제"
+                        >
+                          <TrashIcon width={16} height={16} />
+                        </IconCircleButton>
+                      </ParagraphEditorHeader>
+                      <AdminFieldLabel>English</AdminFieldLabel>
+                      <AdminTextArea
+                        value={paragraph}
+                        onChange={(e) =>
+                          updateContentParagraph("english", index, e.target.value)
+                        }
+                        placeholder="영어 단락을 입력하세요"
+                      />
+                      <AdminFieldLabel>한국어 (선택)</AdminFieldLabel>
+                      <AdminTextArea
+                        value={editedKoreanContent[index] || ""}
+                        onChange={(e) =>
+                          updateContentParagraph("korean", index, e.target.value)
+                        }
+                        placeholder="한국어 번역 단락을 입력하세요"
+                        style={{ minHeight: "100px" }}
+                      />
+                    </ParagraphEditorCard>
+                  ))}
+                </ParagraphEditorWrapper>
+                <AddParagraphButton type="button" onClick={addContentParagraph}>
+                  <PlusIcon width={18} height={18} />
+                  단락 추가
+                </AddParagraphButton>
+              </>
+            ) : (
+              content.english.map((paragraph, index) => (
+                <ParagraphContainer key={index}>
+                  <Paragraph
+                    className="article-text"
+                    data-original-text={paragraph}
+                    onClick={handleWordClick}
+                    onMouseDown={onMouseDownPress}
+                    onMouseMove={onMouseMovePress}
+                    onMouseUp={onMouseUpPress}
+                    onMouseLeave={onMouseLeavePress}
+                    onTouchStart={onTouchStartPress}
+                    onTouchMove={onTouchMovePress}
+                    onTouchEnd={onTouchEndPress}
+                  >
+                    {isAudioMode
+                      ? prepareParagraphText(paragraph, index)
+                      : paragraph}
+                  </Paragraph>
+                  <TranslationToggleButton
+                    onClick={() => toggleKoreanParagraph(index)}
+                    className={
+                      visibleKoreanParagraphs.includes(index) ? "active" : ""
+                    }
+                  >
+                    {visibleKoreanParagraphs.includes(index)
+                      ? "한국어 번역 숨기기"
+                      : "한국어 번역 보기"}
+                  </TranslationToggleButton>
+                  {content.korean[index] && (
+                    <KoreanParagraph
+                      isVisible={visibleKoreanParagraphs.includes(index)}
+                      className="article-text"
+                      data-original-text={content.korean[index]}
+                    >
+                      {content.korean[index]}
+                    </KoreanParagraph>
+                  )}
+                </ParagraphContainer>
+              ))
+            )}
           </ContentSection>
         )}
 

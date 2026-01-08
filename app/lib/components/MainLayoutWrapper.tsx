@@ -41,13 +41,14 @@ export default function MainLayoutWrapper({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isHomePage = pathname === "/";
+  const isHomePage = pathname === "/" || pathname === "/new-home";
   const isArticlePage = pathname.startsWith("/article/");
+  const showGlobalGnb = pathname !== "/new-home";
 
   return (
     <GnbProvider>
       <LayoutWrapper>
-        <GNB variant={isHomePage ? "home" : "default"} />
+        {showGlobalGnb && <GNB variant={isHomePage ? "home" : "default"} />}
         <PageContainer $isHomePage={isHomePage} $isArticlePage={isArticlePage}>
           {children}
         </PageContainer>
