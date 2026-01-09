@@ -19,6 +19,7 @@ export const FEATURED_ARTICLE_IDS = [
   "H1hBMM5hB7MqdXkbvvxp",
   "xI3D8ijG6Fp7UHHCvu9B",
   "Xi1YVDM6xqHYNTfnhW6X",
+  "foxCpkxHU7C7Fwf0kPRW",
 ];
 
 // Client-side fetch using Firebase client SDK - fetches specific articles by ID

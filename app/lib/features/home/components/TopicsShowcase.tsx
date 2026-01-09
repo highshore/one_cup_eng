@@ -25,34 +25,38 @@ const SectionHeader = styled.div`
   max-width: 960px;
   margin: 0 auto clamp(2rem, 4vw, 3rem);
   padding: 0 clamp(1.25rem, 4vw, 1.5rem);
-  text-align: center;
+  text-align: left;
 `;
 
 const SectionTitle = styled.h2`
-  font-size: clamp(1.9rem, 3.6vw, 2.7rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 900;
   color: #ffffff;
-  margin: 0;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
   font-family: "Noto Sans KR", sans-serif;
 `;
 
+const Highlight = styled.span`
+  color: #ffb7c5;
+`;
+
 const SectionSubtitle = styled.p`
-  font-size: clamp(1rem, 2vw, 1.15rem);
+  font-size: clamp(1rem, 2vw, 1.125rem);
   font-weight: 400;
   letter-spacing: -0.01em;
-  line-height: 1.5;
-  color: #ffffff;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
   margin: 0.65rem 0 0 0;
   font-family: "Noto Sans KR", sans-serif;
+  max-width: 640px;
 `;
 
 const CarouselShell = styled.div`
   position: relative;
   width: 100vw;
   margin-left: calc(50% - 50vw);
-  padding: 0 clamp(1rem, 4vw, 3rem) 2rem;
+  padding: 0 0 2rem; /* Remove horizontal padding, keep bottom */
 `;
 
 const CarouselViewport = styled.div`
@@ -77,6 +81,10 @@ const ManualViewport = styled.div`
   padding-bottom: 1rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  
+  /* Add padding to start/end of scroll area to align with content width but allow full bleed scroll */
+  padding-left: max(1.25rem, calc((100vw - 960px) / 2));
+  padding-right: max(1.25rem, calc((100vw - 960px) / 2));
 
   &::-webkit-scrollbar {
     display: none;
@@ -116,17 +124,19 @@ const TopicCard = styled.div<{ $hovered: boolean }>`
   flex: 0 0 clamp(240px, 26vw, 320px);
   aspect-ratio: 1 / 1;
   isolation: isolate;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
   &:hover {
     transform: perspective(900px) rotateY(-6deg) translateY(-3px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   }
 
   &::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(59, 130, 246, 0.35));
-    opacity: ${({ $hovered }) => ($hovered ? 1 : 0)};
+    background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+    opacity: 0.8;
     transition: opacity 200ms ease;
     pointer-events: none;
     z-index: 3;
@@ -145,7 +155,7 @@ const TopicImage = styled.img`
 const TopicImagePlaceholder = styled.div`
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(100, 100, 100, 0.3), rgba(50, 50, 50, 0.3));
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -161,7 +171,6 @@ const TopicContent = styled.div`
   flex-direction: column;
   justify-content: flex-end;
   height: 100%;
-  background: linear-gradient(180deg, rgba(2, 6, 23, 0) 25%, rgba(2, 6, 23, 0.8) 100%);
 `;
 
 const TopicTitle = styled.h3`
@@ -175,7 +184,7 @@ const TopicTitle = styled.h3`
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 `;
 
 const NavButton = styled.button<{ $align: "left" | "right" }>`
@@ -186,20 +195,22 @@ const NavButton = styled.button<{ $align: "left" | "right" }>`
   width: 44px;
   height: 44px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.92);
-  border: none;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   color: #0f172a;
   font-size: 1.5rem;
   display: none;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: all 180ms ease;
+  z-index: 10;
 
   &:hover:not(:disabled) {
     transform: translateY(-50%) scale(1.05);
-    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.3);
+    background: #ffffff;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   }
 
   &:disabled {
@@ -340,7 +351,9 @@ export default function TopicsShowcase({ topics: initialTopics }: TopicsShowcase
   return (
     <Section>
       <SectionHeader>
-        <SectionTitle>{t.home.topicsShowcase.title}</SectionTitle>
+        <SectionTitle>
+          모임에서 <Highlight>어떤 토픽</Highlight>을 다루나요?
+        </SectionTitle>
         <SectionSubtitle>{t.home.topicsShowcase.subtitle}</SectionSubtitle>
       </SectionHeader>
 

@@ -19,6 +19,7 @@ import {
   ArrowUpTrayIcon,
   CheckIcon,
   DocumentTextIcon,
+  LockClosedIcon,
   PencilSquareIcon,
   PhotoIcon,
   PlusIcon,
@@ -145,6 +146,20 @@ const Subtitle = styled.h2<{ isVisible: boolean }>`
     font-size: 1.4rem;
     margin-bottom: 1.2rem;
   }
+`;
+
+const TitleHeaderRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+`;
+
+const TitleTextGroup = styled.div`
+  flex: 1;
+  min-width: 250px;
 `;
 
 const CalloutBox = styled.div`
@@ -1039,6 +1054,14 @@ const TranslationToggleButton = styled.button`
     color: ${colors.primary};
     border-color: ${colors.accent};
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: ${colors.primaryPale};
+    color: ${colors.text.light};
+    pointer-events: none;
+  }
 `;
 
 // Define a new modal overlay for word definitions
@@ -1904,6 +1927,43 @@ const UploadStatus = styled.div<{ variant?: "error" | "success" }>`
   margin-bottom: 0.8rem;
 `;
 
+const PaywallNotice = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 1rem 1.2rem;
+  border-radius: 16px;
+  border: 1px solid ${colors.primaryPale};
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.9),
+    rgba(30, 41, 59, 0.95)
+  );
+  color: white;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+`;
+
+const PaywallText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+`;
+
+const PaywallTitle = styled.div`
+  font-weight: 600;
+  font-size: 1rem;
+`;
+
+const PaywallDescription = styled.p`
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+`;
+
+const GUEST_PARAGRAPH_LIMIT = 2;
+
 const Article = () => {
   const params = useParams();
   const articleId = params.articleId as string;
@@ -1915,6 +1975,7 @@ const Article = () => {
 
   const { currentUser, accountStatus } = useAuth(); // Get the current user and account status from auth context
   const isAdmin = accountStatus === "admin";
+  const isGuestUser = !currentUser;
   const [article, setArticle] = useState<ArticleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1951,6 +2012,11 @@ const Article = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadStatus, setImageUploadStatus] = useState<string | null>(null);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitleEnglish, setEditedTitleEnglish] = useState("");
+  const [editedTitleKorean, setEditedTitleKorean] = useState("");
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
 
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [editedEnglishContent, setEditedEnglishContent] = useState<string[]>([]);
@@ -3515,6 +3581,63 @@ const Article = () => {
     }
   };
 
+  const startEditingTitle = () => {
+    if (!isAdmin) return;
+    setEditedTitleEnglish(article?.title?.english || "");
+    setEditedTitleKorean(article?.title?.korean || "");
+    setIsEditingTitle(true);
+  };
+
+  const cancelEditingTitle = () => {
+    setIsEditingTitle(false);
+    setEditedTitleEnglish("");
+    setEditedTitleKorean("");
+  };
+
+  const saveTitleChanges = async () => {
+    if (!articleId || !isAdmin) return;
+
+    const trimmedEnglish = editedTitleEnglish.trim();
+    const trimmedKorean = editedTitleKorean.trim();
+
+    if (!trimmedEnglish) {
+      alert("영문 제목은 반드시 입력해야 합니다.");
+      return;
+    }
+
+    setIsSavingTitle(true);
+    try {
+      const articleRef = doc(db, "articles", articleId);
+      await updateDoc(articleRef, {
+        title: {
+          english: trimmedEnglish,
+          korean: trimmedKorean,
+        },
+      });
+
+      setArticle((prev) =>
+        prev
+          ? {
+              ...prev,
+              title: {
+                english: trimmedEnglish,
+                korean: trimmedKorean,
+              },
+            }
+          : prev
+      );
+
+      setIsEditingTitle(false);
+      setEditedTitleEnglish("");
+      setEditedTitleKorean("");
+    } catch (error) {
+      console.error("Error saving title:", error);
+      alert("제목을 저장하는 중 문제가 발생했습니다.");
+    } finally {
+      setIsSavingTitle(false);
+    }
+  };
+
   const startEditingContent = () => {
     if (!isAdmin) return;
     const english = [...(article?.content?.english || [])];
@@ -3627,6 +3750,14 @@ const Article = () => {
   if (!article) return <ErrorContainer>No article found</ErrorContainer>;
 
   const { content = { english: [], korean: [] }, keywords = [] } = article;
+  const displayedEnglishContent = isGuestUser
+    ? content.english.slice(0, GUEST_PARAGRAPH_LIMIT)
+    : content.english;
+  const displayedKoreanContent = isGuestUser
+    ? content.korean.slice(0, GUEST_PARAGRAPH_LIMIT)
+    : content.korean;
+  const hasHiddenParagraphs =
+    isGuestUser && content.english.length > displayedEnglishContent.length;
 
   // Update next button visibility logic to ensure it stays visible until the last card
   const hasMoreKeywords = currentKeywordIndex < keywords.length - 1;
@@ -3639,24 +3770,84 @@ const Article = () => {
   return (
     <ArticlePageWrapper isAudioMode={isAudioMode}>
       <ArticleContainer>
-        <Title
-          onClick={toggleKoreanTitle}
-          className="article-text"
-          data-original-text={article?.title.english}
-        >
-          {article?.title.english}
-        </Title>
+        {isEditingTitle ? (
+          <AdminEditCard style={{ marginBottom: "1.5rem" }}>
+            <AdminEditTitle>
+              <DocumentTextIcon width={20} height={20} />
+              기사 제목 편집
+            </AdminEditTitle>
+            <EditorHint>
+              영어 제목은 필수이며, 한국어 제목은 선택 사항입니다. 저장 시 모든
+              사용자에게 바로 반영됩니다.
+            </EditorHint>
+            <AdminFieldLabel htmlFor="articleTitleEn">영문 제목</AdminFieldLabel>
+            <AdminInput
+              id="articleTitleEn"
+              type="text"
+              placeholder="Enter the English title"
+              value={editedTitleEnglish}
+              onChange={(e) => setEditedTitleEnglish(e.target.value)}
+            />
+            <AdminFieldLabel htmlFor="articleTitleKo">
+              한국어 제목 (선택)
+            </AdminFieldLabel>
+            <AdminInput
+              id="articleTitleKo"
+              type="text"
+              placeholder="한국어 제목을 입력하세요"
+              value={editedTitleKorean}
+              onChange={(e) => setEditedTitleKorean(e.target.value)}
+            />
+            <AdminActionGroup>
+              <AdminActionButton
+                type="button"
+                onClick={saveTitleChanges}
+                disabled={isSavingTitle}
+              >
+                <CheckIcon width={18} height={18} />
+                {isSavingTitle ? "저장 중..." : "변경 사항 저장"}
+              </AdminActionButton>
+              <AdminActionButton
+                type="button"
+                variant="ghost"
+                onClick={cancelEditingTitle}
+                disabled={isSavingTitle}
+              >
+                <XMarkIcon width={18} height={18} />
+                취소
+              </AdminActionButton>
+            </AdminActionGroup>
+          </AdminEditCard>
+        ) : (
+          <TitleHeaderRow>
+            <TitleTextGroup>
+              <Title
+                onClick={toggleKoreanTitle}
+                className="article-text"
+                data-original-text={article?.title.english}
+              >
+                {article?.title.english}
+              </Title>
 
-        <Subtitle
-          isVisible={isKoreanTitleVisible}
-          className="article-text"
-          data-original-text={article?.title.korean}
-        >
-          {article?.title.korean}
-        </Subtitle>
+              <Subtitle
+                isVisible={isKoreanTitleVisible}
+                className="article-text"
+                data-original-text={article?.title.korean}
+              >
+                {article?.title.korean}
+              </Subtitle>
+            </TitleTextGroup>
+            {isAdmin && (
+              <AdminActionButton type="button" onClick={startEditingTitle}>
+                <PencilSquareIcon width={18} height={18} />
+                제목 편집
+              </AdminActionButton>
+            )}
+          </TitleHeaderRow>
+        )}
         <InfoContainer>
           <ReadingTime>
-            예상 읽기 시간: {calculateReadingTime(content.english)}
+            예상 읽기 시간: {calculateReadingTime(displayedEnglishContent)}
           </ReadingTime>
           {article.source_url && (
             <SourceTab
@@ -3921,7 +4112,20 @@ const Article = () => {
           </CalloutBox>
         )}
 
-        {(isEditingContent || content.english?.length > 0) && (
+        {hasHiddenParagraphs && !isEditingContent && (
+          <PaywallNotice>
+            <LockClosedIcon width={24} height={24} />
+            <PaywallText>
+              <PaywallTitle>참가자 전용 전체 기사</PaywallTitle>
+              <PaywallDescription>
+                출판사의 저작권을 보호하기 위해 전체 기사 본문은 이벤트에
+                참여 중인 회원에게만 제공됩니다. 로그인 후 계속 읽어주세요.
+              </PaywallDescription>
+            </PaywallText>
+          </PaywallNotice>
+        )}
+
+        {(isEditingContent || displayedEnglishContent?.length > 0) && (
           <ContentSection>
             {isEditingContent ? (
               <>
@@ -3988,7 +4192,12 @@ const Article = () => {
                 </AddParagraphButton>
               </>
             ) : (
-              content.english.map((paragraph, index) => (
+              displayedEnglishContent.map((paragraph, index) => {
+                const hasKoreanParagraph = Boolean(
+                  displayedKoreanContent[index]
+                );
+
+                return (
                 <ParagraphContainer key={index}>
                   <Paragraph
                     className="article-text"
@@ -4011,22 +4220,26 @@ const Article = () => {
                     className={
                       visibleKoreanParagraphs.includes(index) ? "active" : ""
                     }
+                      disabled={!hasKoreanParagraph}
                   >
-                    {visibleKoreanParagraphs.includes(index)
-                      ? "한국어 번역 숨기기"
-                      : "한국어 번역 보기"}
+                      {hasKoreanParagraph
+                        ? visibleKoreanParagraphs.includes(index)
+                          ? "한국어 번역 숨기기"
+                          : "한국어 번역 보기"
+                        : "한국어 번역 없음"}
                   </TranslationToggleButton>
-                  {content.korean[index] && (
+                    {hasKoreanParagraph && (
                     <KoreanParagraph
                       isVisible={visibleKoreanParagraphs.includes(index)}
                       className="article-text"
-                      data-original-text={content.korean[index]}
+                        data-original-text={displayedKoreanContent[index]}
                     >
-                      {content.korean[index]}
+                        {displayedKoreanContent[index]}
                     </KoreanParagraph>
                   )}
                 </ParagraphContainer>
-              ))
+                );
+              })
             )}
           </ContentSection>
         )}

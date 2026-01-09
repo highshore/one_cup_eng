@@ -12,6 +12,7 @@ interface UserAvatarProps {
   onClick?: () => void;
   index?: number; // For stacking position
   isPast?: boolean; // For greyscale effect
+  profile?: UserProfile | null; // Allow passing pre-fetched profile
 }
 
 const AvatarContainer = styled.div<{
@@ -113,9 +114,10 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   onClick,
   index,
   isPast = false,
+  profile,
 }) => {
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(profile || null);
+  const [loading, setLoading] = useState(!profile);
   const [imageError, setImageError] = useState(false);
 
   const getAvatarColor = (uid: string, isLeader: boolean): string => {
@@ -131,12 +133,19 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   };
 
   useEffect(() => {
+    // If profile is provided prop, update state and skip fetch
+    if (profile) {
+      setUserProfile(profile);
+      setLoading(false);
+      return;
+    }
+
     const loadUserProfile = async () => {
       try {
         setLoading(true);
         setImageError(false); // Reset image error state on UID change
-        const profile = await fetchUserProfile(uid);
-        setUserProfile(profile);
+        const fetchedProfile = await fetchUserProfile(uid);
+        setUserProfile(fetchedProfile);
       } catch (error) {
         console.error(`Error loading user profile for ${uid}:`, error);
       } finally {
@@ -145,7 +154,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     };
     if (uid) loadUserProfile();
     else setLoading(false);
-  }, [uid]);
+  }, [uid, profile]);
 
   const handleImageError = () => {
     setImageError(true);
@@ -199,6 +208,7 @@ interface UserAvatarStackProps {
   isLeader?: boolean;
   isPast?: boolean;
   onAvatarClick?: (uid: string) => void;
+  userProfilesMap?: Record<string, UserProfile>;
 }
 
 const AvatarStackContainer = styled.div<{ $size: number; $width: number }>`
@@ -217,6 +227,7 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
   isLeader = false,
   isPast = false,
   onAvatarClick,
+  userProfilesMap,
 }) => {
   // Filter out duplicates and invalid UIDs to prevent React key errors
   const uniqueUids = Array.from(
@@ -242,6 +253,7 @@ export const UserAvatarStack: React.FC<UserAvatarStackProps> = ({
           index={index}
           isPast={isPast}
           onClick={onAvatarClick ? () => onAvatarClick(uid) : undefined}
+          profile={userProfilesMap?.[uid]}
         />
       ))}
       {hasMore && (

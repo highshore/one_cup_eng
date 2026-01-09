@@ -1,357 +1,549 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import styled, { keyframes } from "styled-components";
-import { FiCalendar, FiUsers, FiRepeat } from "react-icons/fi";
+import React from "react";
+import styled from "styled-components";
+import {
+  GlobeAltIcon,
+  UsersIcon,
+  ArrowTrendingUpIcon,
+  MicrophoneIcon,
+  SparklesIcon,
+  TrophyIcon,
+  NewspaperIcon,
+  CheckBadgeIcon,
+} from "@heroicons/react/24/outline";
 import { HomeStats } from "../services/stats_service";
 
+// Types
 interface StatsSectionProps {
   stats?: HomeStats;
 }
 
-interface StatConfig {
-  label: string;
-  value: number;
-  Icon: typeof FiCalendar;
-}
-
-const floatAura = keyframes`
-  0% { transform: translate3d(-6px, -4px, 0); }
-  50% { transform: translate3d(4px, 3px, 0); }
-  100% { transform: translate3d(-6px, -4px, 0); }
+// Styled Components
+const SectionContainer = styled.section`
+  padding: 6rem 0;
+  background-color: #F3F3F1;
 `;
 
-const floatDistort = keyframes`
-  0% { background-position: 0% 0%; }
-  50% { background-position: 100% 100%; }
-  100% { background-position: 0% 0%; }
-`;
-
-const Section = styled.section`
-  position: relative;
-  overflow: visible; /* Allow shadows to show */
-  padding: 0 0 clamp(2.5rem, 5vw, 3.5rem);
-  background: transparent;
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: -16%;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.38) 0.5px, transparent 0.5px);
-    background-size: 9px 9px;
-    opacity: 0.28;
-    mix-blend-mode: soft-light;
-    animation: ${floatAura} 26s ease-in-out infinite;
-  }
-`;
-
-const SectionContent = styled.div`
-  position: relative;
-  z-index: 1;
+const Container = styled.div`
   max-width: 960px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 20px;
+`;
 
-  @media (max-width: 768px) {
-    padding: 0 1.25rem;
+const HeaderWrapper = styled.div`
+  margin-bottom: 4rem;
+  max-width: 48rem;
+`;
+
+const Title = styled.h2`
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+`;
+
+const Highlight = styled.span`
+  color: rgb(128, 0, 33);
+`;
+
+const Description = styled.p`
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  color: #475569;
+  line-height: 1.6;
+  display: none; // Hidden as requested
+  
+  strong {
+    font-weight: 700;
   }
 `;
 
-const CardsGrid = styled.div`
+const Grid = styled.div`
   display: grid;
-  width: 100%;
-  gap: clamp(1rem, 2.5vw, 1.4rem);
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
 `;
 
-const GlassCard = styled.article`
+// Card Styles
+const CardBase = styled.div`
+  border-radius: 2rem;
+  padding: 2rem;
   position: relative;
-  border-radius: 18px;
   overflow: hidden;
-  min-height: clamp(120px, 22vw, 140px);
+  transition: all 0.3s ease;
+`;
+
+const Card2 = styled(CardBase)`
+  background-color: #D2E823;
   display: flex;
-  align-items: stretch;
-  justify-content: center;
-  box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  flex-direction: column;
+  gap: 1.5rem;
+  
+  @media (min-width: 768px) {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+`;
+
+const Card3 = styled(CardBase)`
+  background-color: #E0E7FF;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  
+  @media (min-width: 768px) {
+      grid-column: span 1;
+  }
 
   &:hover {
-    transform: translateY(-2px);
-    transition: transform 280ms ease, box-shadow 280ms ease;
-    box-shadow:
-      0 16px 36px rgba(0, 0, 0, 0.25),
-      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    background-color: #dbe4ff;
   }
 `;
 
-const GlassLayerBase = styled.div`
+const Card4 = styled(CardBase)`
+  background-color: #FF9B9B;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #0f172a;
+  
+  @media (min-width: 768px) {
+      grid-column: span 1;
+  }
+`;
+
+const Card5 = styled(CardBase)`
+  background-color: #0f172a;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  
+  @media (min-width: 768px) {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    gap: 3rem;
+    text-align: left;
+    align-items: center;
+    justify-content: space-between;
+  }
+`;
+
+// Icon Helper
+const IconWrapper = styled.div<{ $bg?: string; $color?: string }>`
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  background-color: ${props => props.$bg || 'rgba(255, 255, 255, 0.2)'};
+  color: ${props => props.$color || 'inherit'};
+  backdrop-filter: blur(12px);
+`;
+
+const CardTitle = styled.h3<{ $dark?: boolean }>`
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+  color: ${props => props.$dark ? '#0f172a' : 'inherit'};
+`;
+
+const CardText = styled.p<{ $dark?: boolean }>`
+  color: ${props => props.$dark ? '#1e293b' : 'rgba(255, 255, 255, 0.8)'};
+  line-height: 1.6;
+  font-weight: 500;
+  font-size: 0.95rem;
+`;
+
+// Specific Components
+const BgIcon = styled.div`
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
+  top: 0;
+  right: 0;
+  padding: 2.5rem;
+  opacity: 0.1;
+  transition: opacity 0.3s ease;
   pointer-events: none;
 `;
 
-const GlassFilter = styled(GlassLayerBase)<{ $filterId: string }>`
-  z-index: 1;
-  filter: ${(props) => `url(#${props.$filterId}) saturate(120%) brightness(1.1)`};
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-`;
-
-const GlassOverlay = styled(GlassLayerBase)`
-  z-index: 2;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.22) 78%);
-`;
-
-const GlassDistortionOverlay = styled(GlassLayerBase)`
-  z-index: 3;
-  background:
-    radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.22) 0%, transparent 60%),
-    radial-gradient(circle at 82% 82%, rgba(255, 255, 255, 0.18) 0%, transparent 65%);
-  background-size: 280% 280%;
-  mix-blend-mode: soft-light;
-  animation: ${floatDistort} 14s ease-in-out infinite;
-`;
-
-const GlassSpecular = styled(GlassLayerBase)`
-  z-index: 4;
-  background: radial-gradient(
-    circle at var(--pointer-x, 45%) var(--pointer-y, -15%),
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0.18) 35%,
-    rgba(255, 255, 255, 0.05) 58%,
-    transparent 78%
-  );
-  transition: background 160ms ease;
-`;
-
-const CardContent = styled.div`
+const PhotoStack = styled.div`
   position: relative;
-  z-index: 5;
-  width: 100%;
-  padding: clamp(1rem, 2.5vw, 1.3rem) clamp(1rem, 2.5vw, 1.4rem);
-  display: grid;
-  grid-template-columns: clamp(48px, 9vw, 56px) 1fr;
-  align-items: center;
-  gap: clamp(0.9rem, 2.5vw, 1.2rem);
+  height: 60px;
+  margin-top: 1rem;
 `;
 
-const IconBadge = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 16px;
-  width: clamp(46px, 8.5vw, 54px);
-  height: clamp(46px, 8.5vw, 54px);
-  background: linear-gradient(145deg, rgba(200, 200, 200, 0.4) 0%, rgba(255, 255, 255, 0.85) 78%);
-  border: 1px solid rgba(220, 220, 220, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 6px 16px rgba(0, 0, 0, 0.15);
+const Photo = styled.img<{ $index: number }>`
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid white;
+  object-fit: cover;
+  left: ${props => props.$index * 32}px;
+  z-index: ${props => props.$index};
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+`;
 
-  svg {
-    width: clamp(20px, 3vw, 24px);
-    height: clamp(20px, 3vw, 24px);
-    color: #1a1a1a;
+const ContentLeft = styled.div`
+  flex: 1;
+  z-index: 10;
+`;
+
+const ContentRight = styled.div`
+  flex: 1;
+  height: 100%;
+  min-height: 200px;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.4);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  transform: rotate(3deg);
+  transition: transform 0.3s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  
+  ${Card2}:hover & {
+    transform: rotate(0deg);
   }
 `;
 
-const StatCopy = styled.div`
+const DiscussionMock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const Line = styled.div<{ $w?: string; $h?: string }>`
+  height: ${props => props.$h || '0.5rem'};
+  width: ${props => props.$w || '100%'};
+  background-color: rgba(15, 23, 42, 0.1);
+  border-radius: 0.25rem;
+`;
+
+const Button = styled.button<{ $primary?: boolean }>`
+  background-color: ${props => props.$primary ? '#0f172a' : 'white'};
+  color: ${props => props.$primary ? 'white' : '#0f172a'};
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: background-color 0.2s;
+  border: none;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: ${props => props.$primary ? '#1e293b' : '#e5e7eb'};
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    margin-top: 1rem;
+  }
+`;
+
+// Metric Styles
+const MetricsContainer = styled.div`
+  display: flex;
+  gap: 3rem;
+  align-items: flex-start;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  width: 100%;
+`;
+
+const MetricItem = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: clamp(0.25rem, 1vw, 0.4rem);
+  gap: 0.5rem;
 `;
 
-const StatLabel = styled.span`
-  font-size: clamp(0.8rem, 1.8vw, 0.9rem);
-  font-weight: 600;
-  color: #374151;
-  letter-spacing: -0.01em;
-`;
-
-const StatValue = styled.span`
-  font-size: clamp(1.6rem, 3.5vw, 2rem);
+const MetricValue = styled.span`
+  font-size: 2.5rem;
   font-weight: 800;
-  letter-spacing: -0.025em;
-  color: #1f2937;
-  text-shadow: none;
+  color: #D2E823; // High contrast
+  line-height: 1;
 `;
 
-const HiddenSvg = styled.svg`
+const MetricLabel = styled.span`
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+`;
+
+// Leader Card Styles - Updated
+const LeaderProfileWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: auto;
+  padding-top: 1.5rem;
+  width: 100%;
+`;
+
+const LeaderProfile = styled.a`
+  display: block;
+  position: relative;
+  width: 100px;
+  height: 100px;
+  text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  
+  &:hover img {
+    transform: scale(1.05);
+    box-shadow: 0 25px 30px -5px rgba(0, 0, 0, 0.4);
+  }
+`;
+
+const LeaderImage = styled.img`
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+`;
+
+const LinkedInBadge = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0077b5;
+  color: white;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: #006396;
+    transform: scale(1.1);
+  }
+
+  svg {
+    width: 28px;
+    height: 28px;
+    fill: currentColor;
+  }
+`;
+
+// Insights Gallery Styles - Updated
+const SingleGalleryImage = styled.div<{ $src: string }>`
+  width: 100%;
+  height: 100%;
+  min-height: 250px;
+  border-radius: 24px;
+  background-image: url(${props => props.$src});
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.02);
+  }
+`;
+
+// Topic Card Visuals
+const TopicTag = styled.div<{ $color: string; $rotate: string }>`
+  background: white;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-weight: 800;
+  color: ${props => props.$color};
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: rotate(${props => props.$rotate});
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 0.3s ease;
+  border: 1px solid rgba(0,0,0,0.05);
+
+  &:hover {
+    transform: rotate(0deg) scale(1.05);
+    z-index: 10;
+  }
+`;
+
+const TopicVisual = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 2rem;
+  justify-content: center;
+`;
+
+// Atmosphere Visuals
+const FloatingBubble = styled.div<{ $size: string; $top: string; $left: string; $delay: string }>`
   position: absolute;
-  width: 0;
-  height: 0;
-  pointer-events: none;
+  width: ${props => props.$size};
+  height: ${props => props.$size};
+  top: ${props => props.$top};
+  left: ${props => props.$left};
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  backdrop-filter: blur(4px);
+  animation: float 6s ease-in-out infinite;
+  animation-delay: ${props => props.$delay};
+  z-index: 1;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
 `;
 
 export default function StatsSection({ stats }: StatsSectionProps) {
-  const filterId = useId().replace(/:/g, "");
-  const displacementMapId = `${filterId}-displace`;
-  const cardsRef = useRef<Array<HTMLDivElement | null>>([]);
-
-  // Hardcoded values
-  const totalMeetups = 26;
-  const totalMembers = 41;
-  const retentionRate = 90;
-
-  const statsData = useMemo<StatConfig[]>(
-    () => [
-      { label: "밋업 진행 횟수", value: totalMeetups, Icon: FiCalendar },
-      { label: "누적 유료 멤버 수", value: totalMembers, Icon: FiUsers },
-      { label: "재참여율", value: retentionRate, Icon: FiRepeat },
-    ],
-    [totalMeetups, totalMembers, retentionRate]
-  );
-
-  const [displayValues, setDisplayValues] = useState<number[]>([0, 0, 0]);
-
-  useEffect(() => {
-    let animationFrame: number | null = null;
-    const targets = [totalMeetups, totalMembers, retentionRate];
-    const start = performance.now();
-    const duration = 1500;
-
-    const animate = (now: number) => {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const values = targets.map((target) => Math.round(target * eased));
-      setDisplayValues(values);
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(animate);
-      }
-    };
-
-    setDisplayValues([0, 0, 0]);
-    animationFrame = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-    };
-  }, [totalMeetups, totalMembers, retentionRate]);
-
-  useEffect(() => {
-    const displacementNode = document.querySelector<SVGFEDisplacementMapElement>(
-      `#${displacementMapId}`
-    );
-
-    cardsRef.current = cardsRef.current.slice(0, statsData.length);
-    const cleanups: Array<() => void> = [];
-
-    cardsRef.current.forEach((card) => {
-      if (!card) return;
-
-      const handleMouseMove = (event: MouseEvent) => {
-        const rect = card.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        const specular = card.querySelector(
-          "[data-role='glass-specular']"
-        ) as HTMLDivElement | null;
-
-        if (specular) {
-          specular.style.setProperty("--pointer-x", `${x}px`);
-          specular.style.setProperty("--pointer-y", `${y}px`);
-        }
-
-        if (displacementNode) {
-          const distanceFromCenter = Math.hypot(
-            x - rect.width / 2,
-            y - rect.height / 2
-          );
-          const normalized = Math.min(
-            1,
-            distanceFromCenter / (Math.max(rect.width, rect.height) * 0.75)
-          );
-          const scale = 62 - normalized * 32;
-          displacementNode.setAttribute("scale", scale.toFixed(2));
-        }
-      };
-
-      const handleMouseLeave = () => {
-        const specular = card.querySelector(
-          "[data-role='glass-specular']"
-        ) as HTMLDivElement | null;
-        if (specular) {
-          specular.style.removeProperty("--pointer-x");
-          specular.style.removeProperty("--pointer-y");
-        }
-        if (displacementNode) {
-          displacementNode.setAttribute("scale", "62");
-        }
-      };
-
-      card.addEventListener("mousemove", handleMouseMove);
-      card.addEventListener("mouseleave", handleMouseLeave);
-
-      cleanups.push(() => {
-        card.removeEventListener("mousemove", handleMouseMove);
-        card.removeEventListener("mouseleave", handleMouseLeave);
-      });
-    });
-
-    return () => {
-      cleanups.forEach((teardown) => teardown());
-    };
-  }, [statsData.length, displacementMapId]);
+  const memberCount = stats?.totalMembers || 2000;
+  
+  const galleryImages = [
+    "/assets/homepage/gallery1.JPG",
+    "/assets/homepage/gallery2.JPG",
+    "/assets/homepage/gallery3.JPG"
+  ];
 
   return (
-    <Section>
-      <HiddenSvg>
-        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence
-            type="turbulence"
-            baseFrequency="0.008"
-            numOctaves="2"
-            result="noise"
-          />
-          <feDisplacementMap
-            id={displacementMapId}
-            in="SourceGraphic"
-            in2="noise"
-            scale="62"
-            xChannelSelector="R"
-            yChannelSelector="B"
-          />
-        </filter>
-      </HiddenSvg>
+    <SectionContainer>
+      <Container>
+        <HeaderWrapper>
+          <Title>
+            완벽한 영어가 아닌,<br/>
+            <Highlight>통하는 영어</Highlight>를 만듭니다.
+          </Title>
+        </HeaderWrapper>
 
-      <SectionContent>
-        <CardsGrid>
-          {statsData.map(({ Icon, label }, index) => {
-            const displayValue = displayValues[index] ?? 0;
-            const formattedValue = label === "재참여율" 
-              ? `${displayValue}%+` 
-              : displayValue.toLocaleString();
-            return (
-              <GlassCard
-                key={label}
-                ref={(node: HTMLElement | null) => {
-                  cardsRef.current[index] = node as HTMLDivElement | null;
-                }}
-              >
-                <GlassFilter $filterId={filterId} />
-                <GlassOverlay />
-                <GlassDistortionOverlay />
-                <GlassSpecular data-role="glass-specular" />
-                <CardContent>
-                  <IconBadge>
-                    <Icon />
-                  </IconBadge>
-                  <StatCopy>
-                    <StatLabel>{label}</StatLabel>
-                    <StatValue>{formattedValue}</StatValue>
-                  </StatCopy>
-                </CardContent>
-              </GlassCard>
-            );
-          })}
-        </CardsGrid>
-      </SectionContent>
-    </Section>
+        <Grid>
+          {/* Card 2: Insights (Replaces Curriculum card style, used to be wide) */}
+          <Card2>
+            <ContentLeft>
+                <IconWrapper $bg="rgba(15, 23, 42, 0.1)">
+                    <SparklesIcon width={24} color="#0f172a" />
+                </IconWrapper>
+                <CardTitle $dark>검증된 멤버와 나누는<br/>깊이 있는 인사이트</CardTitle>
+                <CardText $dark>
+                    다양한 분야의 직장인, IT/AI 전공자, 그리고 영미권 석박사를 준비하는 고스펙 인재들이 모입니다.
+                </CardText>
+            </ContentLeft>
+            
+            <ContentRight style={{ background: 'transparent', padding: 0, boxShadow: 'none', transform: 'none' }}>
+               <SingleGalleryImage $src={galleryImages[0]} />
+            </ContentRight>
+          </Card2>
+
+          {/* Card 4: Atmosphere (Now Leader Section) */}
+          <Card4 style={{ paddingBottom: '2rem' }}>
+             <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+                <FloatingBubble $size="150px" $top="-30px" $left="-30px" $delay="0s" />
+                <FloatingBubble $size="100px" $top="40%" $left="80%" $delay="2s" />
+                <FloatingBubble $size="80px" $top="80%" $left="10%" $delay="4s" />
+                <FloatingBubble $size="120px" $top="90%" $left="60%" $delay="1s" />
+             </div>
+             <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <IconWrapper $bg="rgba(255, 255, 255, 0.2)">
+                    <UsersIcon width={24} className="text-white" />
+                </IconWrapper>
+                <CardTitle $dark>통역사 출신이 직접<br/>이끌고 설계하는 모임</CardTitle>
+                <CardText $dark>
+                   대기업, IT 유니콘 기업, 군에서 5년 넘게 미팅을 수천 번 통역한 영어 베테랑입니다.
+                </CardText>
+                
+                <LeaderProfileWrapper>
+                  <LeaderProfile 
+                      href="https://www.linkedin.com/in/sk-kyle-kim/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                  >
+                      <LeaderImage src="/assets/homepage/member1.JPG" alt="Kyle Kim" />
+                  </LeaderProfile>
+                  <a href="https://www.linkedin.com/in/sk-kyle-kim/" target="_blank" rel="noopener noreferrer">
+                    <LinkedInBadge>
+                      <svg viewBox="0 0 24 24">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                      </svg>
+                    </LinkedInBadge>
+                  </a>
+                </LeaderProfileWrapper>
+             </div>
+          </Card4>
+
+          {/* Card 3: Global Elite Topics (Replaces Feedback card style) */}
+          <Card3>
+             <div>
+                <IconWrapper $bg="rgba(37, 99, 235, 0.1)">
+                    <NewspaperIcon width={24} color="#2563eb" />
+                </IconWrapper>
+                <CardTitle $dark>글로벌 엘리트가<br/>주목하는 토픽</CardTitle>
+                <CardText $dark>
+                    가벼운 잡담 대신 WSJ, FT, NYT, TechCrunch 등 글로벌 탑티어 미디어의 아티클을 다룹니다.
+                </CardText>
+             </div>
+             
+             <TopicVisual>
+                 <TopicTag $color="#000000" $rotate="-3deg">
+                    <span style={{ fontFamily: 'serif' }}>The New York Times</span>
+                 </TopicTag>
+                 <TopicTag $color="#16a34a" $rotate="2deg">
+                    <span>TechCrunch</span>
+                 </TopicTag>
+                 <TopicTag $color="#2c5282" $rotate="-2deg">
+                    <span style={{ fontFamily: 'serif' }}>WSJ</span>
+                 </TopicTag>
+                 <TopicTag $color="#d69e2e" $rotate="4deg">
+                    <span style={{ fontFamily: 'serif' }}>FT</span>
+                 </TopicTag>
+                 <TopicTag $color="#dc2626" $rotate="-1deg">
+                    <span>HBR</span>
+                 </TopicTag>
+             </TopicVisual>
+          </Card3>
+
+          {/* Card 5: Growth Opportunity CTA */}
+          <Card5>
+             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', width: '100%', maxWidth: 'fit-content' }}>
+               <TrophyIcon width={48} color="#D2E823" />
+             </div>
+             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+               <CardTitle style={{ marginBottom: 0 }}>지금이 가장 빠른 성장 기회</CardTitle>
+               
+               {/* Metrics Subtitle */}
+               <MetricsContainer style={{ marginTop: '0.5rem' }}>
+                  <MetricItem>
+                      <MetricValue>30회</MetricValue>
+                      <MetricLabel>누적 밋업 수</MetricLabel>
+                  </MetricItem>
+                  <MetricItem>
+                      <MetricValue>50명+</MetricValue>
+                      <MetricLabel>누적 유료 멤버</MetricLabel>
+                  </MetricItem>
+                   <MetricItem>
+                      <MetricValue>90%+</MetricValue>
+                      <MetricLabel>재참여율</MetricLabel>
+                  </MetricItem>
+               </MetricsContainer>
+
+             </div>
+             <div style={{ marginTop: '1rem' }}>
+               <Button>멤버십 둘러보기</Button>
+             </div>
+          </Card5>
+
+        </Grid>
+      </Container>
+    </SectionContainer>
   );
 }

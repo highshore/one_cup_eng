@@ -11,6 +11,7 @@ import { useGnb } from "../lib/contexts/gnb_context";
 import { useRouter } from "next/navigation";
 import { MeetupEvent } from "../lib/features/meetup/types/meetup_types";
 import { fetchUpcomingMeetupEvents } from "../lib/features/meetup/services/meetup_service";
+import { fetchUserProfiles, UserProfile } from "../lib/features/meetup/services/user_service";
 import {
   formatEventDateTime,
   formatEventTitleWithCountdown,
@@ -104,83 +105,6 @@ const MainContent = styled.div`
   isolation: isolate;
 `;
 
-// Gallery Section Styles
-const GallerySection = styled.section`
-  padding: clamp(3rem, 6vw, 4.5rem) 0 clamp(1.5rem, 3vw, 2rem);
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
-  overflow: visible; /* Allow shadows to show */
-`;
-
-const GalleryInner = styled.div`
-  padding: 0 1.5rem;
-
-  @media (max-width: 768px) {
-    padding: 0 1.25rem;
-  }
-`;
-
-const GalleryTitle = styled.h2`
-  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-  color: #1f2937;
-  margin-bottom: clamp(2rem, 4vw, 3rem);
-  text-align: center;
-  font-family: "Noto Sans KR", sans-serif;
-  white-space: pre-wrap;
-
-  @media (max-width: 768px) {
-    font-size: 1.6rem;
-    margin-bottom: 1.5rem;
-  }
-`;
-
-const GalleryGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 0.8fr;
-  gap: 1rem;
-  width: 100%;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-`;
-
-const GalleryImageBase = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-  }
-`;
-
-const GalleryImageLarge = styled(GalleryImageBase)`
-  grid-row: span 2;
-  aspect-ratio: 1 / 1;
-
-  @media (max-width: 768px) {
-    grid-row: span 1;
-    aspect-ratio: 1 / 1;
-  }
-`;
-
-const GalleryImageSmall = styled(GalleryImageBase)`
-  aspect-ratio: 16 / 9;
-
-  @media (max-width: 768px) {
-    aspect-ratio: 16 / 9;
-  }
-`;
 
 // New styled component for the video overlay
 const VideoOverlay = styled.div`
@@ -226,20 +150,17 @@ interface PricingBenefit {
 }
 
 const SectionTitle = styled.h2`
-  font-size: 2.5rem;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-  color: #1f2937;
-  margin-bottom: 3rem;
-  font-weight: 800;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
   font-family: "Noto Sans KR", sans-serif;
   text-align: center;
+`;
 
-  @media (max-width: 768px) {
-    font-size: 1.8rem;
-    padding: 0 10px;
-    margin-bottom: 2rem;
-  }
+const Highlight = styled.span`
+  color: rgb(99, 0, 33);
 `;
 
 // Members Section
@@ -499,22 +420,19 @@ const MembershipSectionContainer = styled.div`
 `;
 
 const MembershipWrapper = styled.div`
-  max-width: 1024px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 0 1.5rem;
-  
-  @media (max-width: 768px) {
-    padding: 0 1.25rem;
-  }
+  padding: 0 1.25rem; /* 20px padding on left/right always */
 `;
 
 const MembershipCard = styled.div`
-  background: #000000;
+  background: #0f172a;
   border-radius: 24px;
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   position: relative;
   isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 `;
 
 const DecorBlob = styled.div`
@@ -523,12 +441,12 @@ const DecorBlob = styled.div`
   right: 0;
   margin-right: -5rem;
   margin-top: -5rem;
-  width: 16rem;
-  height: 16rem;
-  background: #22c55e;
+  width: 20rem;
+  height: 20rem;
+  background: rgb(128, 0, 33);
   border-radius: 9999px;
-  opacity: 0.2;
-  filter: blur(64px);
+  opacity: 0.15;
+  filter: blur(80px);
   z-index: 0;
   pointer-events: none;
 `;
@@ -538,12 +456,12 @@ const MembershipGrid = styled.div`
   grid-template-columns: 1fr;
   
   @media (min-width: 768px) {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1.2fr 1fr;
   }
 `;
 
 const LeftCol = styled.div`
-  padding: 2.5rem;
+  padding: 3rem;
   color: white;
   display: flex;
   flex-direction: column;
@@ -552,123 +470,171 @@ const LeftCol = styled.div`
   z-index: 1;
 
   @media (min-width: 768px) {
-    padding: 3.5rem;
+    padding: 4rem;
+    padding-right: 2rem;
   }
 `;
 
 const RightCol = styled.div`
-  background: #111827; /* gray-900 */
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.7) 0%, rgba(30, 41, 59, 0.6) 100%);
   padding: 2.5rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
   position: relative;
   z-index: 1;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
 
   @media (min-width: 768px) {
     padding: 3.5rem;
+  }
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    right: -20%;
+    width: 140%;
+    height: 140%;
+    background: radial-gradient(circle at 50% 50%, rgba(128, 0, 33, 0.15) 0%, transparent 60%);
+    z-index: -1;
+    pointer-events: none;
   }
 `;
 
 const Badge = styled.span`
   display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: #22c55e; /* green-500 */
-  color: white;
-  font-size: 0.75rem;
+  padding: 0.35rem 1rem;
+  background: rgba(128, 0, 33, 0.2);
+  color: rgb(255, 100, 130);
+  border: 1px solid rgba(128, 0, 33, 0.4);
+  font-size: 0.8rem;
   font-weight: 700;
   border-radius: 9999px;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   width: max-content;
+  letter-spacing: 0.05em;
 `;
 
 const Heading = styled.h2`
-  font-size: 1.875rem;
-  font-weight: 700;
+  font-size: 2.25rem;
+  font-weight: 800;
   margin-bottom: 1rem;
-  line-height: 1.25;
+  line-height: 1.2;
   color: white;
+  letter-spacing: -0.02em;
 `;
 
 const Description = styled.p`
   color: #9ca3af; /* gray-400 */
-  margin-bottom: 2rem;
-  line-height: 1.625;
+  margin-bottom: 2.5rem;
+  line-height: 1.7;
+  font-size: 1.05rem;
 `;
 
 const CtaButton = styled.button`
-  background: white;
-  color: black;
+  background: rgb(128, 0, 33);
+  color: white;
   font-weight: 700;
-  padding: 0.75rem 2rem;
+  padding: 1rem 2.5rem;
   border-radius: 9999px;
   transition: all 0.2s;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 15px -3px rgba(128, 0, 33, 0.3);
   width: max-content;
   border: none;
   cursor: pointer;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
 
   &:hover {
-    background: #f3f4f6;
+    background: rgb(150, 0, 40);
+    transform: translateY(-2px);
+    box-shadow: 0 15px 20px -3px rgba(128, 0, 33, 0.4);
   }
 `;
 
-const PriceTag = styled.p`
-  color: #4ade80; /* green-400 */
-  font-weight: 500;
-  font-size: 0.875rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-align: center;
-  margin-bottom: 0.5rem;
+const ComparisonChart = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+  transform: perspective(1000px) rotateY(-5deg);
+  transition: transform 0.5s ease;
+  
+  &:hover {
+    transform: perspective(1000px) rotateY(0deg) scale(1.02);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  @media (max-width: 768px) {
+    transform: none;
+    &:hover {
+      transform: none;
+    }
+  }
 `;
 
-const PriceContainer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
+const ChartTitle = styled.h3`
+  font-size: 1.1rem;
+  font-weight: 700;
   color: white;
-  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  letter-spacing: -0.01em;
 `;
 
-const PriceAmount = styled.span`
-  font-size: 3rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
+const ChartHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #9ca3af;
 `;
 
-const PricePeriod = styled.span`
-  font-size: 1.25rem;
-  color: #6b7280; /* gray-500 */
-  margin-left: 0.5rem;
-`;
-
-const FeatureList = styled.ul`
+const CostBarContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-top: 2rem;
+  gap: 1.25rem;
 `;
 
-const FeatureItem = styled.li`
+const CostItem = styled.div`
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.5rem;
 `;
 
-const CheckIcon = styled(CheckCircleIconSolid)`
-  flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
-  color: #22c55e; /* green-500 */
-  margin-top: 0.125rem;
+const CostLabelRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #e5e7eb;
+  font-weight: 500;
 `;
 
-const FeatureText = styled.span`
-  margin-left: 0.75rem;
-  color: #d1d5db; /* gray-300 */
-  font-size: 0.875rem;
-  line-height: 1.5;
+const CostBarWrapper = styled.div`
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  overflow: hidden;
+`;
+
+const CostBar = styled.div<{ $width: string; $color: string }>`
+  height: 100%;
+  width: ${props => props.$width};
+  background: ${props => props.$color};
+  border-radius: 9999px;
+`;
+
+const CostValue = styled.span<{ $highlight?: boolean }>`
+  color: ${props => props.$highlight ? 'rgb(255, 100, 130)' : '#9ca3af'};
+  font-weight: ${props => props.$highlight ? '700' : '400'};
+  font-size: 0.85rem;
 `;
 
 // --- Hero Section 2-Column Styles ---
@@ -770,9 +736,23 @@ const StackCardWrapper = styled.div<{
         return "translate(36px, 36px)";
     }
   }};
+
+  @media (max-width: 768px) {
+    transform: ${({ $position }) => {
+      switch ($position) {
+        case 0:
+          return "translate(0px, 0px)";
+        case 1:
+          return "translate(0px, 18px)";
+        default:
+          return "translate(0px, 36px)";
+      }
+    }};
+  }
+
   z-index: ${({ $position }) => 3 - $position};
   opacity: ${({ $position }) => ($position === 2 ? 0.75 : 1)};
-  transition: transform 0.6s ease, opacity 0.6s ease, box-shadow 0.6s ease;
+  transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
   pointer-events: ${({ $isInteractive }) =>
     $isInteractive ? "auto" : "none"};
   box-shadow: ${({ $position }) => {
@@ -971,8 +951,8 @@ const CTAButton = styled.button`
 const HeroCTAButton = styled(CTAButton)`
   padding: 1rem 2.8rem;
   font-size: 1.15rem;
-  background: rgba(246, 59, 59, 0.5);
-  border-color: rgba(246, 59, 59, 0.5);
+  background: rgba(246, 59, 59, 0.7);
+  border-color: rgba(246, 59, 59, 0.7);
   color: #ffffff;
 
   &:hover {
@@ -1230,11 +1210,12 @@ interface ScrollCardProps {
   meetup: MeetupEvent;
   maxAvatars?: number;
   onNavigate: (eventId: string) => void;
+  userProfilesMap?: Record<string, UserProfile>;
 }
 
 type StackLayer =
-  | { type: "event"; event: MeetupEvent }
-  | { type: "placeholder"; id: string };
+  | { type: "event"; event: MeetupEvent; instanceKey: string }
+  | { type: "placeholder"; id: string; instanceKey: string };
 
 const PLACEHOLDER_IDS = ["placeholder-1", "placeholder-2", "placeholder-3"];
 
@@ -1243,25 +1224,44 @@ const buildStackLayers = (
   offset: number
 ): StackLayer[] => {
   if (!events || events.length === 0) {
-    return PLACEHOLDER_IDS.map((id) => ({ type: "placeholder", id }));
+    return PLACEHOLDER_IDS.map((id, i) => ({ 
+      type: "placeholder", 
+      id, 
+      instanceKey: `${id}-${i}` 
+    }));
   }
 
   const count = events.length;
   const layers: StackLayer[] = [];
 
   for (let i = 0; i < 3; i++) {
+    const absoluteIndex = offset + i;
+    
     if (count === 1 && i > 0) {
-      layers.push({ type: "placeholder", id: `${PLACEHOLDER_IDS[i - 1]}-${i}` });
+      layers.push({ 
+        type: "placeholder", 
+        id: `${PLACEHOLDER_IDS[i - 1]}-${i}`,
+        instanceKey: `placeholder-${i}-${absoluteIndex}`
+      });
       continue;
     }
 
     if (count === 2 && i === 2) {
-      layers.push({ type: "placeholder", id: `${PLACEHOLDER_IDS[2]}-${i}` });
+      layers.push({ 
+        type: "placeholder", 
+        id: `${PLACEHOLDER_IDS[2]}-${i}`,
+        instanceKey: `placeholder-${i}-${absoluteIndex}`
+      });
       continue;
     }
 
-    const index = (offset + i) % count;
-    layers.push({ type: "event", event: events[index] });
+    const index = absoluteIndex % count;
+    const event = events[index];
+    layers.push({ 
+      type: "event", 
+      event,
+      instanceKey: `${event.id}-${absoluteIndex}`
+    });
   }
 
   return layers;
@@ -1303,7 +1303,7 @@ const UrgencyButton = styled.button<{ $isHigh?: boolean }>`
   }
 `;
 
-const HeroScrollCard = ({ meetup, maxAvatars = 5, onNavigate }: ScrollCardProps) => {
+const HeroScrollCard = ({ meetup, maxAvatars = 5, onNavigate, userProfilesMap }: ScrollCardProps) => {
   const { t } = useI18n();
   const spotsTaken = meetup.leaders.length + meetup.participants.length;
   const spotsTotal = meetup.max_participants;
@@ -1345,6 +1345,7 @@ const HeroScrollCard = ({ meetup, maxAvatars = 5, onNavigate }: ScrollCardProps)
               uids={[...meetup.leaders, ...meetup.participants]}
               maxAvatars={maxAvatars}
               size={32}
+              userProfilesMap={userProfilesMap}
             />
            <UrgencyButton $isHigh={isUrgent}>
              <span />
@@ -1386,10 +1387,9 @@ export default function NewHomeClient({
   const [homeStats, setHomeStats] = useState<HomeStats | undefined>(
     initialStats
   );
-  const [activeMemberIndex, setActiveMemberIndex] = useState(0);
-  const memberRotationRef = useRef<NodeJS.Timeout | null>(null);
-  const isMemberPointerActive = useRef(false);
-  const isMemberFocusActive = useRef(false);
+  
+  // Cache for user profiles
+  const [userProfilesMap, setUserProfilesMap] = useState<Record<string, UserProfile>>({});
 
   // --- Hero Card Scrolling Logic ---
   const [upcomingEvents, setUpcomingEvents] = useState<MeetupEvent[]>(
@@ -1398,9 +1398,32 @@ export default function NewHomeClient({
   
   // Effect to fetch upcoming events if not provided initially
   useEffect(() => {
-    // If we already have initial events, don't fetch again
+    // Helper to fetch user profiles for events
+    const loadUserProfiles = async (events: MeetupEvent[]) => {
+      const allUids = new Set<string>();
+      events.forEach(event => {
+        event.leaders.forEach(uid => allUids.add(uid));
+        event.participants.forEach(uid => allUids.add(uid));
+      });
+
+      if (allUids.size > 0) {
+        try {
+          const profiles = await fetchUserProfiles(Array.from(allUids));
+          const profileMap: Record<string, UserProfile> = {};
+          profiles.forEach(p => {
+            profileMap[p.uid] = p;
+          });
+          setUserProfilesMap(prev => ({ ...prev, ...profileMap }));
+        } catch (error) {
+          console.error("Failed to pre-fetch user profiles:", error);
+        }
+      }
+    };
+
+    // If we already have initial events, use them and fetch profiles
     if (initialUpcomingEvents && initialUpcomingEvents.length > 0) {
       setUpcomingEvents(initialUpcomingEvents);
+      loadUserProfiles(initialUpcomingEvents);
       return;
     }
 
@@ -1411,6 +1434,8 @@ export default function NewHomeClient({
         if (events.length > 0) {
           setUpcomingEvents(events);
           setClosestEvent(events[0]);
+          // Fetch profiles after events are loaded
+          loadUserProfiles(events);
         }
       } catch (error) {
         console.error("Failed to fetch upcoming meetups for hero:", error);
@@ -1444,119 +1469,8 @@ export default function NewHomeClient({
   );
 
   // Derived state for localized content
-  const memberProfiles: MemberProfile[] = [
-    {
-      id: "founder",
-      label: t.home.members.founder.label,
-      bio: t.home.members.founder.bio,
-      highlights: t.home.members.founder.highlights,
-      linkedInUrl: "https://www.linkedin.com/in/sk-kyle-kim/",
-      image: "/assets/homepage/member1.JPG",
-      background:
-        "linear-gradient(135deg, rgba(17, 24, 39, 0.88) 0%, rgba(30, 64, 175, 0.78) 100%)",
-      accent: "#3b82f6",
-      accentSoft: "rgba(59, 130, 246, 0.18)",
-      initials: "모임장",
-      icon: UsersIcon,
-    },
-    {
-      id: "professionals",
-      label: t.home.members.professionals.label,
-      bio: t.home.members.professionals.bio,
-      highlights: t.home.members.professionals.highlights,
-      image: "/assets/homepage/member2.jpg",
-      background:
-        "linear-gradient(135deg, rgba(15, 118, 110, 0.88) 0%, rgba(22, 163, 74, 0.75) 100%)",
-      accent: "#10b981",
-      accentSoft: "rgba(16, 185, 129, 0.18)",
-      initials: "프로",
-      icon: BriefcaseIcon,
-    },
-    {
-      id: "students",
-      label: t.home.members.students.label,
-      bio: t.home.members.students.bio,
-      highlights: t.home.members.students.highlights,
-      image: "/assets/homepage/member3.jpg",
-      background:
-        "linear-gradient(135deg, rgba(76, 29, 149, 0.88) 0%, rgba(124, 58, 237, 0.72) 100%)",
-      accent: "#a855f7",
-      accentSoft: "rgba(168, 85, 247, 0.18)",
-      initials: "학생",
-      icon: AcademicCapIcon,
-    },
-  ];
-
   const pricingBenefits: PricingBenefit[] = t.home.pricing.benefits;
   const FAQ_ITEMS = t.home.faq.items.map(item => ({ question: item.q, answer: item.a }));
-
-  const startMemberRotation = useCallback(() => {
-    if (memberRotationRef.current) {
-      clearInterval(memberRotationRef.current);
-    }
-
-    memberRotationRef.current = setInterval(() => {
-      setActiveMemberIndex((prevIndex) => (prevIndex + 1) % memberProfiles.length);
-    }, 5000);
-  }, [memberProfiles.length]);
-
-  const pauseMemberRotation = useCallback(() => {
-    if (memberRotationRef.current) {
-      clearInterval(memberRotationRef.current);
-      memberRotationRef.current = null;
-    }
-  }, []);
-
-  const resumeMemberRotation = useCallback(() => {
-    if (isMemberPointerActive.current || isMemberFocusActive.current) {
-      return;
-    }
-    startMemberRotation();
-  }, [startMemberRotation]);
-
-  const handleMemberSelect = useCallback((index: number) => {
-    setActiveMemberIndex(index);
-  }, []);
-
-  const handleMemberHover = useCallback((index: number) => {
-    setActiveMemberIndex(index);
-  }, []);
-
-  const handleMemberFocus = useCallback(
-    (index: number) => {
-      setActiveMemberIndex(index);
-      isMemberFocusActive.current = true;
-      pauseMemberRotation();
-    },
-    [pauseMemberRotation]
-  );
-
-  const handleMemberBlur = useCallback(() => {
-    isMemberFocusActive.current = false;
-    resumeMemberRotation();
-  }, [resumeMemberRotation]);
-
-  const handleMemberMouseEnter = useCallback(() => {
-    isMemberPointerActive.current = true;
-    pauseMemberRotation();
-  }, [pauseMemberRotation]);
-
-  const handleMemberMouseLeave = useCallback(() => {
-    isMemberPointerActive.current = false;
-    resumeMemberRotation();
-  }, [resumeMemberRotation]);
-
-  useEffect(() => {
-    startMemberRotation();
-
-    return () => {
-      if (memberRotationRef.current) {
-        clearInterval(memberRotationRef.current);
-      }
-    };
-  }, [startMemberRotation]);
-
-  const activeMember = memberProfiles[activeMemberIndex];
 
   useEffect(() => {
     setCardOffset(0);
@@ -1579,7 +1493,7 @@ export default function NewHomeClient({
     rotationIntervalRef.current = setInterval(() => {
       setIsStackSwapping(true);
       swapTimeoutRef.current = setTimeout(() => {
-        setCardOffset((prev) => (prev + 1) % upcomingEvents.length);
+        setCardOffset((prev) => prev + 1);
         setIsStackSwapping(false);
       }, 450);
     }, 5000);
@@ -1765,11 +1679,7 @@ export default function NewHomeClient({
             <StackContainer>
               {stackLayers.map((layer, index) => (
                 <StackCardWrapper
-                  key={
-                    layer.type === "event"
-                      ? `event-${layer.event.id}-${index}`
-                      : `${layer.id}-${index}`
-                  }
+                  key={layer.instanceKey}
                   $position={index}
                   $isAnimating={
                     isStackSwapping && index === 0 && upcomingEvents.length >= 2
@@ -1781,6 +1691,7 @@ export default function NewHomeClient({
                       meetup={layer.event}
                       maxAvatars={maxAvatars}
                       onNavigate={handleEventNavigation}
+                      userProfilesMap={userProfilesMap}
                     />
                   ) : (
                     <PlaceholderCardShell />
@@ -1793,128 +1704,10 @@ export default function NewHomeClient({
       </HeroSection>
 
       <MainContent>
-        {/* Gallery Section */}
-        <GallerySection>
-          <GalleryInner>
-            <GalleryTitle>
-              {t.home.gallery.title}
-            </GalleryTitle>
-            <GalleryGrid>
-              <GalleryImageLarge 
-                src="/assets/homepage/gallery1.JPG" 
-                alt="Gallery 1"
-                loading="lazy"
-              />
-              <GalleryImageSmall 
-                src="/assets/homepage/gallery2.JPG" 
-                alt="Gallery 2"
-                loading="lazy"
-              />
-              <GalleryImageSmall 
-                src="/assets/homepage/gallery3.JPG" 
-                alt="Gallery 3"
-                loading="lazy"
-              />
-            </GalleryGrid>
-          </GalleryInner>
-        </GallerySection>
 
         <StatsSection stats={homeStats} />
 
         <TopicsShowcase topics={initialTopics || []} />
-
-        <MembersSection>
-          <MembersInner>
-            <MembersHeading>{t.home.members.title}</MembersHeading>
-            <MembersIntro>{t.home.members.intro}</MembersIntro>
-            <MembersLayout
-              onMouseEnter={handleMemberMouseEnter}
-              onMouseLeave={handleMemberMouseLeave}
-              onTouchStart={handleMemberMouseEnter}
-              onTouchEnd={handleMemberMouseLeave}
-              onTouchCancel={handleMemberMouseLeave}
-            >
-              <MemberVisualPanel>
-                <MemberVisualCard $background={activeMember.background}>
-                  <MemberVisualMedia>
-                    {activeMember.image ? (
-                      <MemberVisualImage
-                        src={activeMember.image}
-                        alt={`${activeMember.label} Visual`}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <MemberVisualFallback>{activeMember.initials}</MemberVisualFallback>
-                    )}
-                  </MemberVisualMedia>
-                </MemberVisualCard>
-              </MemberVisualPanel>
-
-              <MembersAccordion>
-                {memberProfiles.map((member, index) => {
-                  const Icon = member.icon;
-                  return (
-                    <MemberAccordionItem
-                      key={member.id}
-                      $isActive={activeMemberIndex === index}
-                    >
-                      <MemberAccordionHeader
-                        onClick={() => handleMemberSelect(index)}
-                        onFocus={() => handleMemberFocus(index)}
-                        onBlur={handleMemberBlur}
-                        onMouseEnter={() => handleMemberHover(index)}
-                        $accent={member.accent}
-                        $accentSoft={member.accentSoft}
-                        $isActive={activeMemberIndex === index}
-                      >
-                        <MemberIconCircle
-                          $accent={member.accent}
-                          $accentSoft={member.accentSoft}
-                        >
-                          <Icon />
-                        </MemberIconCircle>
-                        <MemberHeaderTitle>{member.label}</MemberHeaderTitle>
-                      </MemberAccordionHeader>
-                      <MemberAccordionContent $isActive={activeMemberIndex === index}>
-                        <MemberAccordionBody>
-                          <MemberBio>{member.bio}</MemberBio>
-                          {member.linkedInUrl && (
-                            <LinkedInButton
-                              href={member.linkedInUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              $accent={member.accent}
-                              $accentSoft={member.accentSoft}
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                              </svg>
-                              {t.home.members.linkedIn}
-                            </LinkedInButton>
-                          )}
-                          <MemberHighlights>
-                            {member.highlights.map((highlight, highlightIndex) => (
-                              <MemberHighlight key={highlightIndex}>
-                                <MemberHighlightIcon $accent={member.accent}>
-                                  <CheckCircleIcon />
-                                </MemberHighlightIcon>
-                                <span>{highlight}</span>
-                              </MemberHighlight>
-                            ))}
-                          </MemberHighlights>
-                        </MemberAccordionBody>
-                      </MemberAccordionContent>
-                    </MemberAccordionItem>
-                  );
-                })}
-              </MembersAccordion>
-            </MembersLayout>
-          </MembersInner>
-        </MembersSection>
 
         <MembershipSectionContainer>
           <MembershipWrapper>
@@ -1925,26 +1718,88 @@ export default function NewHomeClient({
                   <Badge>{t.home.pricing.badge}</Badge>
                   <Heading>{t.home.pricing.title}</Heading>
                   <Description>{t.home.pricing.tagline}</Description>
+                  <div style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <p style={{ fontSize: '1.2rem', fontWeight: 600, color: 'white', lineHeight: 1.5 }}>
+                        멤버십 유지 기간 동안 열리는<br />
+                        모든 밋업 참여 가능 (주 1회 보장)
+                      </p>
+                      <p style={{ fontSize: '1rem', color: '#ffb7c5' }}>
+                        지인 추천 시 추가 할인 가능
+                      </p>
+                    </div>
+                    <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '1.5rem', lineHeight: 1.5, opacity: 0.8 }}>
+                      * 운영진 귀책 사유로 밋업을 1주 진행하지 못할 경우 구독 기간을 2주 연장해드립니다. 멤버 분 귀책 사유로 밋업을 불참하실 경우 연장이 되지 않습니다. 비매너 등 운영 정책을 위반할 경우 강제 환불이 진행될 수 있습니다.
+                    </p>
+                  </div>
                   <CtaButton onClick={() => router.push("/payment")}>
                     {t.home.pricing.cta}
                   </CtaButton>
                 </LeftCol>
                 <RightCol>
-                  <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-                    <PriceTag>{t.home.pricing.price_label}</PriceTag>
-                    <PriceContainer>
-                      <PriceAmount>₩9,700</PriceAmount>
-                      <PricePeriod>{t.home.pricing.period}</PricePeriod>
-                    </PriceContainer>
-                  </div>
-                  <FeatureList>
-                    {pricingBenefits.map((benefit, index) => (
-                      <FeatureItem key={index}>
-                        <CheckIcon />
-                        <FeatureText>{benefit.title}</FeatureText>
-                      </FeatureItem>
-                    ))}
-                  </FeatureList>
+                  <ChartTitle>월 9700원으로 누리는 압도적인 가성비</ChartTitle>
+                  <ComparisonChart>
+                    <ChartHeader>
+                      <span>시간당 비용 비교</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 400, color: '#6b7280' }}>(단위: 원)</span>
+                    </ChartHeader>
+                    <CostBarContainer>
+                      {/* 영어한잔 */}
+                      <CostItem>
+                        <CostLabelRow>
+                          <span style={{ color: 'white', fontWeight: 700 }}>영어 한잔</span>
+                          <CostValue $highlight>1,212원</CostValue>
+                        </CostLabelRow>
+                        <CostBarWrapper>
+                          <CostBar $width="2%" $color="rgb(255, 100, 130)" />
+                        </CostBarWrapper>
+                      </CostItem>
+
+                      {/* 언어교환 */}
+                      <CostItem>
+                        <CostLabelRow>
+                          <span>언어교환 모임</span>
+                          <CostValue>5,000원</CostValue>
+                        </CostLabelRow>
+                        <CostBarWrapper>
+                          <CostBar $width="8%" $color="#4b5563" />
+                        </CostBarWrapper>
+                      </CostItem>
+
+                      {/* 전화영어 */}
+                      <CostItem>
+                        <CostLabelRow>
+                          <span>전화영어</span>
+                          <CostValue>20,000원~</CostValue>
+                        </CostLabelRow>
+                        <CostBarWrapper>
+                          <CostBar $width="33%" $color="#4b5563" />
+                        </CostBarWrapper>
+                      </CostItem>
+
+                      {/* 영어학원 */}
+                      <CostItem>
+                        <CostLabelRow>
+                          <span>영어학원</span>
+                          <CostValue>35,000원~</CostValue>
+                        </CostLabelRow>
+                        <CostBarWrapper>
+                          <CostBar $width="58%" $color="#4b5563" />
+                        </CostBarWrapper>
+                      </CostItem>
+
+                      {/* 프리미엄 화상영어 */}
+                      <CostItem>
+                        <CostLabelRow>
+                          <span>프리미엄 화상영어</span>
+                          <CostValue>60,000원~</CostValue>
+                        </CostLabelRow>
+                        <CostBarWrapper>
+                          <CostBar $width="100%" $color="#4b5563" />
+                        </CostBarWrapper>
+                      </CostItem>
+                    </CostBarContainer>
+                  </ComparisonChart>
                 </RightCol>
               </MembershipGrid>
             </MembershipCard>
@@ -1954,7 +1809,9 @@ export default function NewHomeClient({
         {/* FAQ Section */}
         <FAQSection>
           <FAQInner>
-            <SectionTitle>{t.home.faq.title}</SectionTitle>
+            <SectionTitle>
+              자주 묻는 <Highlight>질문</Highlight>
+            </SectionTitle>
             <FAQContainer>
               {FAQ_ITEMS.map(
                 (faq: { question: string; answer: string }, index: number) => (
