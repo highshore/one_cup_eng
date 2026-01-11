@@ -2,6 +2,7 @@
 
 import React from "react";
 import styled from "styled-components";
+import { useI18n } from "../../../i18n/I18nProvider";
 import {
   GlobeAltIcon,
   UsersIcon,
@@ -20,8 +21,10 @@ interface StatsSectionProps {
 }
 
 // Styled Components
+const MOBILE_NAV_GUTTER = "1rem";
+
 const SectionContainer = styled.section`
-  padding: 6rem 0;
+  padding: 5rem 0;
   background-color: #F3F3F1;
 `;
 
@@ -29,11 +32,20 @@ const Container = styled.div`
   max-width: 960px;
   margin: 0 auto;
   padding: 0 20px;
+
+  @media (max-width: 768px) {
+    padding: 0 ${MOBILE_NAV_GUTTER};
+  }
 `;
 
 const HeaderWrapper = styled.div`
-  margin-bottom: 4rem;
+  margin-bottom: 3rem;
   max-width: 48rem;
+
+  @media (max-width: 768px) {
+    margin: 0 auto 2.5rem;
+    text-align: center;
+  }
 `;
 
 const Title = styled.h2`
@@ -42,6 +54,10 @@ const Title = styled.h2`
   color: #0f172a;
   margin-bottom: 1.5rem;
   line-height: 1.2;
+
+  @media (max-width: 768px) {
+    text-align: center;
+  }
 `;
 
 const Highlight = styled.span`
@@ -126,6 +142,7 @@ const Card5 = styled(CardBase)`
   justify-content: center;
   align-items: center;
   text-align: center;
+  padding: 4rem 2rem;
   
   @media (min-width: 768px) {
     grid-column: 1 / -1;
@@ -134,6 +151,7 @@ const Card5 = styled(CardBase)`
     text-align: left;
     align-items: center;
     justify-content: space-between;
+    padding: 3rem 4rem;
   }
 `;
 
@@ -388,6 +406,64 @@ const TopicVisual = styled.div`
   justify-content: center;
 `;
 
+const LeaderLinkButton = styled.a`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #ffffff;
+  padding: 0.8rem 1rem 0.8rem 1.2rem;
+  border-radius: 16px;
+  text-decoration: none;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  margin-top: auto;
+  padding-top: 0.8rem;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const LeaderLinkImage = styled.img`
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #f1f5f9;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+`;
+
+const LeaderLinkIcon = styled.div`
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0077b5;
+  background: #f0f9ff; /* Light blue tint */
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  
+  svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
+  
+  ${LeaderLinkButton}:hover & {
+    background: #0077b5;
+    color: white;
+  }
+`;
+
 // Atmosphere Visuals
 const FloatingBubble = styled.div<{ $size: string; $top: string; $left: string; $delay: string }>`
   position: absolute;
@@ -409,6 +485,7 @@ const FloatingBubble = styled.div<{ $size: string; $top: string; $left: string; 
 `;
 
 export default function StatsSection({ stats }: StatsSectionProps) {
+  const { t } = useI18n();
   const memberCount = stats?.totalMembers || 2000;
   
   const galleryImages = [
@@ -422,8 +499,8 @@ export default function StatsSection({ stats }: StatsSectionProps) {
       <Container>
         <HeaderWrapper>
           <Title>
-            완벽한 영어가 아닌,<br/>
-            <Highlight>통하는 영어</Highlight>를 만듭니다.
+            {t.home.stats.header.title.split('\n')[0]}<br/>
+            <Highlight>{t.home.stats.header.highlight}</Highlight>{t.home.stats.header.title.split('\n')[1].replace(t.home.stats.header.highlight, '')}
           </Title>
         </HeaderWrapper>
 
@@ -434,9 +511,9 @@ export default function StatsSection({ stats }: StatsSectionProps) {
                 <IconWrapper $bg="rgba(15, 23, 42, 0.1)">
                     <SparklesIcon width={24} color="#0f172a" />
                 </IconWrapper>
-                <CardTitle $dark>검증된 멤버와 나누는<br/>깊이 있는 인사이트</CardTitle>
+                <CardTitle $dark>{t.home.stats.insights.title.split('\n').map((line: string, i: number) => <React.Fragment key={i}>{line}<br/></React.Fragment>)}</CardTitle>
                 <CardText $dark>
-                    다양한 분야의 직장인, IT/AI 전공자, 그리고 영미권 석박사를 준비하는 고스펙 인재들이 모입니다.
+                    {t.home.stats.insights.description}
                 </CardText>
             </ContentLeft>
             
@@ -457,26 +534,27 @@ export default function StatsSection({ stats }: StatsSectionProps) {
                 <IconWrapper $bg="rgba(255, 255, 255, 0.2)">
                     <UsersIcon width={24} className="text-white" />
                 </IconWrapper>
-                <CardTitle $dark>통역사 출신이 직접<br/>이끌고 설계하는 모임</CardTitle>
+                <CardTitle $dark>{t.home.stats.leader.title.split('\n').map((line: string, i: number) => <React.Fragment key={i}>{line}<br/></React.Fragment>)}</CardTitle>
                 <CardText $dark>
-                   대기업, IT 유니콘 기업, 군에서 5년 넘게 미팅을 수천 번 통역한 영어 베테랑입니다.
+                   {t.home.stats.leader.description}
                 </CardText>
                 
                 <LeaderProfileWrapper>
-                  <LeaderProfile 
+                  <LeaderLinkButton 
                       href="https://www.linkedin.com/in/sk-kyle-kim/" 
                       target="_blank" 
                       rel="noopener noreferrer"
                   >
-                      <LeaderImage src="/assets/homepage/member1.JPG" alt="Kyle Kim" />
-                  </LeaderProfile>
-                  <a href="https://www.linkedin.com/in/sk-kyle-kim/" target="_blank" rel="noopener noreferrer">
-                    <LinkedInBadge>
-                      <svg viewBox="0 0 24 24">
-                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                      </svg>
-                    </LinkedInBadge>
-                  </a>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <LeaderLinkImage src="/assets/homepage/member1.JPG" alt="Kyle Kim" />
+                        <span style={{ fontSize: '1.05rem' }}>{t.home.stats.leader.linkedin}</span>
+                      </div>
+                      <LeaderLinkIcon>
+                        <svg viewBox="0 0 24 24">
+                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
+                      </LeaderLinkIcon>
+                  </LeaderLinkButton>
                 </LeaderProfileWrapper>
              </div>
           </Card4>
@@ -487,9 +565,9 @@ export default function StatsSection({ stats }: StatsSectionProps) {
                 <IconWrapper $bg="rgba(37, 99, 235, 0.1)">
                     <NewspaperIcon width={24} color="#2563eb" />
                 </IconWrapper>
-                <CardTitle $dark>글로벌 엘리트가<br/>주목하는 토픽</CardTitle>
+                <CardTitle $dark>{t.home.stats.topics.title.split('\n').map((line: string, i: number) => <React.Fragment key={i}>{line}<br/></React.Fragment>)}</CardTitle>
                 <CardText $dark>
-                    가벼운 잡담 대신 WSJ, FT, NYT, TechCrunch 등 글로벌 탑티어 미디어의 아티클을 다룹니다.
+                    {t.home.stats.topics.description}
                 </CardText>
              </div>
              
@@ -518,27 +596,27 @@ export default function StatsSection({ stats }: StatsSectionProps) {
                <TrophyIcon width={48} color="#D2E823" />
              </div>
              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-               <CardTitle style={{ marginBottom: 0 }}>지금이 가장 빠른 성장 기회</CardTitle>
+               <CardTitle style={{ marginBottom: 0 }}>{t.home.stats.growth.title}</CardTitle>
                
                {/* Metrics Subtitle */}
                <MetricsContainer style={{ marginTop: '0.5rem' }}>
                   <MetricItem>
                       <MetricValue>30회</MetricValue>
-                      <MetricLabel>누적 밋업 수</MetricLabel>
+                      <MetricLabel>{t.home.stats.growth.metrics.meetups}</MetricLabel>
                   </MetricItem>
                   <MetricItem>
                       <MetricValue>50명+</MetricValue>
-                      <MetricLabel>누적 유료 멤버</MetricLabel>
+                      <MetricLabel>{t.home.stats.growth.metrics.members}</MetricLabel>
                   </MetricItem>
                    <MetricItem>
                       <MetricValue>90%+</MetricValue>
-                      <MetricLabel>재참여율</MetricLabel>
+                      <MetricLabel>{t.home.stats.growth.metrics.retention}</MetricLabel>
                   </MetricItem>
                </MetricsContainer>
 
              </div>
              <div style={{ marginTop: '1rem' }}>
-               <Button>멤버십 둘러보기</Button>
+               <Button>{t.home.stats.growth.cta}</Button>
              </div>
           </Card5>
 

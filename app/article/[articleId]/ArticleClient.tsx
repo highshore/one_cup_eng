@@ -32,16 +32,8 @@ import {
 } from "../../lib/features/article/services/article_image_service";
 
 // Import modular components
-import AudioPlayer from "./components/AudioPlayer";
-import FloatingControls from "./components/FloatingControls";
 import TranslationWarning from "./components/TranslationWarning";
 import { colors } from "./constants/colors";
-
-interface AudioTimestamp {
-  start: number;
-  end: number;
-  character: string;
-}
 
 interface ArticleData {
   content: {
@@ -58,13 +50,6 @@ interface ArticleData {
   image_url?: string; // Added new optional field
   discussion_topics?: string[]; // Added new optional field
   source_url?: string; // Added new optional field
-  audio?: {
-    url: string;
-    timestamps: AudioTimestamp[];
-    characters?: string[];
-    character_start_times_seconds?: number[];
-    character_end_times_seconds?: number[];
-  };
 }
 
 interface WordData {
@@ -84,30 +69,36 @@ interface WordData {
   antonyms: string[];
 }
 
+const NAVBAR_MAX_WIDTH = 960;
+const NAVBAR_OFFSET_DESKTOP = 85;
+const NAVBAR_OFFSET_MOBILE = 75;
+const NAVBAR_PADDING_DESKTOP = "1.5rem";
+const NAVBAR_PADDING_MOBILE = "1.5rem";
+const DESKTOP_PAGE_TOP_PADDING = "1.75rem";
+
 const ArticleContainer = styled.div`
-  max-width: 940px;
+  width: 100%;
+  max-width: ${NAVBAR_MAX_WIDTH}px;
   margin: 0 auto;
-  padding: 1rem 1.5rem;
+  padding: clamp(1.5rem, 2.8vw, 2.25rem) ${NAVBAR_PADDING_DESKTOP}
+    clamp(2rem, 3vw, 2.75rem);
   min-height: 100vh;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Roboto", "Helvetica Neue", Arial, sans-serif;
   position: relative;
-  padding-top: 56px; /* Minimal space for fixed GNB */
-  padding-bottom: 70px; /* Add space for audio player */
+  padding-top: ${DESKTOP_PAGE_TOP_PADDING};
 
   @media (max-width: 768px) {
-    padding: 1.5rem 1rem;
-    padding-top: 48px; /* Minimized mobile navbar space */
+    padding: 1.25rem ${NAVBAR_PADDING_MOBILE} 1.75rem;
+    padding-top: 1.25rem;
     width: 100%;
-    min-height: auto; /* Fix for mobile height issues */
+    min-height: auto;
     overflow-x: hidden;
-    padding-bottom: 70px; /* Add space for audio player */
   }
 
   @media (max-width: 480px) {
-    padding: 1.2rem 0.8rem;
-    padding-top: 44px; /* Minimal on very small screens */
-    padding-bottom: 70px; /* Add space for audio player */
+    padding: 1rem ${NAVBAR_PADDING_MOBILE} 1rem;
+    padding-top: 1rem;
   }
 `;
 
@@ -1002,17 +993,21 @@ const extractFullWordFromBionicText = (
   }
 };
 
-// Update ArticlePageWrapper to accept isAudioMode prop
-const ArticlePageWrapper = styled.div<{ isAudioMode?: boolean }>`
+const ArticlePageWrapper = styled.div`
   min-height: 100vh;
   background-color: ${colors.primaryBg};
   width: 100%;
-  padding-bottom: ${(props) => (props.isAudioMode ? "70px" : "0")};
+  padding-bottom: clamp(2rem, 4vw, 3rem);
+  margin-top: -${NAVBAR_OFFSET_DESKTOP}px;
+  padding-top: calc(${NAVBAR_OFFSET_DESKTOP}px + ${DESKTOP_PAGE_TOP_PADDING});
 
   @media (max-width: 768px) {
     /* Ensure proper mobile scrolling */
     -webkit-overflow-scrolling: touch;
     overflow-y: auto;
+    margin-top: -${NAVBAR_OFFSET_MOBILE}px;
+    padding-top: calc(${NAVBAR_OFFSET_MOBILE}px + 1.25rem);
+    padding-bottom: 2rem;
   }
 `;
 
@@ -1178,243 +1173,6 @@ const getWordDefinition = async (
     return `뜻풀이를 가져오는 중 오류가 발생했습니다: ${error}`;
   }
 };
-
-// Add audio player components
-const AudioPlayerContainer = styled.div<{ isVisible: boolean }>`
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%)
-    translateY(${(props) => (props.isVisible ? "0" : "100%")});
-  width: 100%;
-  max-width: 850px;
-  background: ${colors.primary};
-  color: white;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
-  z-index: 100;
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
-  box-sizing: border-box;
-
-  @media (max-width: 768px) {
-    padding: 0.8rem;
-    flex-wrap: wrap;
-  }
-`;
-
-const AudioControls = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  margin: 0 0.3rem;
-  flex-wrap: nowrap;
-
-  @media (max-width: 768px) {
-    gap: 0.5rem;
-    margin: 0 0.2rem;
-  }
-`;
-
-const AudioButton = styled.button`
-  background: transparent;
-  color: white;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  -webkit-tap-highlight-color: transparent;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  &:active {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  @media (max-width: 768px) {
-    font-size: 1.3rem;
-    width: 36px;
-    height: 36px;
-  }
-`;
-
-const AudioProgress = styled.div`
-  flex: 1;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
-  overflow: hidden;
-  position: relative;
-  margin: 0 1rem;
-  cursor: pointer;
-
-  @media (max-width: 768px) {
-    margin: 0 0.8rem;
-  }
-`;
-
-const AudioProgressFill = styled.div<{ progress: number }>`
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: ${(props) => props.progress}%;
-  background: ${colors.accent};
-  border-radius: 3px;
-`;
-
-const AudioTime = styled.div`
-  font-size: 0.9rem;
-  color: white;
-  margin: 0 0.5rem;
-  min-width: 50px;
-  text-align: center;
-
-  @media (max-width: 768px) {
-    font-size: 0.8rem;
-    min-width: 44px;
-  }
-`;
-
-const SpeedButton = styled.button<{ active: boolean }>`
-  background: ${(props) => (props.active ? colors.accent : "transparent")};
-  color: white;
-  border: 1px solid ${colors.accent};
-  border-radius: 20px;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
-
-  &:hover {
-    background: ${colors.accent};
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  @media (max-width: 768px) {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-  }
-`;
-
-// Floating button container
-const FloatingButtonContainer = styled.div<{ isAudioMode?: boolean }>`
-  position: fixed;
-  right: 1.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border: 1px solid ${colors.primaryPale};
-  transition: all 0.3s ease;
-
-  @media (max-width: 768px) {
-    right: 1rem;
-    padding: 0.6rem;
-    gap: 0.4rem;
-  }
-
-  @media (max-width: 480px) {
-    position: fixed;
-    right: 1rem;
-    bottom: ${(props) => (props.isAudioMode ? "90px" : "1rem")};
-    top: auto;
-    transform: none;
-    flex-direction: row;
-    padding: 0.5rem;
-    transition: all 0.3s ease;
-  }
-
-  &:hover {
-    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
-    transform: translateY(-50%) scale(1.02);
-
-    @media (max-width: 480px) {
-      transform: scale(1.02);
-    }
-  }
-`;
-
-const FloatingButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  background: ${colors.primary};
-  color: white;
-  border: none;
-  padding: 0.5rem 0.7rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  min-height: 2.2rem;
-  box-sizing: border-box;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-
-  @media (max-width: 768px) {
-    padding: 0.45rem 0.6rem;
-    font-size: 0.7rem;
-    min-height: 2rem;
-  }
-
-  @media (max-width: 480px) {
-    padding: 0.4rem 0.5rem;
-    font-size: 0.65rem;
-    min-height: 1.8rem;
-    gap: 0.2rem;
-  }
-
-  &:hover {
-    background: ${colors.primaryLight};
-    transform: translateY(-1px);
-  }
-
-  &.active {
-    background: ${colors.accent};
-  }
-
-  &:disabled {
-    background: ${colors.text.light};
-    cursor: not-allowed;
-    transform: none;
-  }
-`;
-
-const FloatingAudioButton = styled(FloatingButton)`
-  background: ${colors.primaryDark};
-
-  &.active {
-    background: ${colors.accent};
-  }
-
-  &:hover:not(:disabled) {
-    background: ${colors.primary};
-  }
-`;
 
 const ArticleImage = styled.img`
   width: 100%;
@@ -2029,10 +1787,6 @@ const Article = () => {
   const [dontShowTranslationWarning, setDontShowTranslationWarning] =
     useState(false);
 
-  // Floating controls visibility state
-  const [isFloatingControlsVisible, setIsFloatingControlsVisible] =
-    useState(true);
-
   // Load "don't show again" preference from localStorage
   useEffect(() => {
     const dontShowPref = localStorage.getItem("dontShowTranslationWarning");
@@ -2056,17 +1810,7 @@ const Article = () => {
     any | null
   >(null);
 
-  // Audio player states
-  const [isAudioMode, setIsAudioMode] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioTimeUpdateRef = useRef<number | null>(null);
-
-  // Long-press detection for showing meaning modal (non-audio mode)
+  // Long-press detection for showing meaning modal
   const LONG_PRESS_MS = 500;
   const longPressTimerRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
@@ -2075,328 +1819,6 @@ const Article = () => {
   const pressTargetRef = useRef<HTMLElement | null>(null);
   const isTouchPressRef = useRef(false);
   const MOVEMENT_THRESHOLD_PX = 8;
-
-  // Character-word mapping for highlighting
-  const [characterWordMap, setCharacterWordMap] = useState<{
-    [charKey: string]: { paragraphIndex: number; wordIndex: number };
-  }>({});
-
-  // State for active character index
-  const [activeCharIndex, setActiveCharIndex] = useState<number | null>(null);
-
-  // Refs to store timestamps and paragraph character offsets
-  const timestampsRef = useRef<AudioTimestamp[]>([]);
-  const paragraphCharOffsetRef = useRef<number[]>([]);
-
-  // Refs to store word ranges (global indices) per paragraph
-  const paragraphWordRangesRef = useRef<Array<[number, number]>[]>([]);
-
-  // SVG components for play/pause
-  const PlayIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth="1.5"
-      stroke="currentColor"
-      style={{ width: "1.5rem", height: "1.5rem" }}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"
-      />
-    </svg>
-  );
-
-  const PauseIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth="1.5"
-      stroke="currentColor"
-      style={{ width: "1.5rem", height: "1.5rem" }}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15.75 5.25v13.5m-7.5-13.5v13.5"
-      />
-    </svg>
-  );
-
-  // Highlight words based on audio playback time
-  const prepareParagraphText = (paragraph: string, paragraphIndex: number) => {
-    if (!isAudioMode || timestampsRef.current.length === 0) {
-      return paragraph;
-    }
-    const chars = paragraph.split("");
-    const offset = paragraphCharOffsetRef.current[paragraphIndex] || 0;
-    // Determine active word range for this paragraph
-    const ranges = paragraphWordRangesRef.current[paragraphIndex] || [];
-    const activeRange = ranges.find(
-      ([s, e]) =>
-        activeCharIndex !== null && activeCharIndex >= s && activeCharIndex <= e
-    );
-    return (
-      <>
-        {chars.map((char, i) => {
-          const globalIdx = offset + i;
-          // Highlight if within active word's range
-          const shouldHighlight = activeRange
-            ? globalIdx >= activeRange[0] && globalIdx <= activeRange[1]
-            : false;
-          // Highlight color applies to all chars in word; bold active char
-          return (
-            <span
-              key={`char-${globalIdx}`}
-              id={`char-${globalIdx}`}
-              style={{
-                backgroundColor: shouldHighlight ? "#FFF2CC" : "transparent",
-              }}
-            >
-              {char}
-            </span>
-          );
-        })}
-      </>
-    );
-  };
-
-  // Helper function to scroll to highlighted word
-  const scrollToHighlightedWord = (
-    paragraphIndex: number,
-    wordIndex: number
-  ) => {
-    setTimeout(() => {
-      // Find highlighted word by data attributes
-      const highlightedElement = document.querySelector(
-        `span[data-paragraph-index="${paragraphIndex}"][data-word-index="${wordIndex}"]`
-      ) as HTMLElement;
-
-      if (highlightedElement) {
-        // Only scroll if the element is outside the viewport
-        const rect = highlightedElement.getBoundingClientRect();
-        const isInViewport =
-          rect.top >= 0 &&
-          rect.left >= 0 &&
-          rect.bottom <=
-            (window.innerHeight || document.documentElement.clientHeight) &&
-          rect.right <=
-            (window.innerWidth || document.documentElement.clientWidth);
-
-        if (!isInViewport) {
-          highlightedElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-            inline: "nearest",
-          });
-        }
-      }
-    }, 100);
-  };
-
-  // Define the time update handler before it's used
-  const handleTimeUpdate = () => {
-    if (audioTimeUpdateRef.current) {
-      cancelAnimationFrame(audioTimeUpdateRef.current);
-    }
-
-    audioTimeUpdate();
-  };
-
-  // Separate function for audio updates to allow it to be called more frequently
-  const audioTimeUpdate = () => {
-    audioTimeUpdateRef.current = requestAnimationFrame(() => {
-      if (audioRef.current) {
-        const currentTime = audioRef.current.currentTime;
-        // Update time display and progress bar
-        setCurrentTime(currentTime);
-
-        // Update progress percentage
-        const progress = (currentTime / (audioRef.current.duration || 1)) * 100;
-        setAudioProgress(isNaN(progress) ? 0 : progress);
-
-        // Find active characters and words for debugging
-        if (isAudioMode && article?.audio?.characters) {
-          const {
-            characters,
-            character_start_times_seconds,
-            character_end_times_seconds,
-          } = article.audio;
-          if (
-            characters &&
-            character_start_times_seconds &&
-            character_end_times_seconds
-          ) {
-            // Track active character indices
-            const activeCharIndices: number[] = [];
-
-            // Find active characters based on timestamp
-            for (let i = 0; i < characters.length; i++) {
-              const start = character_start_times_seconds[i];
-              const end = character_end_times_seconds[i];
-              if (start <= currentTime && end >= currentTime) {
-                activeCharIndices.push(i);
-              }
-            }
-
-            // Find words corresponding to active characters
-            const highlightedWords: {
-              word: string;
-              paraIndex: number;
-              wordIndex: number;
-            }[] = [];
-
-            // Process each paragraph to find words with active characters
-            article.content.english.forEach((paragraph, paragraphIndex) => {
-              const words = paragraph.split(/\s+/);
-
-              // Create a temporary lookup for this paragraph's words
-              const wordLookup = new Map<number, string>();
-
-              // Fill the word lookup
-              words.forEach((word, idx) => {
-                wordLookup.set(idx, word);
-              });
-
-              // Find active words based on character mapping
-              Object.keys(characterWordMap).forEach((charKey) => {
-                const keyParts = charKey.split("-");
-                const charFromKey = keyParts[0];
-
-                // Check if this character is active and in the current paragraph
-                if (
-                  activeCharIndices.some(
-                    (idx) => characters[idx] === charFromKey
-                  ) &&
-                  characterWordMap[charKey].paragraphIndex === paragraphIndex
-                ) {
-                  const wordIdx = characterWordMap[charKey].wordIndex;
-                  const word = wordLookup.get(wordIdx) || "";
-
-                  // Avoid duplicates
-                  if (
-                    word &&
-                    !highlightedWords.some(
-                      (item) =>
-                        item.paraIndex === paragraphIndex &&
-                        item.wordIndex === wordIdx
-                    )
-                  ) {
-                    highlightedWords.push({
-                      word,
-                      paraIndex: paragraphIndex,
-                      wordIndex: wordIdx,
-                    });
-                  }
-                }
-              });
-            });
-            // Find the first active word and scroll to it when needed
-            if (highlightedWords.length > 0 && isPlaying) {
-              const activeWord = highlightedWords[0];
-              scrollToHighlightedWord(
-                activeWord.paraIndex,
-                activeWord.wordIndex
-              );
-            }
-          }
-        } else if (isAudioMode && article?.content?.english) {
-          // For articles without character data, use paragraph-based timing
-          const totalDuration = audioRef.current.duration || 1;
-          const totalParagraphs = article.content.english.length || 1;
-
-          // Determine current paragraph based on time
-          const progressPercent = currentTime / totalDuration;
-          const currentParagraphIndex = Math.floor(
-            progressPercent * totalParagraphs
-          );
-
-          if (
-            currentParagraphIndex >= 0 &&
-            currentParagraphIndex < totalParagraphs
-          ) {
-            // Calculate progress within paragraph
-            const paragraphStartPercent =
-              currentParagraphIndex / totalParagraphs;
-            const paragraphEndPercent =
-              (currentParagraphIndex + 1) / totalParagraphs;
-            const paragraphProgress =
-              (progressPercent - paragraphStartPercent) /
-              (paragraphEndPercent - paragraphStartPercent);
-
-            // Get words in paragraph
-            const words =
-              article.content.english[currentParagraphIndex].split(/\s+/);
-            if (words.length > 0) {
-              // Determine current word
-              const currentWordIndex = Math.floor(
-                paragraphProgress * words.length
-              );
-              if (
-                currentWordIndex >= 0 &&
-                currentWordIndex < words.length &&
-                isPlaying
-              ) {
-                scrollToHighlightedWord(
-                  currentParagraphIndex,
-                  currentWordIndex
-                );
-              }
-            }
-          }
-        }
-
-        // Continue updating if playing
-        if (isPlaying) {
-          // Request the next frame for continuous updates
-          audioTimeUpdate();
-        }
-      }
-    });
-  };
-
-  // Handle audio ended event
-  const handleAudioEnded = () => {
-    setIsPlaying(false);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-    }
-  };
-
-  // Add audio context initialization
-  useEffect(() => {
-    // Try to resume audio context if it's suspended (needed for some browsers)
-    const resumeAudioContext = () => {
-      try {
-        const audioContext = new (window.AudioContext ||
-          (window as any).webkitAudioContext)();
-        if (audioContext.state === "suspended") {
-          audioContext.resume();
-        }
-      } catch (e) {
-        console.error("Error resuming audio context:", e);
-      }
-    };
-
-    // Initialize on user interaction
-    const handleUserInteraction = () => {
-      resumeAudioContext();
-      // Remove event listeners after first interaction
-      document.removeEventListener("click", handleUserInteraction);
-      document.removeEventListener("touchstart", handleUserInteraction);
-    };
-
-    document.addEventListener("click", handleUserInteraction);
-    document.addEventListener("touchstart", handleUserInteraction);
-
-    return () => {
-      document.removeEventListener("click", handleUserInteraction);
-      document.removeEventListener("touchstart", handleUserInteraction);
-    };
-  }, []);
 
   useEffect(() => {
     const fetchArticle = async () => {
@@ -2429,173 +1851,6 @@ const Article = () => {
 
     fetchArticle();
   }, [articleId]);
-
-  // Initialize audio player when article data is loaded
-  useEffect(() => {
-    if (article?.audio?.url) {
-      // Create a new audio element only if not already created or if URL has changed
-      if (!audioRef.current || audioRef.current.src !== article.audio.url) {
-        if (audioRef.current) {
-          // Clean up existing audio element if we're creating a new one
-          audioRef.current.pause();
-          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-          audioRef.current.removeEventListener("ended", handleAudioEnded);
-        }
-
-        audioRef.current = new Audio(article.audio.url);
-
-        audioRef.current.addEventListener("loadedmetadata", () => {
-          if (audioRef.current) {
-            setDuration(audioRef.current.duration);
-          }
-        });
-
-        audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
-        audioRef.current.addEventListener("ended", handleAudioEnded);
-
-        // Preload audio
-        audioRef.current.load();
-      }
-    } else if (isAudioMode) {
-      setIsAudioMode(false);
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-        audioRef.current.removeEventListener("ended", handleAudioEnded);
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (audioTimeUpdateRef.current) {
-        cancelAnimationFrame(audioTimeUpdateRef.current);
-      }
-    };
-  }, [article?.audio?.url]); // Only depend on the audio URL
-
-  // Toggle audio playback
-  const togglePlayPause = () => {
-    if (!audioRef.current) return;
-
-    try {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        const playPromise = audioRef.current.play();
-
-        if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            console.error("Audio playback error:", error);
-            // Reset playing state if there was an error
-            setIsPlaying(false);
-          });
-        }
-      }
-
-      setIsPlaying(!isPlaying);
-    } catch (error) {
-      console.error("Error toggling audio:", error);
-      setIsPlaying(false);
-    }
-  };
-
-  // Seek to a specific position in the audio
-  const seekAudio = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioRef.current) return;
-
-    const progressBar = e.currentTarget;
-    const clickPosition =
-      (e.clientX - progressBar.getBoundingClientRect().left) /
-      progressBar.clientWidth;
-    const seekTime = clickPosition * (audioRef.current.duration || 0);
-
-    audioRef.current.currentTime = seekTime;
-
-    // Manually update the progress bar immediately for better UX
-    setCurrentTime(seekTime);
-    setAudioProgress(clickPosition * 100);
-  };
-
-  // Change playback speed
-  const changePlaybackSpeed = (speed: number) => {
-    if (!audioRef.current) return;
-
-    audioRef.current.playbackRate = speed;
-    setPlaybackSpeed(speed);
-  };
-
-  // Format time for display (mm:ss)
-  const formatTime = (time: number): string => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
-  };
-
-  // Toggle audio mode
-  const toggleAudioMode = () => {
-    // If turning on audio mode, disable quick reading mode
-    if (!isAudioMode && isQuickReading) {
-      setIsQuickReading(false);
-    }
-
-    // If turning on audio mode, prepare the audio
-    if (!isAudioMode && article?.audio?.url) {
-      // Initialize or re-initialize audio element
-      if (!audioRef.current || audioRef.current.src !== article.audio.url) {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.removeEventListener("timeupdate", handleTimeUpdate);
-          audioRef.current.removeEventListener("ended", handleAudioEnded);
-        }
-
-        audioRef.current = new Audio(article.audio.url);
-        audioRef.current.addEventListener("loadedmetadata", () => {
-          if (audioRef.current) {
-            setDuration(audioRef.current.duration);
-          }
-        });
-        audioRef.current.addEventListener("timeupdate", handleTimeUpdate);
-        audioRef.current.addEventListener("ended", handleAudioEnded);
-
-        // Preload audio
-        audioRef.current.load();
-      }
-    } else if (isAudioMode && audioRef.current) {
-      // If turning off audio mode, pause audio
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-
-    setIsAudioMode(!isAudioMode);
-  };
-
-  // When toggling quick reading mode, disable audio mode if it's on
-  useEffect(() => {
-    if (isQuickReading && isAudioMode) {
-      setIsAudioMode(false);
-
-      // Stop audio if playing
-      if (isPlaying && audioRef.current) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    }
-  }, [isQuickReading]);
-
-  // Clean up audio when audio mode is turned off
-  useEffect(() => {
-    if (!isAudioMode && isPlaying && audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  }, [isAudioMode]);
-
-  // Update playback rate when changing speed
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.playbackRate = playbackSpeed;
-    }
-  }, [playbackSpeed]);
 
   // Fetch user's saved words when user changes
   useEffect(() => {
@@ -2665,7 +1920,7 @@ const Article = () => {
   };
 
   useEffect(() => {
-    if (isQuickReading && article && !isAudioMode) {
+    if (isQuickReading && article) {
       // Get all text content elements
       const textElements = document.querySelectorAll(".article-text");
 
@@ -2676,15 +1931,15 @@ const Article = () => {
           "";
         element.innerHTML = highlightFirstLetters(originalText);
       });
-    } else if (!isAudioMode) {
-      // Restore original text when not in audio mode and not in quick reading mode
+    } else {
+      // Restore original text when not in quick reading mode
       const textElements = document.querySelectorAll(".article-text");
       textElements.forEach((element) => {
         const originalText = element.getAttribute("data-original-text") || "";
         element.textContent = originalText;
       });
     }
-  }, [isQuickReading, article, isAudioMode]); // Fixed dependency array
+  }, [isQuickReading, article]);
 
   const toggleKoreanTitle = () => {
     setIsKoreanTitleVisible(!isKoreanTitleVisible);
@@ -2947,12 +2202,8 @@ const Article = () => {
     }
   };
 
-  // Handle word click for audio jumping only (non-audio uses long-press)
   const handleWordClick = async (e: React.MouseEvent) => {
-    if (!isAudioMode) {
-      // Allow selection/copy on short clicks when not in audio mode
-      return;
-    }
+    // Allow selection/copy on short clicks
     e.preventDefault();
     e.stopPropagation();
 
@@ -2971,31 +2222,6 @@ const Article = () => {
     ) as HTMLElement | null;
     if (!paragraphElement) return;
 
-    // If in audio mode, jump to the character's position
-    if (isAudioMode && audioRef.current) {
-      // CHAR-LEVEL CLICK: if we clicked on a char-<index> span, jump exactly to its timestamp
-      const charEl = target.closest("[id^='char-']") as HTMLElement;
-      if (charEl && charEl.id.startsWith("char-")) {
-        const idx = parseInt(charEl.id.replace("char-", ""), 10);
-        const timestamp = timestampsRef.current[idx];
-        if (timestamp?.start !== undefined) {
-          audioRef.current.currentTime = timestamp.start;
-          if (!isPlaying) {
-            const p = audioRef.current.play();
-            if (p)
-              p.then(() => setIsPlaying(true)).catch((err) =>
-                console.error("Audio play error:", err)
-              );
-          }
-        }
-        return; // Handled character click
-      }
-      // Fallback: If somehow a char-<id> span wasn't clicked, do nothing for now in audio mode.
-      // We could add word-level jump fallback here if needed later.
-      return;
-    }
-
-    // If NOT in audio mode, continue with the word definition lookup
     // Always work with the original text rather than the HTML with highlights
     const originalText =
       paragraphElement.getAttribute("data-original-text") || "";
@@ -3006,7 +2232,7 @@ const Article = () => {
     // Clear any existing text selection first to prevent issues
     window.getSelection()?.removeAllRanges();
 
-    // Use our extraction function for all modes - this helps with the single-click issue
+    // Use our extraction function
     const { word } = extractFullWordFromBionicText(
       paragraphElement,
       e.clientX,
@@ -3193,7 +2419,6 @@ const Article = () => {
 
   // Long-press handlers (mouse)
   const onMouseDownPress = (e: React.MouseEvent) => {
-    if (isAudioMode) return;
     longPressTriggeredRef.current = false;
     isTouchPressRef.current = false;
     pressTargetRef.current = e.target as HTMLElement;
@@ -3206,7 +2431,6 @@ const Article = () => {
   };
 
   const onMouseMovePress = (e: React.MouseEvent) => {
-    if (isAudioMode) return;
     if (!longPressTimerRef.current) return;
     pressCurrentPosRef.current = { x: e.clientX, y: e.clientY };
     const dx = pressCurrentPosRef.current.x - pressStartPosRef.current.x;
@@ -3218,7 +2442,6 @@ const Article = () => {
   };
 
   const onMouseUpPress = (e: React.MouseEvent) => {
-    if (isAudioMode) return;
     if (longPressTimerRef.current) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -3232,7 +2455,6 @@ const Article = () => {
   };
 
   const onMouseLeavePress = () => {
-    if (isAudioMode) return;
     if (longPressTimerRef.current) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -3242,7 +2464,6 @@ const Article = () => {
 
   // Long-press handlers (touch)
   const onTouchStartPress = (e: React.TouchEvent) => {
-    if (isAudioMode) return;
     longPressTriggeredRef.current = false;
     isTouchPressRef.current = true;
     pressTargetRef.current = e.target as HTMLElement;
@@ -3256,7 +2477,6 @@ const Article = () => {
   };
 
   const onTouchMovePress = (e: React.TouchEvent) => {
-    if (isAudioMode) return;
     if (!longPressTimerRef.current) return;
     const t = e.touches[0];
     pressCurrentPosRef.current = { x: t.clientX, y: t.clientY };
@@ -3269,7 +2489,6 @@ const Article = () => {
   };
 
   const onTouchEndPress = () => {
-    if (isAudioMode) return;
     if (longPressTimerRef.current) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -3281,159 +2500,6 @@ const Article = () => {
     longPressTriggeredRef.current = false;
     pressTargetRef.current = null;
   };
-
-  // Add this effect to process and map all timestamps when article loads
-  useEffect(() => {
-    if (!article?.content?.english || !article.audio?.timestamps) return;
-
-    // Store timestamps in ref for performance - this is still useful for other purposes
-    if (article.audio?.timestamps) {
-      // We don't need to process timestamps for highlighting anymore
-      console.log(`Article has ${article.audio.timestamps.length} timestamps`);
-    }
-  }, [article]);
-
-  // Add this effect to process article content and timestamps sequentially
-  useEffect(() => {
-    if (!article?.content?.english || !article?.audio?.timestamps) return;
-
-    // We don't need sequential word processing anymore
-    console.log("Audio content loaded");
-  }, [article]);
-
-  // Process article content and build character-to-word mapping
-  useEffect(() => {
-    // Handle articles with missing or partial timestamp data (for backward compatibility)
-    if (!article) return;
-
-    // Safely initialize audio data even if some fields are missing
-    if (article.audio) {
-      // Initialize missing audio fields for backward compatibility
-      article.audio.characters = article.audio.characters || [];
-      article.audio.character_start_times_seconds =
-        article.audio.character_start_times_seconds || [];
-      article.audio.character_end_times_seconds =
-        article.audio.character_end_times_seconds || [];
-    }
-
-    // Only proceed with character mapping if we have content and characters
-    if (
-      !article?.content?.english ||
-      !article?.audio?.characters ||
-      article.audio.characters.length === 0
-    )
-      return;
-
-    console.log("Building character-to-word mapping");
-    const charToWordMap: {
-      [charKey: string]: { paragraphIndex: number; wordIndex: number };
-    } = {};
-
-    // Process each paragraph to map characters to words
-    let globalCharIndex = 0;
-
-    article.content.english.forEach((paragraph, paragraphIndex) => {
-      // Split paragraph into words with their positions
-      const words = paragraph.split(/(\s+)/); // Split by whitespace, keeping separators
-      let wordStart = 0;
-      let wordIndex = 0;
-
-      for (let i = 0; i < words.length; i++) {
-        const word = words[i];
-
-        // Skip whitespace
-        if (word.trim() === "") {
-          continue;
-        }
-
-        // Find the word's start position in the paragraph
-        const wordStartInParagraph = paragraph.indexOf(word, wordStart);
-        if (wordStartInParagraph === -1) continue; // Word not found (shouldn't happen)
-
-        wordStart = wordStartInParagraph + word.length;
-
-        // Map each character in the word to this word's position
-        for (let j = 0; j < word.length; j++) {
-          const charGlobalIndex = globalCharIndex + wordStartInParagraph + j;
-
-          // Create a key that includes the character itself for easier lookup
-          const charKey = `${
-            article?.audio?.characters?.[charGlobalIndex] || word[j]
-          }-${charGlobalIndex}`;
-
-          charToWordMap[charKey] = {
-            paragraphIndex,
-            wordIndex,
-          };
-        }
-
-        wordIndex++;
-      }
-
-      globalCharIndex += paragraph.length + 1; // +1 for paragraph break
-    });
-
-    // Set the map in state for use during playback
-    setCharacterWordMap(charToWordMap);
-    console.log(
-      `Built character-to-word mapping with ${
-        Object.keys(charToWordMap).length
-      } characters`
-    );
-  }, [article]);
-
-  // Initialize timestamps and calculate paragraph character offsets once article data is available
-  useEffect(() => {
-    if (article && article.audio?.timestamps && article.content.english) {
-      // Store timestamps
-      timestampsRef.current = article.audio.timestamps;
-      // Compute character offsets for each paragraph
-      const offsets: number[] = [];
-      let offset = 0;
-      article.content.english.forEach((para) => {
-        offsets.push(offset);
-        offset += para.length;
-      });
-      paragraphCharOffsetRef.current = offsets;
-      // Compute word ranges (global char index) per paragraph
-      const allRanges: Array<[number, number]>[] = [];
-      article.content.english.forEach((para, pIdx) => {
-        const ranges: [number, number][] = [];
-        let i = 0;
-        while (i < para.length) {
-          // skip spaces/newlines
-          if (para[i].trim() === "") {
-            i++;
-            continue;
-          }
-          const localStart = i;
-          while (i < para.length && para[i].trim() !== "") {
-            i++;
-          }
-          const localEnd = i - 1;
-          const globalStart = offsets[pIdx] + localStart;
-          const globalEnd = offsets[pIdx] + localEnd;
-          ranges.push([globalStart, globalEnd]);
-        }
-        allRanges[pIdx] = ranges;
-      });
-      paragraphWordRangesRef.current = allRanges;
-    }
-  }, [article]);
-
-  // Update active character index based on current audio time and scroll into view
-  useEffect(() => {
-    if (audioRef.current && timestampsRef.current.length > 0) {
-      const idx = timestampsRef.current.findIndex(
-        (ts) => currentTime >= ts.start && currentTime <= ts.end
-      );
-      if (idx !== -1 && idx !== activeCharIndex) {
-        setActiveCharIndex(idx);
-        const el = document.getElementById(`char-${idx}`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }
-  }, [currentTime]);
 
   // Admin discussion topics editing functions
   const startEditingTopics = () => {
@@ -3768,7 +2834,7 @@ const Article = () => {
   const hasPrevKeywords = currentKeywordIndex > 0;
 
   return (
-    <ArticlePageWrapper isAudioMode={isAudioMode}>
+    <ArticlePageWrapper>
       <ArticleContainer>
         {isEditingTitle ? (
           <AdminEditCard style={{ marginBottom: "1.5rem" }}>
@@ -4106,9 +3172,7 @@ const Article = () => {
 
         {!isEditingContent && (
           <CalloutBox>
-            {isAudioMode
-              ? "단어를 클릭하면 해당 부분부터 오디오가 재생됩니다. 오디오와 함께 단어 하이라이트가 해당 위치로 이동합니다."
-              : "단어를 길게 누르면 뜻풀이 창이 열립니다. 짧게 누르거나 드래그하면 자유롭게 텍스트를 선택하고 복사할 수 있습니다."}
+            단어를 길게 누르면 뜻풀이 창이 열립니다. 짧게 누르거나 드래그하면 자유롭게 텍스트를 선택하고 복사할 수 있습니다.
           </CalloutBox>
         )}
 
@@ -4211,9 +3275,7 @@ const Article = () => {
                     onTouchMove={onTouchMovePress}
                     onTouchEnd={onTouchEndPress}
                   >
-                    {isAudioMode
-                      ? prepareParagraphText(paragraph, index)
-                      : paragraph}
+                    {paragraph}
                   </Paragraph>
                   <TranslationToggleButton
                     onClick={() => toggleKoreanParagraph(index)}
@@ -4632,9 +3694,9 @@ const Article = () => {
           </ModalContent>
         </ModalOverlay>
 
-        {/* Word definition modal (disabled in audio mode) */}
+        {/* Word definition modal */}
         <DefinitionModalOverlay
-          isOpen={wordDefinitionModal.isOpen && !isAudioMode}
+          isOpen={wordDefinitionModal.isOpen}
           onClick={closeDefinitionModal}
         >
           <DefinitionModalContent
@@ -4800,43 +3862,6 @@ const Article = () => {
           onClose={() => setShowTranslationWarning(false)}
           onDontShowAgain={handleDontShowTranslationWarning}
         />
-
-        {/* Audio Player */}
-        <AudioPlayer
-          isVisible={isAudioMode}
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          audioProgress={audioProgress}
-          playbackSpeed={playbackSpeed}
-          onTogglePlayPause={togglePlayPause}
-          onSeekAudio={seekAudio}
-          onChangePlaybackSpeed={changePlaybackSpeed}
-          formatTime={formatTime}
-        />
-
-        {/* Floating Controls */}
-        <FloatingControls
-          isAudioMode={isAudioMode}
-          hasAudio={!!article.audio?.url}
-          onToggleAudioMode={toggleAudioMode}
-          isVisible={isFloatingControlsVisible}
-          onToggleVisibility={() =>
-            setIsFloatingControlsVisible(!isFloatingControlsVisible)
-          }
-        />
-
-        {/* Hidden audio element to drive time updates */}
-        {article.audio?.url && (
-          <audio
-            ref={audioRef}
-            src={article.audio.url}
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleAudioEnded}
-            preload="metadata"
-            style={{ display: "none" }}
-          />
-        )}
       </ArticleContainer>
     </ArticlePageWrapper>
   );

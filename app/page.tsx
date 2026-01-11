@@ -1,33 +1,49 @@
-import HomePageClient from "./lib/features/home/components/HomePageClient";
+import NewHomeClient from "./new-home/NewHomeClient";
 import { fetchUpcomingMeetupEventsServer } from "./lib/features/meetup/services/meetup_service_server";
+import { fetchHomeStats, HomeStats } from "./lib/features/home/services/stats_service";
+import { fetchHomeTopics, HomeTopicArticle } from "./lib/features/home/services/topics_service";
 import { MeetupEvent } from "./lib/features/meetup/types/meetup_types";
 
 // This page will be statically generated at build time
 export default async function HomePage() {
   let upcomingEvents: MeetupEvent[] = [];
+  let stats: HomeStats = {
+    totalMeetups: 0,
+    totalMembers: 0,
+    totalArticles: 0,
+  };
+  let topics: HomeTopicArticle[] = [];
 
   try {
-    // Fetch upcoming meetup events at build time (SSG)
-    upcomingEvents = await fetchUpcomingMeetupEventsServer();
+    [upcomingEvents, stats, topics] = await Promise.all([
+      fetchUpcomingMeetupEventsServer(),
+      fetchHomeStats(),
+      fetchHomeTopics(),
+    ]);
   } catch (error) {
-    console.error("Error fetching upcoming events at build time:", error);
-    // Fall back to empty array - client will handle fetching
+    console.error("Error fetching home data at build time:", error);
     upcomingEvents = [];
   }
 
-  return <HomePageClient initialUpcomingEvents={upcomingEvents} />;
+  return (
+    <NewHomeClient
+      initialUpcomingEvents={upcomingEvents}
+      initialStats={stats}
+      initialTopics={topics}
+    />
+  );
 }
 
 // Generate metadata for SEO
 export async function generateMetadata() {
   return {
-    title: "영어 한잔 | 실전 영어 학습 플랫폼",
+    title: "영어 한잔 | 오프라인 실전 영어",
     description:
       "매주 영어 모임으로 실전 회화 연습하고, 매일 영어 아티클로 어휘력을 늘려보세요.",
     keywords:
       "영어 학습, 영어 회화, 영어 모임, 영어 뉴스, 영어 공부, 영어 한잔",
     openGraph: {
-      title: "영어 한잔 | 실전 영어 학습 플랫폼",
+      title: "영어 한잔 | 오프라인 실전 영어",
       description:
         "매주 영어 모임으로 실전 회화 연습하고, 매일 영어 아티클로 어휘력을 늘려보세요.",
       type: "website",
@@ -43,7 +59,7 @@ export async function generateMetadata() {
     },
     twitter: {
       card: "summary_large_image",
-      title: "영어 한잔 | 실전 영어 학습 플랫폼",
+      title: "영어 한잔 | 오프라인 실전 영어",
       description:
         "매주 영어 모임으로 실전 회화 연습하고, 매일 영어 아티클로 어휘력을 늘려보세요.",
       images: ["/images/logos/1cup_logo.jpg"],

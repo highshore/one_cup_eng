@@ -26,7 +26,6 @@ import { HomeTopicArticle } from "../lib/features/home/services/topics_service";
 import {
   AcademicCapIcon,
   BriefcaseIcon,
-  CheckBadgeIcon,
   CheckCircleIcon,
   PhotoIcon,
   RocketLaunchIcon,
@@ -46,13 +45,18 @@ import {
   query,
 } from "firebase/firestore";
 import { db as clientDb } from "../lib/firebase/firebase";
-import NewNavbar from "./components/NewNavbar";
+import { SectionTitle, Highlight } from "./components/SectionHeading";
+import MembershipSection from "./sections/MembershipSection";
+import FaqSection from "./sections/FaqSection";
+import CtaSection from "./sections/CtaSection";
 import { useI18n } from "../lib/i18n/I18nProvider";
 
 // Local global style removed; fonts are injected via <head>
 const GlobalStyle = createGlobalStyle``;
 
 // Use shared colors
+
+const MOBILE_NAV_GUTTER = "1rem";
 
 // Common section styles
 const SectionBase = css`
@@ -63,7 +67,8 @@ const SectionBase = css`
   margin-bottom: 0;
 
   @media (max-width: 768px) {
-    padding: 3rem 1rem;
+    padding: 3rem ${MOBILE_NAV_GUTTER};
+    text-align: center;
   }
 `;
 
@@ -90,8 +95,9 @@ const HeroSection = styled.section`
   }
 
   @media (max-width: 768px) {
-    min-height: 100vh;
-    padding: clamp(6rem, 14vw, 5.5rem) 0 clamp(6rem, 30vw, 9rem);
+    min-height: auto;
+    padding: clamp(4rem, 18vw, 6rem) ${MOBILE_NAV_GUTTER}
+      clamp(3rem, 18vw, 4.5rem);
     display: block; /* Stack on mobile */
   }
 `;
@@ -149,388 +155,59 @@ interface PricingBenefit {
   description: string;
 }
 
-const SectionTitle = styled.h2`
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-weight: 900;
-  color: #0f172a;
-  margin-bottom: 1.5rem;
-  line-height: 1.2;
-  font-family: "Noto Sans KR", sans-serif;
-  text-align: center;
-`;
-
-const Highlight = styled.span`
-  color: rgb(99, 0, 33);
-`;
-
-// Members Section
-const MembersSection = styled.section`
-  ${SectionBase}
-  background: #f8fafc;
-  height: 900px;
-  display: flex;
-  align-items: flex-start;
-  padding: 0;
-  overflow: hidden;
-
-  @media (max-width: 1024px) {
-    height: auto;
-    min-height: auto;
-    padding: clamp(4.5rem, 8vw, 6rem) 0 clamp(4rem, 8vw, 6rem);
-    overflow: visible;
-    align-items: stretch;
-  }
-`;
-
-const MembersInner = styled.div`
-  max-width: 960px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(2rem, 4vw, 3rem);
-  padding: 0 1.5rem;
-  width: 100%;
-
-  @media (max-width: 768px) {
-    padding: 0 1.25rem;
-  }
-`;
-
-const MembersHeading = styled(SectionTitle)`
-  text-align: center;
-  margin: 0;
-  color: #0f172a;
-`;
-
-const MembersIntro = styled.p`
-  font-size: 1rem;
-  color: #6b7280;
-  margin: 0.5rem auto 0;
-  max-width: 640px;
-  line-height: 1.5;
-  text-align: center;
-`;
-
-const MembersLayout = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1.05fr;
-  gap: clamp(1.5rem, 4vw, 3rem);
-  align-items: start;
-
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const MemberVisualPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-`;
-
-const MemberVisualCard = styled.div<{ $background: string }>`
-  position: relative;
-  border-radius: 24px;
-  overflow: hidden;
-  aspect-ratio: 1 / 1;
-  width: 100%;
-  background: ${(props) => props.$background};
-  display: flex;
-  align-items: stretch;
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
-`;
-
-const MemberVisualMedia = styled.div`
-  position: relative;
-  flex: 1;
-`;
-
-const MemberVisualImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const MemberVisualFallback = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(2rem, 5vw, 2.6rem);
-  font-weight: 700;
-  color: rgba(248, 250, 252, 0.9);
-`;
-
-
-const MembersAccordion = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const MemberAccordionItem = styled.div<{ $isActive: boolean }>`
-  border-radius: 18px;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid
-    ${(props) => (props.$isActive ? colors.primary : "rgba(229, 231, 235, 1)")};
-  box-shadow: ${(props) =>
-    props.$isActive
-      ? "0 18px 42px rgba(15, 23, 42, 0.12)"
-      : "0 8px 22px rgba(15, 23, 42, 0.08)"};
-  transition: all 0.25s ease;
-`;
-
-const MemberAccordionHeader = styled.button<{ $accent: string; $accentSoft: string; $isActive: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  width: 100%;
-  padding: ${(props) => (props.$isActive ? "1.5rem" : "1rem 1.5rem")};
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  transition: padding 0.25s ease;
-
-  @media (max-width: 768px) {
-    padding: ${(props) => (props.$isActive ? "1.3rem" : "0.9rem 1.3rem")};
-  }
-`;
-
-const MemberIconCircle = styled.span<{ $accent: string; $accentSoft: string }>`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: ${(props) => props.$accentSoft};
-  color: ${(props) => props.$accent};
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
-`;
-
-const MemberHeaderTitle = styled.span`
-  font-size: 1rem;
-  font-weight: 700;
-  color: #111827;
-  line-height: 1.4;
-  flex: 1;
-`;
-
-const MemberAccordionContent = styled.div<{ $isActive: boolean }>`
-  max-height: ${(props) => (props.$isActive ? "550px" : "0")};
-  overflow: hidden;
-  transition: max-height 0.35s ease;
-`;
-
-const MemberAccordionBody = styled.div`
-  padding: 0 1.5rem 1.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-
-  @media (max-width: 768px) {
-    padding: 0 1.3rem 1.3rem;
-  }
-`;
-
-const MemberName = styled.h4`
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-`;
-
-const MemberBio = styled.p`
-  margin: 0;
-  font-size: 0.95rem;
-  color: #4b5563;
-  line-height: 1.65;
-`;
-
-const MemberHighlights = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-`;
-
-const MemberHighlight = styled.li`
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-  font-size: 0.92rem;
-  color: #1f2937;
-  line-height: 1.5;
-`;
-
-const MemberHighlightIcon = styled.span<{ $accent: string }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 0.2rem;
-  color: ${(props) => props.$accent};
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
-`;
-
-const LinkedInButton = styled.a<{ $accent: string; $accentSoft: string }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  background: ${(props) => props.$accentSoft};
-  color: ${(props) => props.$accent};
-  text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  border: 1px solid ${(props) => props.$accent}33;
-
-  &:hover {
-    background: ${(props) => props.$accent};
-    color: #ffffff;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px ${(props) => props.$accent}40;
-  }
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
-`;
-
 // --- New Membership Section Styles ---
 const MembershipSectionContainer = styled.div`
   padding: 5rem 0;
-  background: #ffffff;
+  background: #0f172a;
+  position: relative;
+  overflow: hidden;
+  color: white;
 `;
 
 const MembershipWrapper = styled.div`
   max-width: 960px;
   margin: 0 auto;
   padding: 0 1.25rem; /* 20px padding on left/right always */
-`;
 
-const MembershipCard = styled.div`
-  background: #0f172a;
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  position: relative;
-  isolation: isolate;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-`;
-
-const DecorBlob = styled.div`
-  position: absolute;
-  top: 0;
-  right: 0;
-  margin-right: -5rem;
-  margin-top: -5rem;
-  width: 20rem;
-  height: 20rem;
-  background: rgb(128, 0, 33);
-  border-radius: 9999px;
-  opacity: 0.15;
-  filter: blur(80px);
-  z-index: 0;
-  pointer-events: none;
+  @media (max-width: 768px) {
+    padding: 0 ${MOBILE_NAV_GUTTER};
+  }
 `;
 
 const MembershipGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
+  gap: 3rem;
   
   @media (min-width: 768px) {
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: center;
+    gap: 4rem;
   }
 `;
 
 const LeftCol = styled.div`
-  padding: 3rem;
   color: white;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  gap: 1.5rem;
   position: relative;
   z-index: 1;
-
-  @media (min-width: 768px) {
-    padding: 4rem;
-    padding-right: 2rem;
-  }
 `;
 
 const RightCol = styled.div`
-  background: linear-gradient(135deg, rgba(17, 24, 39, 0.7) 0%, rgba(30, 41, 59, 0.6) 100%);
-  padding: 2.5rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   position: relative;
   z-index: 1;
-  border-left: 1px solid rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
+  overflow: visible;
 
-  @media (min-width: 768px) {
-    padding: 3.5rem;
+  @media (max-width: 768px) {
+    margin-top: 1.5rem;
+    align-items: center;
   }
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: -20%;
-    right: -20%;
-    width: 140%;
-    height: 140%;
-    background: radial-gradient(circle at 50% 50%, rgba(128, 0, 33, 0.15) 0%, transparent 60%);
-    z-index: -1;
-    pointer-events: none;
-  }
-`;
-
-const Badge = styled.span`
-  display: inline-block;
-  padding: 0.35rem 1rem;
-  background: rgba(128, 0, 33, 0.2);
-  color: rgb(255, 100, 130);
-  border: 1px solid rgba(128, 0, 33, 0.4);
-  font-size: 0.8rem;
-  font-weight: 700;
-  border-radius: 9999px;
-  margin-bottom: 1.5rem;
-  width: max-content;
-  letter-spacing: 0.05em;
-`;
-
-const Heading = styled.h2`
-  font-size: 2.25rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
-  line-height: 1.2;
-  color: white;
-  letter-spacing: -0.02em;
-`;
-
-const Description = styled.p`
-  color: #9ca3af; /* gray-400 */
-  margin-bottom: 2.5rem;
-  line-height: 1.7;
-  font-size: 1.05rem;
 `;
 
 const CtaButton = styled.button`
@@ -553,42 +230,26 @@ const CtaButton = styled.button`
   }
 `;
 
-const ComparisonChart = styled.div`
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
-  padding: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
-  transform: perspective(1000px) rotateY(-5deg);
-  transition: transform 0.5s ease;
-  
-  &:hover {
-    transform: perspective(1000px) rotateY(0deg) scale(1.02);
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-  
-  @media (max-width: 768px) {
-    transform: none;
-    &:hover {
-      transform: none;
-    }
-  }
+const BulletList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 `;
 
-const ChartTitle = styled.h3`
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  letter-spacing: -0.01em;
+const BulletItem = styled.p`
+  font-size: 1.05rem;
+  color: #ffb7c5;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
 `;
 
 const ChartHeader = styled.div`
   display: flex;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 0.9rem;
   font-weight: 600;
@@ -598,13 +259,22 @@ const ChartHeader = styled.div`
 const CostBarContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
 `;
 
-const CostItem = styled.div`
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const CostItem = styled.div<{ $delay: number }>`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: ${fadeInUp} 0.45s ease forwards;
+  animation-delay: ${({ $delay }) => `${$delay}s`};
 `;
 
 const CostLabelRow = styled.div`
@@ -618,23 +288,125 @@ const CostLabelRow = styled.div`
 
 const CostBarWrapper = styled.div`
   width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 9999px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
 `;
 
-const CostBar = styled.div<{ $width: string; $color: string }>`
+const growBar = keyframes`
+  from { width: 0; }
+  to { width: var(--target-width, 100%); }
+`;
+
+const shimmer = keyframes`
+  0% { transform: translateX(-120%); opacity: 0; }
+  30% { opacity: 0.8; }
+  100% { transform: translateX(120%); opacity: 0; }
+`;
+
+const CostBar = styled.div<{ $color: string }>`
+  position: relative;
   height: 100%;
-  width: ${props => props.$width};
+  width: 0;
   background: ${props => props.$color};
   border-radius: 9999px;
+  animation: ${growBar} 1.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--delay, 0s);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 45%, rgba(255,255,255,0) 80%);
+    transform: translateX(-120%);
+    animation: ${shimmer} 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    animation-delay: calc(var(--delay, 0s) + 0.2s);
+  }
 `;
 
 const CostValue = styled.span<{ $highlight?: boolean }>`
   color: ${props => props.$highlight ? 'rgb(255, 100, 130)' : '#9ca3af'};
   font-weight: ${props => props.$highlight ? '700' : '400'};
   font-size: 0.85rem;
+`;
+
+const ChartGridOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(0deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 100% 28px, 48px 100%;
+  opacity: 0.5;
+  pointer-events: none;
+`;
+
+const floatOrb = keyframes`
+  0% { transform: translate3d(0, 0, 0); opacity: 0.45; }
+  100% { transform: translate3d(20px, -15px, 0); opacity: 0.75; }
+`;
+
+const ChartOrb = styled.div`
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(255, 120, 150, 0.35), transparent 70%);
+  filter: blur(6px);
+  top: -40px;
+  right: -60px;
+  animation: ${floatOrb} 9s ease-in-out infinite alternate;
+  pointer-events: none;
+`;
+
+const spinCycle = keyframes`
+  0% { transform: perspective(1000px) rotateY(-5deg) scale(1); }
+  5% { transform: perspective(1000px) rotateY(0deg) scale(1.02); }
+  15% { transform: perspective(1000px) rotateY(360deg) scale(1.05); }
+  25% { transform: perspective(1000px) rotateY(0deg) scale(1.02); }
+  35% { transform: perspective(1000px) rotateY(-3deg) scale(1); }
+  100% { transform: perspective(1000px) rotateY(-5deg) scale(1); }
+`;
+
+const ComparisonChart = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+  transform: perspective(1000px) rotateY(-5deg);
+  transition: transform 0.5s ease;
+  position: relative;
+  overflow: hidden;
+  animation: ${spinCycle} 5s ease-in-out infinite;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 60%);
+    pointer-events: none;
+    transform: rotate(45deg);
+  }
+  
+  &:hover {
+    transform: perspective(1000px) rotateY(0deg) scale(1.02);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  }
+  
+  @media (max-width: 768px) {
+    transform: none;
+    &:hover {
+      transform: none;
+    }
+  }
 `;
 
 // --- Hero Section 2-Column Styles ---
@@ -655,7 +427,12 @@ const HeroGrid = styled.div`
   }
 
   @media (max-width: 768px) {
-    padding: 0 1.25rem; /* 20px padding on mobile */
+    padding: 0 ${MOBILE_NAV_GUTTER};
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2rem, 8vw, 3rem);
+    align-items: stretch;
+    text-align: center;
   }
 `;
 
@@ -664,10 +441,14 @@ const HeroLeft = styled.div`
   z-index: 10;
   
   @media (max-width: 768px) {
+    width: 100%;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: clamp(1.5rem, 6vw, 2.25rem);
+    padding: clamp(8rem, 16vw, 9rem) 0 clamp(2rem, 7vw, 3rem);
   }
 `;
 
@@ -679,6 +460,13 @@ const HeroTitle = styled.h1`
   margin-bottom: 1.5rem;
   white-space: pre-wrap;
   text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+  @media (max-width: 768px) {
+    font-size: clamp(2.2rem, 8.5vw, 3rem);
+    line-height: 1.15;
+    text-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+    letter-spacing: -0.01em;
+  }
 `;
 
 const HeroSubtitle = styled.p`
@@ -698,10 +486,12 @@ const HeroRight = styled.div`
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 0 clamp(1.25rem, 3vw, 1.5rem);
+  padding: 0 clamp(${MOBILE_NAV_GUTTER}, 3vw, 1.5rem);
   
   @media (max-width: 768px) {
-    margin-top: 2rem;
+    margin-top: clamp(2rem, 8vw, 3rem);
+    padding: 0;
+    align-items: center;
   }
 `;
 
@@ -784,24 +574,6 @@ const PlaceholderCardShell = styled.div`
 
 // ... [Existing FAQ and CTA Styles] ...
 
-// FAQ Section
-const FAQSection = styled.section`
-  ${SectionBase}
-  background: transparent;
-  padding: 5rem 0 0;
-  margin-bottom: 0;
-`;
-
-const FAQInner = styled.div`
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-
-  @media (max-width: 768px) {
-    padding: 0 1.25rem;
-  }
-`;
-
 // Gradient shining sweep animation for CTA button
 const gradientShine = keyframes`
   0% {
@@ -813,21 +585,23 @@ const gradientShine = keyframes`
 `;
 
 const CTAWrapper = styled.div`
-  max-width: 960px;
-  margin: 3rem auto 0;
-  padding: 0;
   width: 100%;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 4rem 0;
 
   @media (max-width: 768px) {
-    margin: 2rem auto 0;
+    padding: 3rem 0;
   }
 `;
 
 const CTAInner = styled.div`
+  max-width: 960px;
+  margin: 0 auto;
   padding: 0 1.5rem;
 
   @media (max-width: 768px) {
-    padding: 0 1.25rem;
+    padding: 0 ${MOBILE_NAV_GUTTER};
   }
 `;
 
@@ -958,82 +732,6 @@ const HeroCTAButton = styled(CTAButton)`
   &:hover {
     background: rgba(246, 59, 59, 1);
     border-color: rgba(246, 59, 59, 1);
-  }
-`;
-
-const FAQContainer = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-`;
-
-const FAQItem = styled.div`
-  border-radius: 16px;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: #d1d5db;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  }
-`;
-
-interface FAQQuestionProps {
-  $isOpen: boolean;
-}
-
-const FAQQuestion = styled.button<FAQQuestionProps>`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 1.5rem;
-  background: transparent;
-  border: none;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #1f2937;
-  cursor: pointer;
-  font-family: "Noto Sans KR", sans-serif;
-  text-align: left;
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: ${colors.primary};
-  }
-
-  span {
-    font-size: 1.4rem;
-    font-weight: 400;
-    color: ${colors.primary};
-    transition: transform 0.25s ease;
-    transform: ${(props) => (props.$isOpen ? "rotate(180deg)" : "none")};
-    flex-shrink: 0;
-    margin-left: 1rem;
-  }
-
-  @media (max-width: 768px) {
-    padding: 1.2rem;
-    font-size: 0.95rem;
-  }
-`;
-
-const FAQAnswer = styled.div<{ $isOpen: boolean }>`
-  max-height: ${(props) => (props.$isOpen ? "500px" : "0")};
-  overflow: hidden;
-  transition: max-height 0.3s ease, padding 0.3s ease;
-  padding: ${(props) => (props.$isOpen ? "0 1.5rem 1.5rem" : "0 1.5rem")};
-  font-size: 0.95rem;
-  color: #6b7280;
-  line-height: 1.7;
-  font-family: "Noto Sans KR", sans-serif;
-
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-    padding: ${(props) => (props.$isOpen ? "0 1.2rem 1.2rem" : "0 1.2rem")};
   }
 `;
 
@@ -1372,11 +1070,10 @@ export default function NewHomeClient({
   initialStats,
   initialTopics,
 }: HomePageClientProps) {
-  const [openFAQ, setOpenFAQ] = useState<number | null>(null);
   const { setIsTransparent } = useGnb();
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const handleEventNavigation = useCallback(
     (eventId: string) => {
@@ -1469,8 +1166,6 @@ export default function NewHomeClient({
   );
 
   // Derived state for localized content
-  const pricingBenefits: PricingBenefit[] = t.home.pricing.benefits;
-  const FAQ_ITEMS = t.home.faq.items.map(item => ({ question: item.q, answer: item.a }));
 
   useEffect(() => {
     setCardOffset(0);
@@ -1651,14 +1346,9 @@ export default function NewHomeClient({
   }, [initialUpcomingEvents]);
   */
 
-  const toggleFAQ = (index: number) => {
-    setOpenFAQ(openFAQ === index ? null : index);
-  };
-
   return (
     <PageWrapper>
       <GlobalStyle />
-      <NewNavbar />
       <HeroSection>
         <video autoPlay loop muted playsInline ref={videoRef}>
           <source src="/assets/homepage/alphabet.mp4" type="video/mp4" />
@@ -1709,151 +1399,13 @@ export default function NewHomeClient({
 
         <TopicsShowcase topics={initialTopics || []} />
 
-        <MembershipSectionContainer>
-          <MembershipWrapper>
-            <MembershipCard>
-              <DecorBlob />
-              <MembershipGrid>
-                <LeftCol>
-                  <Badge>{t.home.pricing.badge}</Badge>
-                  <Heading>{t.home.pricing.title}</Heading>
-                  <Description>{t.home.pricing.tagline}</Description>
-                  <div style={{ marginBottom: '2.5rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 600, color: 'white', lineHeight: 1.5 }}>
-                        멤버십 유지 기간 동안 열리는<br />
-                        모든 밋업 참여 가능 (주 1회 보장)
-                      </p>
-                      <p style={{ fontSize: '1rem', color: '#ffb7c5' }}>
-                        지인 추천 시 추가 할인 가능
-                      </p>
-                    </div>
-                    <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '1.5rem', lineHeight: 1.5, opacity: 0.8 }}>
-                      * 운영진 귀책 사유로 밋업을 1주 진행하지 못할 경우 구독 기간을 2주 연장해드립니다. 멤버 분 귀책 사유로 밋업을 불참하실 경우 연장이 되지 않습니다. 비매너 등 운영 정책을 위반할 경우 강제 환불이 진행될 수 있습니다.
-                    </p>
-                  </div>
-                  <CtaButton onClick={() => router.push("/payment")}>
-                    {t.home.pricing.cta}
-                  </CtaButton>
-                </LeftCol>
-                <RightCol>
-                  <ChartTitle>월 9700원으로 누리는 압도적인 가성비</ChartTitle>
-                  <ComparisonChart>
-                    <ChartHeader>
-                      <span>시간당 비용 비교</span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 400, color: '#6b7280' }}>(단위: 원)</span>
-                    </ChartHeader>
-                    <CostBarContainer>
-                      {/* 영어한잔 */}
-                      <CostItem>
-                        <CostLabelRow>
-                          <span style={{ color: 'white', fontWeight: 700 }}>영어 한잔</span>
-                          <CostValue $highlight>1,212원</CostValue>
-                        </CostLabelRow>
-                        <CostBarWrapper>
-                          <CostBar $width="2%" $color="rgb(255, 100, 130)" />
-                        </CostBarWrapper>
-                      </CostItem>
-
-                      {/* 언어교환 */}
-                      <CostItem>
-                        <CostLabelRow>
-                          <span>언어교환 모임</span>
-                          <CostValue>5,000원</CostValue>
-                        </CostLabelRow>
-                        <CostBarWrapper>
-                          <CostBar $width="8%" $color="#4b5563" />
-                        </CostBarWrapper>
-                      </CostItem>
-
-                      {/* 전화영어 */}
-                      <CostItem>
-                        <CostLabelRow>
-                          <span>전화영어</span>
-                          <CostValue>20,000원~</CostValue>
-                        </CostLabelRow>
-                        <CostBarWrapper>
-                          <CostBar $width="33%" $color="#4b5563" />
-                        </CostBarWrapper>
-                      </CostItem>
-
-                      {/* 영어학원 */}
-                      <CostItem>
-                        <CostLabelRow>
-                          <span>영어학원</span>
-                          <CostValue>35,000원~</CostValue>
-                        </CostLabelRow>
-                        <CostBarWrapper>
-                          <CostBar $width="58%" $color="#4b5563" />
-                        </CostBarWrapper>
-                      </CostItem>
-
-                      {/* 프리미엄 화상영어 */}
-                      <CostItem>
-                        <CostLabelRow>
-                          <span>프리미엄 화상영어</span>
-                          <CostValue>60,000원~</CostValue>
-                        </CostLabelRow>
-                        <CostBarWrapper>
-                          <CostBar $width="100%" $color="#4b5563" />
-                        </CostBarWrapper>
-                      </CostItem>
-                    </CostBarContainer>
-                  </ComparisonChart>
-                </RightCol>
-              </MembershipGrid>
-            </MembershipCard>
-          </MembershipWrapper>
-        </MembershipSectionContainer>
+        <MembershipSection />
 
         {/* FAQ Section */}
-        <FAQSection>
-          <FAQInner>
-            <SectionTitle>
-              자주 묻는 <Highlight>질문</Highlight>
-            </SectionTitle>
-            <FAQContainer>
-              {FAQ_ITEMS.map(
-                (faq: { question: string; answer: string }, index: number) => (
-                  <FAQItem key={index}>
-                    <FAQQuestion
-                      onClick={() => toggleFAQ(index)}
-                      $isOpen={openFAQ === index}
-                    >
-                      {faq.question}
-                      <span>{openFAQ === index ? "−" : "+"}</span>
-                    </FAQQuestion>
-                    <FAQAnswer $isOpen={openFAQ === index}>
-                      {faq.answer}
-                    </FAQAnswer>
-                  </FAQItem>
-                )
-              )}
-            </FAQContainer>
-          </FAQInner>
-        </FAQSection>
+        <FaqSection />
 
         {/* CTA Section */}
-        <CTAWrapper>
-          <CTAInner>
-            <CTASection>
-              <CTAVideoBackground autoPlay loop muted playsInline>
-                <source src="/assets/blog/manhattan.mp4" type="video/mp4" />
-              </CTAVideoBackground>
-              <CTAOverlay />
-              <CTAContent>
-                <CTATitle>{t.home.cta.title}</CTATitle>
-                <CTADescription>
-                  {t.home.cta.description}
-                </CTADescription>
-                <CTAButton onClick={() => router.push("/meetup")}>
-                  <RocketLaunchIcon />
-                  {t.home.cta.button}
-                </CTAButton>
-              </CTAContent>
-            </CTASection>
-          </CTAInner>
-        </CTAWrapper>
+        <CtaSection />
       </MainContent>
     </PageWrapper>
   );

@@ -15,6 +15,7 @@ import {
   fetchArticlesByIds,
   removeParticipant,
   changeUserRole,
+  deleteMeetupEvent,
 } from "../../lib/features/meetup/services/meetup_service";
 import { db } from "../../lib/firebase/firebase";
 import { doc, setDoc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
@@ -53,6 +54,14 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DragOverlay } from "@dnd-kit/core";
+import {
+  PencilSquareIcon,
+  PlusCircleIcon,
+  DocumentDuplicateIcon,
+  UsersIcon,
+  MegaphoneIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 
 // TypeScript declarations for Naver Maps
 declare global {
@@ -98,14 +107,19 @@ const gradientShine = keyframes`
   }
 `;
 
+const NAVBAR_CONTENT_GAP_DESKTOP = "1.75rem";
+const NAVBAR_CONTENT_GAP_MOBILE = "1.25rem";
+
 // Styled components - Day Mode Theme
 const Container = styled.div`
   min-height: 100vh;
   background-color: transparent;
   color: #333;
+  padding: ${NAVBAR_CONTENT_GAP_DESKTOP} 0 0;
 
   @media (max-width: 768px) {
     overflow-x: hidden;
+    padding-top: ${NAVBAR_CONTENT_GAP_MOBILE};
   }
 `;
 
@@ -133,17 +147,26 @@ const LoadingAnimation = styled.div`
   }
 `;
 
+const SliderWrapper = styled.div`
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1rem;
+  }
+`;
+
 const PhotoSlider = styled.div`
   height: 40vh;
   position: relative;
   overflow: hidden;
   background-color: #000000;
   border-radius: 20px;
-  margin-top: 2rem;
+  margin-top: 0;
 
   @media (max-width: 768px) {
     height: 35vh;
-    margin-top: 1rem;
     border-radius: 12px;
   }
 `;
@@ -175,12 +198,12 @@ const SliderPlaceholder = styled.div`
 `;
 
 const Content = styled.div`
-  padding: 2.5rem 0 0 0;
+  padding: 1.5rem 1.5rem 0 1.5rem;
   max-width: 960px;
   margin: 0 auto;
 
   @media (max-width: 768px) {
-    padding: 1.5rem 0 0 0;
+    padding: 1rem 1rem 0 1rem;
     max-width: 100%;
   }
 `;
@@ -617,9 +640,10 @@ const AdminButtons = styled.div`
   }
 `;
 
-const AdminButton = styled.button`
+const AdminButton = styled.button<{ $variant?: "default" | "danger" }>`
   padding: 0.5rem 1rem;
-  background-color: #181818;
+  background-color: ${({ $variant }) =>
+    $variant === "danger" ? "#7f1d1d" : "#181818"};
   color: white;
   border: none;
   border-radius: 15px;
@@ -627,11 +651,27 @@ const AdminButton = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 
   &:hover {
-    background-color: #181818;
+    background-color: ${({ $variant }) =>
+      $variant === "danger" ? "#991b1b" : "#181818"};
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
   }
 
   @media (max-width: 768px) {
@@ -639,6 +679,7 @@ const AdminButton = styled.button`
     font-size: 11px;
     border-radius: 12px;
     flex: 1;
+    justify-content: center;
   }
 `;
 
@@ -1387,6 +1428,7 @@ export function EventDetailClient() {
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [selectedUserDetails, setSelectedUserDetails] =
     useState<UserWithDetails | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Seating arrangement state
   const [seatingAssignments, setSeatingAssignments] = useState<
@@ -2130,6 +2172,33 @@ export function EventDetailClient() {
     setShowAdminDialog(true);
   };
 
+  const handleDeleteEvent = async () => {
+    if (!event || !isAdmin) return;
+
+    const confirmDelete = window.confirm(
+      "정말로 이 이벤트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      await deleteMeetupEvent(event.id);
+      alert("이벤트가 삭제되었습니다.");
+      router.push("/meetup");
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      alert(
+        "이벤트 삭제 중 오류가 발생했습니다: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const handleEventCreated = (newEventId: string) => {
     router.push(`/meetup/${newEventId}`);
     handleDialogClose();
@@ -2564,20 +2633,22 @@ export function EventDetailClient() {
 
   return (
     <Container>
-      <PhotoSlider>
-        {event.image_urls.length > 0 ? (
-          event.image_urls.map((url, index) => (
-            <SliderImage
-              key={index}
-              src={url}
-              alt={`Event ${index + 1}`}
-              $active={index === currentImageIndex}
-            />
-          ))
-        ) : (
-          <SliderPlaceholder>🖼️</SliderPlaceholder>
-        )}
-      </PhotoSlider>
+      <SliderWrapper>
+        <PhotoSlider>
+          {event.image_urls.length > 0 ? (
+            event.image_urls.map((url, index) => (
+              <SliderImage
+                key={index}
+                src={url}
+                alt={`Event ${index + 1}`}
+                $active={index === currentImageIndex}
+              />
+            ))
+          ) : (
+            <SliderPlaceholder>🖼️</SliderPlaceholder>
+          )}
+        </PhotoSlider>
+      </SliderWrapper>
 
       <Content>
         <CategoryTag $category={eventCategory}>
@@ -2795,21 +2866,38 @@ export function EventDetailClient() {
             window.location.hostname === "localhost")) && (
           <ActionButtons ref={null} $isFloating={false}>
             <AdminButtons>
-              <AdminButton onClick={handleEdit}>✏️ Edit Event</AdminButton>
+              <AdminButton onClick={handleEdit}>
+                <PencilSquareIcon />
+                <span>Edit Event</span>
+              </AdminButton>
               <AdminButton onClick={handleCreateNew}>
-                🆕 Create New Event
+                <PlusCircleIcon />
+                <span>Create New Event</span>
               </AdminButton>
               <AdminButton onClick={handleDuplicate}>
-                📋 Duplicate This Event
+                <DocumentDuplicateIcon />
+                <span>Duplicate Event</span>
               </AdminButton>
               <AdminButton
                 onClick={generateSeatingArrangement}
                 disabled={seatingLoading}
               >
-                {seatingLoading ? "⏳ Generating..." : "🪑 Generate Seating"}
+                <UsersIcon />
+                <span>
+                  {seatingLoading ? "Generating..." : "Generate Seating"}
+                </span>
               </AdminButton>
               <AdminButton onClick={handleSendReminderToParticipants}>
-                📱 Send Reminder to All
+                <MegaphoneIcon />
+                <span>Send Reminder</span>
+              </AdminButton>
+              <AdminButton
+                onClick={handleDeleteEvent}
+                $variant="danger"
+                disabled={deleteLoading}
+              >
+                <TrashIcon />
+                <span>{deleteLoading ? "Deleting..." : "Delete Event"}</span>
               </AdminButton>
             </AdminButtons>
           </ActionButtons>

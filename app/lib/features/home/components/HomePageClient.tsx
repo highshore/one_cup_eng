@@ -74,6 +74,8 @@ const SectionBase = css`
   }
 `;
 
+const MOBILE_NAV_GUTTER = "1rem";
+
 // Hero Section
 const HeroSection = styled.section`
   color: white;
@@ -99,7 +101,8 @@ const HeroSection = styled.section`
 
   @media (max-width: 768px) {
     min-height: 100vh;
-    padding: clamp(4rem, 14vw, 5.5rem) 1.25rem clamp(6rem, 30vw, 9rem);
+    padding: clamp(4rem, 14vw, 5.5rem) ${MOBILE_NAV_GUTTER}
+      clamp(6rem, 30vw, 9rem);
   }
 `;
 
@@ -125,7 +128,7 @@ const GalleryInner = styled.div`
   padding: 0 1.5rem;
 
   @media (max-width: 768px) {
-    padding: 0 1.25rem;
+    padding: 0 ${MOBILE_NAV_GUTTER};
   }
 `;
 
@@ -206,7 +209,7 @@ const HeroContent = styled.div`
   }
 
   @media (max-width: 768px) {
-    padding: 0 0.75rem;
+    padding: 0 ${MOBILE_NAV_GUTTER};
   }
 `;
 
@@ -403,7 +406,7 @@ const MembersInner = styled.div`
   width: 100%;
 
   @media (max-width: 768px) {
-    padding: 0 1.25rem;
+    padding: 0 ${MOBILE_NAV_GUTTER};
   }
 `;
 
@@ -647,7 +650,7 @@ const PricingInner = styled.div`
   z-index: 1;
 
   @media (max-width: 768px) {
-    padding: 0 1.25rem;
+    padding: 0 ${MOBILE_NAV_GUTTER};
   }
 `;
 
@@ -856,7 +859,7 @@ const FAQInner = styled.div`
   padding: 0 1.5rem;
 
   @media (max-width: 768px) {
-    padding: 0 1.25rem;
+    padding: 0 ${MOBILE_NAV_GUTTER};
   }
 `;
 
@@ -885,7 +888,7 @@ const CTAInner = styled.div`
   padding: 0 1.5rem;
 
   @media (max-width: 768px) {
-    padding: 0 1.25rem;
+    padding: 0 ${MOBILE_NAV_GUTTER};
   }
 `;
 

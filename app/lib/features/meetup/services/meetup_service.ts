@@ -17,6 +17,7 @@ import {
   runTransaction,
   arrayUnion,
   arrayRemove,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "../../../firebase/firebase";
 import {
@@ -749,6 +750,17 @@ export const changeUserRole = async (
     );
   } catch (error) {
     console.error("Error changing user role:", error);
+    throw error;
+  }
+};
+
+// Admin function to delete an event permanently
+export const deleteMeetupEvent = async (eventId: string): Promise<void> => {
+  try {
+    await deleteDoc(doc(db, MEETUP_COLLECTION, eventId));
+    console.log(`Event ${eventId} deleted successfully.`);
+  } catch (error) {
+    console.error("Error deleting meetup event:", error);
     throw error;
   }
 };

@@ -2,9 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import styled from "styled-components";
-import GNB from "./gnb";
 import Footer from "./footer";
 import { GnbProvider } from "../contexts/gnb_context";
+import NewNavbar from "../../new-home/components/NewNavbar";
 
 const LayoutWrapper = styled.div`
   min-height: 100vh;
@@ -17,7 +17,7 @@ const PageContainer = styled.div<{
   $isHomePage: boolean;
   $isArticlePage: boolean;
 }>`
-  padding-top: ${(props) => (props.$isHomePage ? "0" : "60px")};
+  padding-top: ${(props) => (props.$isHomePage ? "0" : "85px")};
   flex: 1;
   min-height: 100vh;
   max-width: ${(props) =>
@@ -28,6 +28,7 @@ const PageContainer = styled.div<{
   width: 100%;
 
   @media (max-width: 768px) {
+    padding-top: ${(props) => (props.$isHomePage ? "0" : "75px")};
     padding-left: ${(props) =>
       props.$isHomePage || props.$isArticlePage ? "0" : "1rem"};
     padding-right: ${(props) =>
@@ -43,12 +44,11 @@ export default function MainLayoutWrapper({
   const pathname = usePathname();
   const isHomePage = pathname === "/" || pathname === "/new-home";
   const isArticlePage = pathname.startsWith("/article/");
-  const showGlobalGnb = pathname !== "/new-home";
 
   return (
     <GnbProvider>
       <LayoutWrapper>
-        {showGlobalGnb && <GNB variant={isHomePage ? "home" : "default"} />}
+        <NewNavbar />
         <PageContainer $isHomePage={isHomePage} $isArticlePage={isArticlePage}>
           {children}
         </PageContainer>

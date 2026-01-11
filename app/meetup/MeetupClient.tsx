@@ -34,60 +34,30 @@ const subtleGlow = keyframes`
   }
 `;
 
+const NAVBAR_CONTENT_GAP_DESKTOP = "1.75rem";
+const NAVBAR_CONTENT_GAP_MOBILE = "1.25rem";
+
 // Styled components - Day Mode Theme
 const MeetupContainer = styled.div`
+  width: 100%;
   min-height: 100vh;
   background-color: transparent;
   color: #333;
-`;
-
-const Header = styled.header`
-  background-color: transparent;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  height: 80px;
+  padding: ${NAVBAR_CONTENT_GAP_DESKTOP} 0 clamp(2.5rem, 5vw, 3rem);
 
   @media (max-width: 768px) {
-    height: 60px;
-    padding: 0.75rem;
+    padding: ${NAVBAR_CONTENT_GAP_MOBILE} 0 clamp(2rem, 6vw, 2.5rem);
   }
 `;
 
-const HeaderIcon = styled.button`
-  background: none;
-  border: none;
-  color: #333;
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-  }
+const MeetupContent = styled.div`
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
 
   @media (max-width: 768px) {
-    font-size: 1.25rem;
-    padding: 0.375rem;
-  }
-`;
-
-const Logo = styled.h1`
-  color: #333;
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin: 0;
-
-  @media (max-width: 768px) {
-    font-size: 1rem;
+    padding: 0;
   }
 `;
 
@@ -175,9 +145,7 @@ const BlogPostsGrid = styled.div`
   gap: 1rem;
   overflow-x: auto;
   padding: 20px 0;
-  margin: 0 -1rem;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  margin: 0;
 
   /* Smooth scrolling */
   scroll-behavior: smooth;
@@ -193,9 +161,6 @@ const BlogPostsGrid = styled.div`
   @media (max-width: 768px) {
     gap: 0.75rem;
     padding: 16px 0;
-    margin: 0 -0.75rem;
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
   }
 `;
 
@@ -817,56 +782,54 @@ const MeetupClient: React.FC = () => {
 
   return (
     <MeetupContainer>
-      <Header>
-        <HeaderIcon>❓</HeaderIcon>
-        <Logo>English Meetups</Logo>
-        <HeaderIcon>📱</HeaderIcon>
-      </Header>
+      <MeetupContent>
+        {/* Blog Posts */}
+        {blogPosts.length > 0 && <>{renderBlogPosts()}</>}
 
-      {/* Blog Posts */}
-      {blogPosts.length > 0 && <>{renderBlogPosts()}</>}
+        {loading && <GlobalLoadingScreen size="large" />}
 
-      {loading && <GlobalLoadingScreen size="large" />}
+        {error && <EmptyState>Error loading events: {error}</EmptyState>}
 
-      {error && <EmptyState>Error loading events: {error}</EmptyState>}
+        {!loading && !error && (
+          <>
+            {/* Upcoming Events Section */}
+            {upcomingEvents.length > 0 && (
+              <>
+                <SectionTitle>현재 모집 중 🥳</SectionTitle>
+                {upcomingEvents.map((meetup, index) =>
+                  renderEventCard(meetup, false, index === 0)
+                )}
+              </>
+            )}
 
-      {!loading && !error && (
-        <>
-          {/* Upcoming Events Section */}
-          {upcomingEvents.length > 0 && (
-            <>
-              <SectionTitle>현재 모집 중 🥳</SectionTitle>
-              {upcomingEvents.map((meetup, index) =>
-                renderEventCard(meetup, false, index === 0)
-              )}
-            </>
-          )}
+            {/* Past Events Section */}
+            {pastEvents.length > 0 && (
+              <>
+                <SectionTitle>이전 밋업</SectionTitle>
+                {pastEvents.map((meetup) =>
+                  renderEventCard(meetup, true, false)
+                )}
+              </>
+            )}
 
-          {/* Past Events Section */}
-          {pastEvents.length > 0 && (
-            <>
-              <SectionTitle>이전 밋업</SectionTitle>
-              {pastEvents.map((meetup) => renderEventCard(meetup, true, false))}
-            </>
-          )}
+            {/* Load More Button */}
+            {hasMore && (
+              <LoadMoreButton
+                ref={loadMoreButtonRef}
+                onClick={loadMoreEvents}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "로딩 중..." : "더 보기"}
+              </LoadMoreButton>
+            )}
 
-          {/* Load More Button */}
-          {hasMore && (
-            <LoadMoreButton
-              ref={loadMoreButtonRef}
-              onClick={loadMoreEvents}
-              disabled={loadingMore}
-            >
-              {loadingMore ? "로딩 중..." : "더 보기"}
-            </LoadMoreButton>
-          )}
-
-          {/* No Events Message */}
-          {upcomingEvents.length === 0 &&
-            pastEvents.length === 0 &&
-            !loading && <EmptyState>No events found.</EmptyState>}
-        </>
-      )}
+            {/* No Events Message */}
+            {upcomingEvents.length === 0 &&
+              pastEvents.length === 0 &&
+              !loading && <EmptyState>No events found.</EmptyState>}
+          </>
+        )}
+      </MeetupContent>
     </MeetupContainer>
   );
 };
